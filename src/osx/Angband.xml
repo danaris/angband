@@ -9,7 +9,7 @@
     <key>CFBundleVersion</key><string>$VERSION$</string>
     <key>CFBundleShortVersionString</key><string>$VERSION$</string>
     <key>CFBundleIconFile</key><string>$NAME$</string>
-    <key>CFBundleIdentifier</key><string>net.thangorodrim.$NAME$</string>
+    <key>CFBundleIdentifier</key><string>org.topazgryphon.$NAME$</string>
     <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
     <key>CFBundleLongVersionString</key>
     <string>$VERSION$, Copyright $COPYRIGHT$</string>

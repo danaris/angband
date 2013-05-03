@@ -3140,7 +3140,7 @@ bool cave_ispassable(struct cave *c, int y, int x) {
  * This function is the logical negation of cave_ispassable().
  */
 bool cave_iswall(struct cave *c, int y, int x) {
-	assert(cave_in_bounds(c, y, x));
+	/*assert(cave_in_bounds(c, y, x));*/
 	return c->info[y][x] & CAVE_WALL;
 }
 
