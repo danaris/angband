@@ -423,10 +423,10 @@ bool dtrap_edge(int y, int x)
  	if (!(cave->info2[y][x] & CAVE2_DTRAP)) return FALSE; 
 
  	/* Check for non-dtrap adjacent grids */ 
- 	if (in_bounds_fully(y + 1, x    ) && (!(cave->info2[y + 1][x    ] & CAVE2_DTRAP))) return TRUE; 
- 	if (in_bounds_fully(y    , x + 1) && (!(cave->info2[y    ][x + 1] & CAVE2_DTRAP))) return TRUE; 
- 	if (in_bounds_fully(y - 1, x    ) && (!(cave->info2[y - 1][x    ] & CAVE2_DTRAP))) return TRUE; 
- 	if (in_bounds_fully(y    , x - 1) && (!(cave->info2[y    ][x - 1] & CAVE2_DTRAP))) return TRUE; 
+ 	if (cave_in_bounds_fully(cave, y + 1, x    ) && (!(cave->info2[y + 1][x    ] & CAVE2_DTRAP))) return TRUE; 
+ 	if (cave_in_bounds_fully(cave, y    , x + 1) && (!(cave->info2[y    ][x + 1] & CAVE2_DTRAP))) return TRUE; 
+ 	if (cave_in_bounds_fully(cave, y - 1, x    ) && (!(cave->info2[y - 1][x    ] & CAVE2_DTRAP))) return TRUE; 
+ 	if (cave_in_bounds_fully(cave, y    , x - 1) && (!(cave->info2[y    ][x - 1] & CAVE2_DTRAP))) return TRUE; 
 
 	return FALSE; 
 }
@@ -1154,7 +1154,7 @@ static void prt_map_aux(void)
 			for (x = t->offset_x, vx = 0; x < tx; vx++, x++)
 			{
 				/* Check bounds */
-				if (!in_bounds(y, x)) continue;
+				if (!cave_in_bounds(cave, y, x)) continue;
 
 				if (vx + tile_width - 1 >= t->wid) continue;
 
@@ -1202,7 +1202,7 @@ void prt_map(void)
 		for (x = Term->offset_x, vx = COL_MAP; x < tx; vx+=tile_width, x++)
 		{
 			/* Check bounds */
-			if (!in_bounds(y, x)) continue;
+			if (!cave_in_bounds(cave, y, x)) continue;
 
 			/* Determine what is there */
 			map_info(y, x, &g);
@@ -2746,7 +2746,7 @@ void scatter(int *yp, int *xp, int y, int x, int d, int m)
 		nx = rand_spread(x, d);
 
 		/* Ignore annoying locations */
-		if (!in_bounds_fully(ny, nx)) continue;
+		if (!cave_in_bounds_fully(cave, ny, nx)) continue;
 
 		/* Ignore "excessively distant" locations */
 		if ((d > 1) && (distance(y, x, ny, nx) > d)) continue;
@@ -3280,13 +3280,11 @@ int cave_door_power(struct cave *c, int y, int x) {
 }
 
 void cave_open_door(struct cave *c, int y, int x) {
-	c->feat[y][x] = FEAT_OPEN;
-	cave_light_spot(c, y, x);
+	cave_set_feat(c, y, x, FEAT_OPEN);
 }
 
 void cave_smash_door(struct cave *c, int y, int x) {
-	c->feat[y][x] = FEAT_BROKEN;
-	cave_light_spot(c, y, x);
+	cave_set_feat(c, y, x, FEAT_BROKEN);
 }
 
 void cave_destroy_trap(struct cave *c, int y, int x) {
@@ -3295,8 +3293,7 @@ void cave_destroy_trap(struct cave *c, int y, int x) {
 }
 
 void cave_lock_door(struct cave *c, int y, int x, int power) {
-	c->feat[y][x] = FEAT_DOOR_HEAD + power;
-	cave_light_spot(c, y, x);
+	cave_set_feat(c, y, x, FEAT_DOOR_HEAD + power);
 }
 
 bool cave_hasgoldvein(struct cave *c, int y, int x) {
@@ -3326,7 +3323,7 @@ bool cave_isglyph(struct cave *c, int y, int x) {
 
 void cave_show_trap(struct cave *c, int y, int x, int type) {
 	assert(cave_issecrettrap(c, y, x));
-	c->feat[y][x] = FEAT_TRAP_HEAD + type;
+	cave_set_feat(c, y, x, FEAT_TRAP_HEAD + type);
 }
 
 void cave_add_trap(struct cave *c, int y, int x) {
@@ -3432,26 +3429,23 @@ const char *cave_apparent_name(struct cave *c, struct player *p, int y, int x) {
 
 	if (f == FEAT_NONE)
 		return "unknown_grid";
-	/* XXX: why? FEAT_INVIS already mimics FEAT_FLOOR */
-	if (f == FEAT_INVIS)
-		f = FEAT_FLOOR;
 
 	return f_info[f].name;
 }
 
 void cave_unlock_door(struct cave *c, int y, int x) {
 	assert(cave_islockeddoor(c, y, x));
-	c->feat[y][x] = FEAT_DOOR_HEAD;
+	cave_set_feat(c, y, x, FEAT_DOOR_HEAD);
 }
 
 void cave_destroy_door(struct cave *c, int y, int x) {
 	assert(cave_isdoor(c, y, x));
-	c->feat[y][x] = FEAT_FLOOR;
+	cave_set_feat(c, y, x, FEAT_FLOOR);
 }
 
 void cave_destroy_rubble(struct cave *c, int y, int x) {
 	assert(cave_isrubble(c, y, x));
-	c->feat[y][x] = FEAT_FLOOR;
+	cave_set_feat(c, y, x, FEAT_FLOOR);
 }
 
 void cave_add_door(struct cave *c, int y, int x, bool closed) {
