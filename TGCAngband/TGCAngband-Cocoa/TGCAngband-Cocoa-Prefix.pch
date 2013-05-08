@@ -1,0 +1,7 @@
+//
+// Prefix header for all source files of the 'TGCAngband-Cocoa' target in the 'TGCAngband-Cocoa' project
+//
+
+#ifdef __OBJC__
+    #import <Cocoa/Cocoa.h>
+#endif
