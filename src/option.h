@@ -60,14 +60,14 @@ extern const int option_page[OPT_PAGE_MAX][OPT_PAGE_PER];
 #define OPT_pickup_always			4
 #define OPT_pickup_inven			5
 #define OPT_show_flavors			6
-#define OPT_disturb_move			7
+/* XXX 7 */
 #define OPT_disturb_near			8
-#define OPT_disturb_detect			9
-#define OPT_disturb_state			10
+/* XXX 9 */
+/* XXX 10 */
 #define OPT_solid_walls   		11
 #define OPT_hybrid_walls   		12
 #define OPT_view_yellow_light		13
-#define OPT_easy_open 				14
+/* XXX 14 */
 #define OPT_animate_flicker         15
 #define OPT_center_player			16
 #define OPT_purple_uniques			17
@@ -101,9 +101,9 @@ extern const int option_page[OPT_PAGE_MAX][OPT_PAGE_PER];
 #define OPT_birth_no_selling 	    (OPT_BIRTH+9)
 #define OPT_birth_keep_randarts		(OPT_BIRTH+10)
 /* #define OPT_birth_ai_smell			(OPT_BIRTH+11) */
-#define OPT_birth_ai_packs			(OPT_BIRTH+12)
+/* #define OPT_birth_ai_packs			(OPT_BIRTH+12) */
 #define OPT_birth_ai_learn			(OPT_BIRTH+13)
-#define OPT_birth_ai_cheat			(OPT_BIRTH+14)
+/* #define OPT_birth_ai_cheat			(OPT_BIRTH+14) */
 #define OPT_birth_force_descend 	(OPT_BIRTH+15)
 
 
