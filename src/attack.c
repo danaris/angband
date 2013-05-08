@@ -105,6 +105,34 @@ static int critical_shot(int weight, int plus, int dam, u32b *msg_type) {
 
 
 /**
+ * Determine damage for critical hits from shooting.
+ *
+ * Factor in item weight, total plusses, and player level.
+ */
+static int critical_shot_sneak(int weight, int plus, int dam, u32b *msg_type) {
+	int chance = weight + (p_ptr->state.to_h + plus) * 4 + p_ptr->lev * 2 + p_ptr->state.skills[SKILL_STEALTH] * 1000;
+	int power = weight + randint1(500) + p_ptr->lev * 20;
+    
+	if (randint1(5000) > chance) {
+		*msg_type = MSG_SHOOT_HIT;
+		return dam;
+        
+	} else if (power < 500) {
+		*msg_type = MSG_HIT_GOOD;
+		return 2 * dam + 5;
+        
+	} else if (power < 1000) {
+		*msg_type = MSG_HIT_GREAT;
+		return 2 * dam + 10;
+        
+	} else {
+		*msg_type = MSG_HIT_SUPERB;
+		return 3 * dam + 15;
+	}
+}
+
+
+/**
  * Determine damage for critical hits from melee.
  *
  * Factor in weapon weight, total plusses, player level.
@@ -603,6 +631,8 @@ static struct attack_result make_ranged_shot(object_type *o_ptr, int y, int x) {
 
 	int multiplier = p_ptr->state.ammo_mult;
 	const struct slay *best_s_ptr = NULL;
+    
+    bool sneak_attack = FALSE;
 
 	/* Did we hit it (penalize distance travelled) */
 	if (!test_hit(chance2, m_ptr->race->ac, m_ptr->ml)) return result;
@@ -617,12 +647,24 @@ static struct attack_result make_ranged_shot(object_type *o_ptr, int y, int x) {
 		result.hit_verb = best_s_ptr->range_verb;
 		multiplier += best_s_ptr->mult;
 	}
+	
+	if (m_ptr->m_timed[MON_TMD_SLEEP]) {
+		chance += p_ptr->state.skills[SKILL_STEALTH] * p_ptr->lev;
+		if (player_has(PF_SNEAK_ATTACK)) {
+			sneak_attack = TRUE;
+            result.hit_verb = "strikes";
+		}
+	}
 
 	/* Apply damage: multiplier, slays, criticals, bonuses */
 	result.dmg = damroll(o_ptr->dd, o_ptr->ds);
 	result.dmg += o_ptr->to_d + j_ptr->to_d;
 	result.dmg *= multiplier;
-	result.dmg = critical_shot(o_ptr->weight, o_ptr->to_h, result.dmg, &result.msg_type);
+    if (sneak_attack) {
+        result.dmg = critical_shot_sneak(o_ptr->weight, o_ptr->to_h, result.dmg, &result.msg_type);
+    } else {
+        result.dmg = critical_shot(o_ptr->weight, o_ptr->to_h, result.dmg, &result.msg_type);
+    }
 
 	object_notice_attack_plusses(&p_ptr->inventory[INVEN_BOW]);
 
