@@ -3130,7 +3130,11 @@ bool feat_ispassable(feature_type *f_ptr) {
  * This function is the logical negation of cave_iswall().
  */
 bool cave_ispassable(struct cave *c, int y, int x) {
-	assert(cave_in_bounds(c, y, x));
+	/*assert(cave_in_bounds(c, y, x));*/
+    if (!cave_in_bounds(c, y, x)) {
+        fprintf(stderr, "Point (%d, %d) is out of bounds\n",x,y);
+        return false;
+    }
 	return feat_ispassable(&f_info[c->feat[y][x]]);
 }
 
@@ -3141,6 +3145,10 @@ bool cave_ispassable(struct cave *c, int y, int x) {
  */
 bool cave_iswall(struct cave *c, int y, int x) {
 	/*assert(cave_in_bounds(c, y, x));*/
+    if (!cave_in_bounds(c, y, x)) {
+        fprintf(stderr, "Point (%d, %d) is out of bounds\n",x,y);
+        return true;
+    }
 	return c->info[y][x] & CAVE_WALL;
 }
 
@@ -3151,7 +3159,11 @@ bool cave_iswall(struct cave *c, int y, int x) {
  * secret doors and rubble.
  */
 bool cave_isstrongwall(struct cave *c, int y, int x) {
-	assert(cave_in_bounds(c, y, x));
+	/*assert(cave_in_bounds(c, y, x));*/
+    if (!cave_in_bounds(c, y, x)) {
+        fprintf(stderr, "Point (%d, %d) is out of bounds\n",x,y);
+        return true;
+    }
 	return cave_ismineral(c, y, x) || cave_isperm(c, y, x);
 }
 
@@ -3161,7 +3173,11 @@ bool cave_isstrongwall(struct cave *c, int y, int x) {
  * This doesn't say what kind of square it is, just that it is part of a vault.
  */
 bool cave_isvault(struct cave *c, int y, int x) {
-	assert(cave_in_bounds(c, y, x));
+	/*assert(cave_in_bounds(c, y, x));*/
+    if (!cave_in_bounds(c, y, x)) {
+        fprintf(stderr, "Point (%d, %d) is out of bounds\n",x,y);
+        return false;
+    }
 	return c->info[y][x] & CAVE_VAULT;
 }
 
@@ -3169,7 +3185,11 @@ bool cave_isvault(struct cave *c, int y, int x) {
  * True if the square is part of a room.
  */
 bool cave_isroom(struct cave *c, int y, int x) {
-	assert(cave_in_bounds(c, y, x));
+	/*assert(cave_in_bounds(c, y, x));*/
+    if (!cave_in_bounds(c, y, x)) {
+        fprintf(stderr, "Point (%d, %d) is out of bounds\n",x,y);
+        return false;
+    }
 	return c->info[y][x] & CAVE_ROOM;
 
 }
@@ -3178,28 +3198,48 @@ bool cave_isroom(struct cave *c, int y, int x) {
  * True if cave square is a feeling trigger square 
  */
 bool cave_isfeel(struct cave *c, int y, int x) {
-	assert(cave_in_bounds(c, y, x));
+	/*assert(cave_in_bounds(c, y, x));*/
+    if (!cave_in_bounds(c, y, x)) {
+        fprintf(stderr, "Point (%d, %d) is out of bounds\n",x,y);
+        return false;
+    }
 	return c->info2[y][x] & CAVE2_FEEL;
 }
 
 /* True if the cave square is viewable */
 bool cave_isview(struct cave *c, int y, int x) {
-	assert(cave_in_bounds(c, y, x));
+	/*assert(cave_in_bounds(c, y, x));*/
+    if (!cave_in_bounds(c, y, x)) {
+        fprintf(stderr, "Point (%d, %d) is out of bounds\n",x,y);
+        return false;
+    }
 	return c->info[y][x] & CAVE_VIEW;
 }
 
 bool cave_isseen(struct cave *c, int y, int x) {
-	assert(cave_in_bounds(c, y, x));
+	/*assert(cave_in_bounds(c, y, x));*/
+    if (!cave_in_bounds(c, y, x)) {
+        fprintf(stderr, "Point (%d, %d) is out of bounds\n",x,y);
+        return false;
+    }
 	return c->info[y][x] & CAVE_SEEN;
 }
 
 bool cave_wasseen(struct cave *c, int y, int x) {
-	assert(cave_in_bounds(c, y, x));
+	/*assert(cave_in_bounds(c, y, x));*/
+    if (!cave_in_bounds(c, y, x)) {
+        fprintf(stderr, "Point (%d, %d) is out of bounds\n",x,y);
+        return false;
+    }
 	return c->info[y][x] & CAVE_WASSEEN;
 }
 
 bool cave_isglow(struct cave *c, int y, int x) {
-	assert(cave_in_bounds(c, y, x));
+	/*assert(cave_in_bounds(c, y, x));*/
+    if (!cave_in_bounds(c, y, x)) {
+        fprintf(stderr, "Point (%d, %d) is out of bounds\n",x,y);
+        return false;
+    }
 	return c->info[y][x] & CAVE_GLOW;
 }
 
@@ -3214,7 +3254,10 @@ bool feat_isboring(feature_type *f_ptr) {
  * True if the cave square is "boring".
  */
 bool cave_isboring(struct cave *c, int y, int x) {
-	assert(cave_in_bounds(c, y, x));
+	/*assert(cave_in_bounds(c, y, x));*/
+    if (!cave_in_bounds(c, y, x)) {
+        fprintf(stderr, "Point (%d, %d) is out of bounds\n",x,y);
+    }
 	return feat_isboring(&f_info[c->feat[y][x]]);
 }
 
