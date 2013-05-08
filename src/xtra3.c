@@ -388,39 +388,73 @@ static void prt_health(int row, int col)
 {
 	byte attr = monster_health_attr();
 	struct monster *mon = p_ptr->health_who;
-
+    char speed[10];
+    char speedStrA[4];
+    char speedStrB[4];
+    int speedMod;
+    int speedLen = 2;
+    
+    speedStrA[0] = 0;
+    speedStrA[1] = 0;
+    speedStrA[2] = 0;
+    speedStrA[3] = 0;
+    speedStrB[0] = 0;
+    speedStrB[1] = 0;
+    speedStrB[2] = 0;
+    speedStrB[3] = 0;
+    
 	/* Not tracking */
 	if (!mon)
 	{
 		/* Erase the health bar */
 		Term_erase(col, row, 12);
+		Term_erase(col, row+1, 12);
 		return;
 	}
-
+    
 	/* Tracking an unseen, hallucinatory, or dead monster */
 	if (!mon->ml || /* Unseen */
-			(p_ptr->timed[TMD_IMAGE]) || /* Hallucination */
-			(mon->hp < 0)) /* Dead (?) */
+        (p_ptr->timed[TMD_IMAGE]) || /* Hallucination */
+        (mon->hp < 0)) /* Dead (?) */
 	{
 		/* The monster health is "unknown" */
 		Term_putstr(col, row, 12, attr, "[----------]");
 	}
-
+    
 	/* Tracking a visible monster */
 	else
 	{
 		/* Extract the "percent" of health */
 		int pct = 100L * mon->hp / mon->maxhp;
-
+        
 		/* Convert percent into "health" */
 		int len = (pct < 10) ? 1 : (pct < 90) ? (pct / 10 + 1) : 10;
-
+        
 		/* Default to "unknown" */
 		Term_putstr(col, row, 12, TERM_WHITE, "[----------]");
-
+        
 		/* Dump the current "health" (use '*' symbols) */
 		Term_putstr(col + 1, row, len, attr, "**********");
 	}
+    
+    speedMod = mon->mspeed-110;
+    if (mon->m_timed[MON_TMD_FAST]) {
+        speedMod += 10;
+    }
+    if (speedMod >=0) {
+        speedStrA[0] = '+';
+    } else {
+        speedStrA[0] = '-';
+    }
+    if (abs(speedMod)>9) {
+        speedLen++;
+    }
+    strnfmt(speedStrB, speedLen, "%d",abs(speedMod));
+    strcat(speedStrA, speedStrB);
+    
+    strnfmt(speed, 10, "Spd: %3s",speedStrA);
+    Term_putstr(col + 2, row+1, strlen(speed), TERM_L_WHITE, speed);
+    
 }
 
 
