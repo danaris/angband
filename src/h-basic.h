@@ -152,6 +152,9 @@ typedef int errr;
  */
 #ifdef HAVE_STDBOOL_H
 
+  #undef bool
+#define bool _Bool
+
   #include <stdbool.h>
 
   #undef TRUE
