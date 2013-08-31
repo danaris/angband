@@ -94,14 +94,14 @@ void monster_race_track(monster_race *race)
 void track_object(int item)
 {
 	p_ptr->object_idx = item;
-	p_ptr->object_kind_idx = NO_OBJECT;
+	p_ptr->object_kind = NULL;
 	p_ptr->redraw |= (PR_OBJECT);
 }
 
-void track_object_kind(int k_idx)
+void track_object_kind(struct object_kind *kind)
 {
 	p_ptr->object_idx = NO_OBJECT;
-	p_ptr->object_kind_idx = k_idx;
+	p_ptr->object_kind = kind;
 	p_ptr->redraw |= (PR_OBJECT);
 }
 
@@ -229,7 +229,6 @@ static void adjust_level(struct player *p, bool verbose)
 		do_res_stat(A_WIS);
 		do_res_stat(A_DEX);
 		do_res_stat(A_CON);
-		do_res_stat(A_CHR);
 	}
 
 	while ((p->max_lev < PY_MAX_LEVEL) &&
@@ -286,6 +285,20 @@ byte player_sp_attr(struct player *p)
 		attr = TERM_RED;
 	
 	return attr;
+}
+
+bool player_restore_mana(struct player *p, int amt) {
+	int old_csp = p->csp;
+
+	p->csp += amt;
+	if (p->csp > p->msp) {
+		p->csp = p->msp;
+	}
+	p->redraw |= PR_MANA;
+
+	msg("You feel some of your energies returning.");
+
+	return p->csp != old_csp;
 }
 
 /**

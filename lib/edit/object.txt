@@ -103,18 +103,15 @@ G:&:w
 
 ##### Various Stuff #####
 
+# Remove post 3.5
 N:1:& Iron Spike~
 G:~:W
-I:5:0
+I:39:44
 W:1:0:2:1
 M:100:6d7
-A:20:1 to 40
 P:0:1d1:0:0:0
 F:EASY_KNOW
-D:These can be placed in doors to make them harder to open.  Multiple
-D: spikes may be used on a single door.  Each of the first 7 spikes will
-D: increase the door's resistance to bashing.  Placing more than 7
-D: spikes in one door will not have any further effect.
+D:A spike taken from the gates of Mordor.
 
 N:2:& Wooden Torch~
 G:~:u
@@ -1250,12 +1247,7 @@ W:30:0:2:600
 A:20:30 to 100
 F:SUST_STR | SUST_INT | SUST_WIS | EASY_KNOW
 
-N:200:Sustain Charisma
-G:=:d
-I:45:11
-W:30:0:2:500
-#A:10:30 to 100
-F:SUST_CHR | EASY_KNOW
+### 200, sval 11
 
 
 ### Resistance rings ###
@@ -1267,19 +1259,19 @@ W:40:0:2:16000
 A:50:40 to 100
 F:RES_POIS | EASY_KNOW
 
-N:202:Resist Fire
+N:202:Resist Fire and Cold
 G:=:d
 I:45:13
 W:10:0:2:250
 A:50:10 to 50
-F:RES_FIRE | IGNORE_FIRE | EASY_KNOW
+F:RES_FIRE | RES_COLD | IGNORE_COLD | IGNORE_FIRE | EASY_KNOW
 
-N:203:Resist Cold
+## rm post 3.5
+N:203:Resist Cold and Fire
 G:=:d
 I:45:14
 W:10:0:2:250
-A:50:10 to 50
-F:RES_COLD | IGNORE_COLD | EASY_KNOW
+F:RES_FIRE | RES_COLD | IGNORE_COLD | IGNORE_FIRE | EASY_KNOW
 
 ### 204, sval 15
 
@@ -1294,20 +1286,13 @@ F:RES_LIGHT
 L:1+M5:SEARCH
 L:1:LIGHT
 
-# Waiting for un_light to be implemented
-#N:206:Dark
-#G:=:d
-#I:45:17
-#W:0:0:2:400
-#A:100:25 to 100
-#F:RES_DARK | UN_LIGHT
-#L:1+M5:SEARCH
+### 206, sval 17
 
 N:207:Flames
 G:=:d
 I:45:18
 W:50:0:2:500
-A:20:50 to 100
+A:20:20 to 100
 P:0:0d0:0:0:5+d5M10
 F:RES_FIRE | IGNORE_FIRE
 E:RING_FLAMES:50+d50
@@ -1316,7 +1301,7 @@ N:208:Acid
 G:=:d
 I:45:19
 W:50:0:2:500
-A:20:50 to 100
+A:20:20 to 100
 P:0:0d0:0:0:5+d5M10
 F:RES_ACID | IGNORE_ACID
 E:RING_ACID:50+d50
@@ -1325,7 +1310,7 @@ N:209:Ice
 G:=:d
 I:45:20
 W:50:0:2:500
-A:20:50 to 100
+A:20:20 to 100
 P:0:0d0:0:0:5+d5M10
 F:RES_COLD | IGNORE_COLD
 E:RING_ICE:50+d50
@@ -1334,7 +1319,7 @@ N:210:Lightning
 G:=:d
 I:45:21
 W:50:0:2:500
-A:20:50 to 100
+A:20:20 to 100
 P:0:0d0:0:0:5+d5M10
 F:RES_ELEC | IGNORE_ELEC
 E:RING_LIGHTNING:50+d50
@@ -1382,7 +1367,7 @@ N:216:Teleportation
 G:=:d
 I:45:27
 W:5:0:2:1000
-A:20:5 to 50
+A:20:10 to 50
 F:TELEPORT | EASY_KNOW
 L:2:SPEED
 
@@ -1413,7 +1398,7 @@ N:220:the Mouse
 G:=:d
 I:45:31
 W:30:0:2:100
-A:50:5 to 50
+A:50:10 to 50
 P:0:0d0:0:-3d5:0
 L:d4:DEX
 L:d4:STEALTH
@@ -1422,7 +1407,7 @@ N:221:the Dog
 G:=:d
 I:45:32
 W:0:0:2:100
-A:50:5 to 50
+A:50:10 to 50
 F:RES_FEAR
 L:-2:STEALTH
 
@@ -1434,14 +1419,14 @@ N:223:Slow Digestion
 G:=:d
 I:45:34
 W:5:0:2:250
-A:30:5 to 50
+A:30:10 to 50
 F:SLOW_DIGEST | EASY_KNOW
 
 N:224:Feather Falling
 G:=:d
 I:45:35
 W:5:0:2:200
-A:20:5 to 50
+A:20:10 to 50
 F:FEATHER | EASY_KNOW
 
 N:225:Free Action
@@ -1480,13 +1465,11 @@ A:50:20 to 90
 F:SUST_WIS | 
 L:1+M5:WIS
 
+# remove post-3.5
 N:231:Charisma
 G:":d
 I:40:2
 W:30:0:3:500
-A:20:10 to 40
-F:SUST_CHR | 
-L:1+M5:CHR
 
 ### Resistances ###
 
@@ -1519,7 +1502,7 @@ G:":d
 I:40:6
 W:60:0:3:20000
 A:10:60 to 100
-F:SUST_STR | SUST_INT | SUST_WIS | SUST_DEX | SUST_CON | SUST_CHR | 
+F:SUST_STR | SUST_INT | SUST_WIS | SUST_DEX | SUST_CON |
 F:HOLD_LIFE | SLOW_DIGEST | EASY_KNOW | 
 F:IGNORE_ACID | IGNORE_ELEC | IGNORE_FIRE | IGNORE_COLD
 
@@ -1548,9 +1531,8 @@ I:40:9
 W:70:0:3:30000
 A:10:70 to 100
 F:RES_DARK | RES_LIGHT | RES_FIRE | HOLD_LIFE | 
-F:SUST_WIS | SUST_CHR | 
+F:SUST_WIS | 
 L:1+M3:WIS
-L:d6:CHR
 L:1:LIGHT
 
 N:239:Weaponmastery
@@ -2092,14 +2074,12 @@ M:10:2
 F:EASY_KNOW
 E:GAIN_CON
 
+# remove post-3.5
 N:315:Charisma
 G:!:d
 I:75:6
 W:20:0:4:1000
-A:30:15 to 100
-M:10:2
 F:EASY_KNOW
-E:GAIN_CHR
 
 N:316:Augmentation
 G:!:d
@@ -3538,70 +3518,6 @@ G:~:s
 I:7:0
 W:0:0:250:0
 #A:100:75 to 100
-
-
-
-##### Junk #####
-
-N:490:& Empty Bottle~
-G:!:w
-I:2:1
-W:0:0:2:0
-F:EASY_KNOW
-
-N:491:& Shard~ of Pottery
-G:~:r
-I:3:3
-W:0:0:5:0
-F:EASY_KNOW
-
-N:492:& Broken Stick~
-G:~:r
-I:3:6
-W:0:0:3:0
-F:EASY_KNOW
-
-N:493:& Broken Skull~
-G:~:w
-I:1:1
-W:0:0:2:0
-F:EASY_KNOW
-
-N:494:& Broken Bone~
-G:~:w
-I:1:2
-W:0:0:2:0
-F:EASY_KNOW
-
-N:495:& Canine Skeleton~
-G:~:w
-I:1:4
-W:1:0:10:0
-F:EASY_KNOW
-
-N:496:& Rodent Skeleton~
-G:~:w
-I:1:3
-W:1:0:10:0
-F:EASY_KNOW
-
-N:497:& Human Skeleton~
-G:~:w
-I:1:8
-W:5:0:60:0
-F:EASY_KNOW
-
-N:498:& Dwarf Skeleton~
-G:~:w
-I:1:7
-W:5:0:50:0
-F:EASY_KNOW
-
-N:499:& Elf Skeleton~
-G:~:w
-I:1:6
-W:5:0:40:0
-F:EASY_KNOW
 
 
 

@@ -18,17 +18,19 @@
 
 #include "angband.h"
 #include "cave.h"
+#include "dungeon.h"
 #include "generate.h"
-#include "object/tvalsval.h"
-#include "object/object.h"
+#include "grafmode.h"
 #include "monster/mon-make.h"
 #include "monster/mon-msg.h"
 #include "monster/mon-spell.h"
 #include "monster/mon-timed.h"
 #include "monster/mon-util.h"
+#include "object/object.h"
+#include "object/tvalsval.h"
+#include "spells.h"
 #include "squelch.h"
 #include "trap.h"
-#include "spells.h"
 
 /**
  * Details of the different projectable attack types in the game.
@@ -415,7 +417,7 @@ void teleport_player_level(void)
 	/* Now actually do the level change */
 	if (up) {
 		msgt(MSG_TPLEVEL, "You rise up through the ceiling.");
-		dungeon_change_level(p_ptr->depth + 1);
+		dungeon_change_level(p_ptr->depth - 1);
 	} else if (down) {
 		msgt(MSG_TPLEVEL, "You sink through the floor.");
 

@@ -18,9 +18,11 @@
  */
 
 #include "angband.h"
+#include "cmds.h"
 #include "cave.h"
 #include "pathfind.h"
 #include "squelch.h"
+#include "monster/mon-util.h"
 
 /****** Pathfinding code ******/
 
@@ -55,8 +57,8 @@ static void fill_terrain_info(void)
 	ox = MAX(p_ptr->px - MAX_PF_RADIUS / 2, 0);
 	oy = MAX(p_ptr->py - MAX_PF_RADIUS / 2, 0);
 
-	ex = MIN(p_ptr->px + MAX_PF_RADIUS / 2 - 1, DUNGEON_WID);
-	ey = MIN(p_ptr->py + MAX_PF_RADIUS / 2 - 1, DUNGEON_HGT);
+	ex = MIN(p_ptr->px + MAX_PF_RADIUS / 2 - 1, cave->width);
+	ey = MIN(p_ptr->py + MAX_PF_RADIUS / 2 - 1, cave->height);
 
 	for (i = 0; i < MAX_PF_RADIUS * MAX_PF_RADIUS; i++)
 		terrain[0][i] = -1;
@@ -687,7 +689,7 @@ static bool run_test(void)
 		
 		/* HACK: Ugh. Sometimes we come up with illegal bounds. This will
 		 * treat the symptom but not the disease. */
-		if (row >= DUNGEON_HGT || col >= DUNGEON_WID) continue;
+		if (row >= cave->height || col >= cave->width) continue;
 		if (row < 0 || col < 0) continue;
 
 		/* Visible monsters abort running */
@@ -696,7 +698,7 @@ static bool run_test(void)
 			monster_type *m_ptr = cave_monster_at(cave, row, col);
 			
 			/* Visible monster */
-			if (m_ptr->ml) return (TRUE);			
+			if (m_ptr->ml && !is_mimicking(m_ptr)) return (TRUE);			
 		}
 	}
 

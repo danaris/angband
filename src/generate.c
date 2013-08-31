@@ -960,7 +960,7 @@ static void vault_monsters(struct cave *c, int y1, int x1, int depth, int num)
 			int d = 1;
 
 			/* Pick a nearby location */
-			scatter(&y, &x, y1, x1, d, 0);
+			scatter(&y, &x, y1, x1, d, TRUE);
 
 			/* Require "empty" floor grids */
 			if (!cave_isempty(cave, y, x)) continue;
@@ -2018,7 +2018,7 @@ static void build_room_template(struct cave *c, int y0, int x0, int ymax, int xm
 			/* Debugging assertion */
 			assert(cave_isempty(c, y, x));
 
-			/* Analyze the grid */
+ 			/* Analyze the grid */
 			switch (*t) {
 				case '%': cave_set_feat(c, y, x, FEAT_WALL_OUTER); break;
 				case '#': cave_set_feat(c, y, x, FEAT_WALL_SOLID); break;
@@ -2037,6 +2037,15 @@ static void build_room_template(struct cave *c, int y0, int x0, int ymax, int xm
 
 					if (rndwalls)
 						place_secret_door(c, y, x);
+					break;
+				}
+				case '-': {
+					/* If optional walls are not generated, put a door in this square */
+					if (!rndwalls)
+						place_secret_door(c, y, x);
+					else
+						cave_set_feat(c, y, x, FEAT_WALL_SOLID);
+
 					break;
 				}
 				case '~': {
@@ -2260,7 +2269,7 @@ static void build_vault(struct cave *c, int y0, int x0, int ymax, int xmax, cons
  */
 static bool build_vault_type(struct cave*c, int y0, int x0, int typ, const char *label)
 {
-	vault_type *v_ptr = random_vault(typ);
+	struct vault *v_ptr = random_vault(typ);
 	if (v_ptr == NULL) {
 		/*quit_fmt("got NULL from random_vault(%d)", typ);*/
 		return FALSE;
@@ -2785,7 +2794,6 @@ static bool default_gen(struct cave *c, struct player *p) {
 		 * rarity > this rarity). We try building the room, and if it works
 		 * then we are done with this iteration. We keep going until we find
 		 * a room that we can build successfully or we exhaust the profiles. */
-		i = 0;
 		for (i = 0; i < dun->profile->n_room_profiles; i++) {
 			struct room_profile profile = dun->profile->room_profiles[i];
 			if (profile.rarity > rarity) continue;
@@ -3151,10 +3159,10 @@ static void init_cavern(struct cave *c, struct player *p, int density) {
 	int size = h * w;
 	
 	int count = (size * density) / 100;
-	
+
 	/* Fill the edges with perma-rock, and rest with rock */
-	draw_rectangle(c, 0, 0, DUNGEON_HGT - 1, DUNGEON_WID - 1, FEAT_PERM_SOLID);
-	fill_rectangle(c, 1, 1, DUNGEON_HGT - 2, DUNGEON_WID - 2, FEAT_WALL_SOLID);
+	fill_rectangle(c, 0, 0, DUNGEON_HGT - 1, DUNGEON_WID - 1, FEAT_PERM_SOLID);
+	fill_rectangle(c, 1, 1, h - 2, w - 2, FEAT_WALL_SOLID);
 	
 	while (count > 0) {
 		int y = randint1(h - 2);

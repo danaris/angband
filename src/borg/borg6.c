@@ -1645,7 +1645,7 @@ bool borg_shoot_scoot_safe(int emergency, int turns, int b_p)
 			 * list in borg_launch_damage_one()
 			 */
     		else if ((borg_danger_aux(kill->y,kill->x,1,i, TRUE, FALSE) > avoidance * 3/10) ||
-    		    ((rf_has(r_ptr->flags, RF_FRIENDS)) /* monster has friends*/ &&
+    		    ((r_ptr->friends || r_ptr->friends_base) /* monster has friends*/ &&
         	 	 kill->level >= borg_skill[BI_CLEVEL] - 5 /* close levels */) ||
         		(kill->ranged_attack /* monster has a ranged attack */) ||
         		(rf_has(r_ptr->flags, RF_UNIQUE)) ||
@@ -5847,7 +5847,7 @@ int borg_launch_damage_one(int i, int dam, int typ, int ammo_location)
             if (rf_has(r_ptr->flags, RF_UNIQUE))
             {
                 /* Banish ones with escorts */
-                if (rf_has(r_ptr->flags, RF_ESCORT))
+                if (r_ptr->friends || r_ptr->friends_base)
                 {
                     dam = 0;
                 }
@@ -5874,7 +5874,7 @@ int borg_launch_damage_one(int i, int dam, int typ, int ammo_location)
     /* use Missiles on certain types of monsters */
     if ((borg_skill[BI_CDEPTH] >= 1) &&
          (borg_danger_aux(kill->y,kill->x,1,i, TRUE, TRUE) > avoidance * 2/10 ||
-          (rf_has(r_ptr->flags, RF_FRIENDS) /* monster has friends*/ &&
+          ((r_ptr->friends || r_ptr->friends_base) /* monster has friends*/ &&
            kill->level >= borg_skill[BI_CLEVEL] - 5 /* close levels */) ||
           kill->ranged_attack /* monster has a ranged attack */ ||
           rf_has(r_ptr->flags, RF_UNIQUE) ||
@@ -14565,7 +14565,6 @@ bool borg_recover(void)
          borg_skill[BI_ISFIXWIS] ||
          borg_skill[BI_ISFIXDEX] ||
          borg_skill[BI_ISFIXCON] ||
-         borg_skill[BI_ISFIXCHR] ||
          borg_skill[BI_ISFIXALL]) &&
         borg_prayer(6, 3))
         {
@@ -15246,19 +15245,6 @@ static bool borg_play_step(int y2, int x2)
 				return (TRUE);
 			}
 
-			/* Bash */
-			borg_note("# Bashing a door");
-			borg_keypress('B');
-			borg_keypress(I2D(dir));
-
-			/* Remove this closed door from the list.
-			* Its faster to clear all doors from the list
-			* then rebuild the list.
-			*/
-			if (track_closed_num)
-			{
-				track_closed_num = 0;
-			}
 			return (TRUE);
 		}
 
@@ -15291,64 +15277,6 @@ static bool borg_play_step(int y2, int x2)
     }
 
 
-
-    /* Jammed Doors -- Bash or destroy */
-    if ((ag->feat >= FEAT_DOOR_HEAD + 0x08) && (ag->feat <= FEAT_DOOR_TAIL))
-    {
-        /* Paranoia XXX XXX XXX */
-        if (!randint0(100)) return (FALSE);
-
-        /* Not if hungry */
-        if (borg_skill[BI_ISHUNGRY]) return (FALSE);
-
-        /* Mega-Hack -- allow "destroy doors" */
-        if (borg_prayer(7, 0))
-        {
-            borg_note("# Unbarring ways");
-            return (TRUE);
-        }
-
-        /* Mega-Hack -- allow "destroy doors" */
-        if (borg_spell(1, 2))
-        {
-            borg_note("# Destroying doors");
-            return (TRUE);
-        }
-
-        /* Mega-Hack -- allow "stone to mud" */
-        if (borg_spell(2, 2) ||
-			borg_activate_ring(SV_RING_DELVING) ||
-			borg_activate_artifact(EF_STONE_TO_MUD))
-        {
-            borg_note("# Melting a door");
-            borg_keypress(I2D(dir));
-
-	        /* Remove this closed door from the list.
-	         * Its faster to clear all doors from the list
-	         * then rebuild the list.
-	         */
-	        if (track_closed_num)
-	        {
-				track_closed_num = 0;
-			}
-            return (TRUE);
-        }
-
-        /* Bash */
-        borg_note("# Bashing a door");
-        borg_keypress('B');
-        borg_keypress(I2D(dir));
-
-        /* Remove this closed door from the list.
-         * Its faster to clear all doors from the list
-         * then rebuild the list.
-         */
-        if (track_closed_num)
-        {
-			track_closed_num = 0;
-		}
-        return (TRUE);
-    }
 
 	/* Rubble, Treasure, Seams, Walls -- Tunnel or Melt */
 	if (ag->feat >= FEAT_SECRET && ag->feat <= FEAT_WALL_SOLID)
@@ -17522,7 +17450,7 @@ bool borg_flow_kill(bool viewable, int nearness)
         }
 
         /* Hack -- Avoid getting surrounded */
-        if (borg_in_hall && (rf_has(r_info[kill->r_idx].flags, RF_FRIENDS)))
+        if (borg_in_hall && (rf_has(r_info[kill->r_idx].flags, RF_GROUP_AI)))
         {
             /* check to see if monster is in a hall, */
             for (hall_x = -1; hall_x <= 1; hall_x++)

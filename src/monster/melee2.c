@@ -1071,7 +1071,7 @@ static bool get_moves(struct cave *c, struct monster *m_ptr, int mm[5])
 
 
 	/* Normal animal packs try to get the player out of corridors. */
-	if (rf_has(m_ptr->race->flags, RF_FRIENDS) && rf_has(m_ptr->race->flags, RF_ANIMAL) &&
+	if (rf_has(m_ptr->race->flags, RF_GROUP_AI) &&
 	    !flags_test(m_ptr->race->flags, RF_SIZE, RF_PASS_WALL, RF_KILL_WALL, FLAG_END))
 	{
 		int i, open = 0;
@@ -1121,7 +1121,7 @@ static bool get_moves(struct cave *c, struct monster *m_ptr, int mm[5])
 
 
 	/* Monster groups try to surround the player */
-	if (!done && rf_has(m_ptr->race->flags, RF_FRIENDS))
+	if (!done && rf_has(m_ptr->race->flags, RF_GROUP_AI))
 	{
 		int i;
 
@@ -1615,7 +1615,6 @@ static bool make_attack_normal(struct monster *m_ptr, struct player *p)
 			case RBE_LOSE_CON:  power =  0; break;
 			case RBE_LOSE_INT:  power =  0; break;
 			case RBE_LOSE_WIS:  power =  0; break;
-			case RBE_LOSE_CHR:  power =  0; break;
 			case RBE_LOSE_ALL:  power =  0; break;
 			case RBE_SHATTER:   power = 60; break;
 		}
@@ -2362,17 +2361,6 @@ static bool make_attack_normal(struct monster *m_ptr, struct player *p)
 					break;
 				}
 
-				case RBE_LOSE_CHR:
-				{
-					/* Take damage */
-					take_hit(p, damage, ddesc);
-
-					/* Damage (stat) */
-					if (do_dec_stat(A_CHR, FALSE)) obvious = TRUE;
-
-					break;
-				}
-
 				case RBE_LOSE_ALL:
 				{
 					/* Take damage */
@@ -2384,7 +2372,6 @@ static bool make_attack_normal(struct monster *m_ptr, struct player *p)
 					if (do_dec_stat(A_CON, FALSE)) obvious = TRUE;
 					if (do_dec_stat(A_INT, FALSE)) obvious = TRUE;
 					if (do_dec_stat(A_WIS, FALSE)) obvious = TRUE;
-					if (do_dec_stat(A_CHR, FALSE)) obvious = TRUE;
 
 					break;
 				}
@@ -2726,9 +2713,6 @@ static void process_monster(struct cave *c, struct monster *m_ptr)
 	bool do_move;
 	bool do_view;
 
-	bool did_open_door;
-	bool did_bash_door;
-
 	char m_name[80];
 
 	/* Get the monster name */
@@ -2940,10 +2924,6 @@ static void process_monster(struct cave *c, struct monster *m_ptr)
 	do_move = FALSE;
 	do_view = FALSE;
 
-	/* Assume nothing */
-	did_open_door = FALSE;
-	did_bash_door = FALSE;
-
 	/* Process moves */
 	for (i = 0; i < 5; i++)	{
 		/* Get the direction (or stagger) */
@@ -2991,13 +2971,10 @@ static void process_monster(struct cave *c, struct monster *m_ptr)
 
 				/* Note changes to viewable region */
 				if (player_has_los_bold(ny, nx)) do_view = TRUE;
+			}
 
 			/* Handle doors and secret doors */
-			} else if (cave_iscloseddoor(cave, ny, nx)
-			        || cave_islockeddoor(cave, ny, nx)
-			        || cave_issecretdoor(cave, ny, nx)) {
-				bool may_bash = TRUE;
-
+			else if (cave_iscloseddoor(cave, ny, nx) || cave_issecretdoor(cave, ny, nx)) {
 				/* Take a turn */
 				do_turn = TRUE;
 
@@ -3007,83 +2984,51 @@ static void process_monster(struct cave *c, struct monster *m_ptr)
 					rf_on(l_ptr->flags, RF_BASH_DOOR);
 				}
 
-				/* Creature can open doors. */
-				if (rf_has(m_ptr->race->flags, RF_OPEN_DOOR))	{
-					/* Closed doors and secret doors */
-					if (cave_iscloseddoor(cave, ny, nx)
-					 || cave_issecretdoor(cave, ny, nx)) {
-						/* The door is open */
-						did_open_door = TRUE;
+				/* Creature can open or bash doors */
+				if (rf_has(m_ptr->race->flags, RF_OPEN_DOOR) || rf_has(m_ptr->race->flags, RF_BASH_DOOR)) {
+					bool may_bash = ((rf_has(m_ptr->race->flags, RF_BASH_DOOR) && one_in_(2))? TRUE: FALSE);
 
-						/* Do not bash the door */
-						may_bash = FALSE;
-
-					/* Locked doors (not jammed) */
-					} else if (cave_islockeddoor(cave, ny, nx)) {
+					/* Stuck door -- try to unlock it */
+					if (cave_islockeddoor(cave, ny, nx)) {
 						int k = cave_door_power(cave, ny, nx);
 
-						/* Try to unlock it */
 						if (randint0(m_ptr->hp / 10) > k) {
 							/* Print a message */
-							if (m_ptr->ml)
-								msg("%s fiddles with the lock.", m_name);
-							else
-								msg("Something fiddles with a lock.");
+							if (m_ptr->ml) {
+								if (may_bash)
+									msg("%s slams against the door.", m_name);
+								else
+									msg("%s fiddles with the lock.", m_name);
+							} else {
+								if (may_bash)
+									msg("Something slams against a door.");
+								else
+									msg("Something fiddles with a lock.");
+							}
 
 							/* Reduce the power of the door by one */
 							cave_set_feat(c, ny, nx, cave->feat[ny][nx] - 1);
-
-							/* Do not bash the door */
-							may_bash = FALSE;
 						}
 					}
-				}
 
-				/* Stuck doors -- attempt to bash them down if allowed */
-				if (may_bash && rf_has(m_ptr->race->flags, RF_BASH_DOOR))	{
-					int k = cave_door_power(cave, ny, nx);
-
-					/* Attempt to bash */
-					if (randint0(m_ptr->hp / 10) > k) {
-						/* Print a message */
-						if (m_ptr->ml)
-							msg("%s slams against the door.", m_name);
-						else
-							msg("Something slams against a door.");
-
-						/* Reduce the power of the door by one */
-						cave_unjam_door(c, ny, nx);
-
-						/* If the door is no longer jammed */
-						if (!cave_isjammeddoor(cave, ny, nx)) {
+					/* Closed or secret door -- open or bash if allowed */
+					else {
+						if (may_bash) {
+							cave_smash_door(c, ny, nx);
 							msg("You hear a door burst open!");
 
-							/* Disturb (sometimes) */
 							disturb(p_ptr, 0, 0);
 
-							/* The door was bashed open */
-							did_bash_door = TRUE;
-
-							/* Hack -- fall into doorway */
+							/* Fall into doorway */
 							do_move = TRUE;
-						}
+						} else
+							cave_open_door(c, ny, nx);
+
+						/* Handle viewable doors */
+						if (player_has_los_bold(ny, nx))
+							do_view = TRUE;
 					}
 				}
-			}
-
-			/* Deal with doors in the way */
-			if (did_open_door || did_bash_door)	{
-				/* Break down the door */
-				if (did_bash_door && (randint0(100) < 50))
-					cave_smash_door(c, ny, nx);
-
-				/* Open the door */
-				else
-					cave_open_door(c, ny, nx);
-
-				/* Handle viewable doors */
-				if (player_has_los_bold(ny, nx))
-					do_view = TRUE;
 			}
 		}
 
@@ -3251,7 +3196,7 @@ static void process_monster(struct cave *c, struct monster *m_ptr)
 								ODESC_PREFIX | ODESC_FULL);
 
 					/* Get the monster name */
-					monster_desc(m1_name, sizeof(m1_name), m_ptr, MDESC_IND1);
+					monster_desc(m1_name, sizeof(m1_name), m_ptr, MDESC_IND1 | MDESC_CAPITAL);
 
 					/* React to objects that hurt the monster */
 					react_to_slay(obj_flags, mon_flags);

@@ -29,10 +29,20 @@
 
 /** Constants **/
 
+/*
+ * There is a 1/50 (2%) chance of inflating the requested monster level
+ * during the creation of a monsters (see "get_mon_num()" in "monster.c").
+ * Lower values yield harder monsters more often.
+ */
+#define NASTY_MON    25        /* 1/chance of inflated monster level */
+#define MON_OOD_MAX  10        /* maximum out-of-depth amount */
+
+
+
 /* Monster spell flags */
 enum
 {
-    #define RSF(a, b, c, d, e, f, g, h, i, j, k, l, m) RSF_##a,
+    #define RSF(a, b, c, d, e, f, g, h, i, j, k, l, m, n) RSF_##a,
     #include "list-mon-spells.h"
     #undef RSF
 };
@@ -94,6 +104,23 @@ struct monster_drop {
 	unsigned int percent_chance;
 	unsigned int min;
 	unsigned int max;
+};
+
+struct monster_friends {
+	struct monster_friends *next;
+	char *name;
+	struct monster_race *race;
+	unsigned int percent_chance;
+	unsigned int number_dice;
+	unsigned int number_side;
+};
+
+struct monster_friends_base {
+	struct monster_friends_base *next;
+	struct monster_base *base;
+	unsigned int percent_chance;
+	unsigned int number_dice;
+	unsigned int number_side;
 };
 
 struct monster_mimic {
@@ -172,7 +199,11 @@ typedef struct monster_race
 	byte cur_num;			/* Monster population on current level */
 
 	struct monster_drop *drops;
+    
+    struct monster_friends *friends;
 	
+    struct monster_friends_base *friends_base;
+    
 	struct monster_mimic *mimic_kinds;
 } monster_race;
 

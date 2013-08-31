@@ -41,11 +41,13 @@ static void show_obj_list(int num_obj, int num_head, char labels[50][80],
 	char o_name[50][80];
 	char tmp_val[80];
 	
-	bool in_term;
-	
-	in_term = (mode & OLIST_WINDOW) ? TRUE : FALSE;
+	bool in_term = (mode & OLIST_WINDOW) ? TRUE : FALSE;
+	bool terse = FALSE;
 
 	if (in_term) max_len = 40;
+	if (in_term && Term->wid < 40) mode &= ~(OLIST_WEIGHT);
+
+	if (Term->wid < 50) terse = TRUE;
 
 	/* Calculate name offset and max name length */
 	for (i = 0; i < num_obj; i++)
@@ -61,7 +63,8 @@ static void show_obj_list(int num_obj, int num_head, char labels[50][80],
 				strnfmt(o_name[i], sizeof(o_name[i]), "(nothing)");
 		}
 		else
-			object_desc(o_name[i], sizeof(o_name[i]), o_ptr, ODESC_PREFIX | ODESC_FULL);
+			object_desc(o_name[i], sizeof(o_name[i]), o_ptr, ODESC_PREFIX | ODESC_FULL |
+				(terse ? ODESC_TERSE : 0));
 
 		/* Max length of label + object name */
 		max_len = MAX(max_len, strlen(labels[i]) + strlen(o_name[i]));
@@ -143,7 +146,7 @@ static void show_obj_list(int num_obj, int num_head, char labels[50][80],
 			ex_offset_ctr += 9;
 		}
 
-		if (mode & OLIST_FAIL)
+		if (mode & OLIST_FAIL && obj_can_fail(o_ptr))
 		{
 			int fail = (9 + get_use_device_chance(o_ptr)) / 10;
 			if (object_effect_is_known(o_ptr))
@@ -209,18 +212,34 @@ static void show_obj_list(int num_obj, int num_head, char labels[50][80],
 	}
 }
 
+/* Find an @ tag with the specified command */
+static char find_tag(struct object *obj, unsigned char cmdkey) {
+	const char *haystack;
+	char needle[] = "@ ";
+	needle[1] = cmdkey;
+
+	if (!cmdkey || !obj->note) return 0;
+
+	haystack = strstr(quark_str(obj->note), needle);
+	while (haystack) {
+		if (haystack[2] && isdigit((unsigned char) haystack[2]))
+			return haystack[2];
+		haystack = strstr(haystack + 1, needle);
+	}
+
+	return 0;
+}
+
 
 /*
  * Display the inventory.  Builds a list of objects and passes them
  * off to show_obj_list() for display.  Mode flags documented in
  * object.h
  */
-void show_inven(int mode)
+void show_inven(int mode, unsigned char cmdkey)
 {
 	int i, last_slot = -1;
 	int diff = weight_remaining();
-
-	object_type *o_ptr;
 
 	int num_obj = 0;
 	char labels[50][80];
@@ -244,20 +263,23 @@ void show_inven(int mode)
 	/* Find the last occupied inventory slot */
 	for (i = 0; i < INVEN_PACK; i++)
 	{
-		o_ptr = &p_ptr->inventory[i];
+		struct object *o_ptr = &p_ptr->inventory[i];
 		if (o_ptr->kind) last_slot = i;
 	}
 
 	/* Build the object list */
 	for (i = 0; i <= last_slot; i++)
 	{
-		o_ptr = &p_ptr->inventory[i];
+		struct object *o_ptr = &p_ptr->inventory[i];
+
+		char tag = find_tag(o_ptr, cmdkey);
+		if (!tag) tag = index_to_label(i);
 
 		/* Acceptable items get a label */
 		if (item_tester_okay(o_ptr))
-			strnfmt(labels[num_obj], sizeof(labels[num_obj]), "%c) ", index_to_label(i));
+			strnfmt(labels[num_obj], sizeof(labels[num_obj]), "%c) ", tag);
 
-		/* Unacceptable items are still displayed in term windows */
+		/* Unacceptable items are still sometimes shown */
 		else if (in_term)
 			my_strcpy(labels[num_obj], "   ", sizeof(labels[num_obj]));
 
@@ -296,6 +318,7 @@ void show_equip(int mode)
 	char tmp_val[80];
 
 	bool in_term = (mode & OLIST_WINDOW) ? TRUE : FALSE;
+	bool show_empty = (mode & OLIST_SEMPTY) ? TRUE : FALSE;
 
 	/* Find the last equipment slot to display */
 	for (i = INVEN_WIELD; i < ALL_INVEN_TOTAL; i++)
@@ -337,8 +360,8 @@ void show_equip(int mode)
 		if (item_tester_okay(o_ptr))
 			strnfmt(labels[num_obj], sizeof(labels[num_obj]), "%c) ", index_to_label(i));
 
-		/* Unacceptable items are still displayed in term windows */
-		else if (in_term)
+		/* Unacceptable items are still sometimes shown */
+		else if ((!o_ptr->kind && show_empty) || in_term)
 			my_strcpy(labels[num_obj], "   ", sizeof(labels[num_obj]));
 
 		/* Unacceptable items are skipped in the main window */
@@ -615,7 +638,8 @@ bool get_item(int *cp, const char *pmt, const char *str, cmd_code cmd, int mode)
 {
 	int py = p_ptr->py;
 	int px = p_ptr->px;
-	unsigned char cmdkey = cmd_lookup_key(cmd, KEYMAP_MODE_ORIG);
+	unsigned char cmdkey = cmd_lookup_key(cmd,
+			OPT(rogue_like_commands) ? KEYMAP_MODE_ROGUE : KEYMAP_MODE_ORIG);
 
 	//struct keypress which;
 	ui_event press;
@@ -633,7 +657,6 @@ bool get_item(int *cp, const char *pmt, const char *str, cmd_code cmd, int mode)
 	bool use_inven = ((mode & USE_INVEN) ? TRUE : FALSE);
 	bool use_equip = ((mode & USE_EQUIP) ? TRUE : FALSE);
 	bool use_floor = ((mode & USE_FLOOR) ? TRUE : FALSE);
-	bool use_quiver = ((mode & QUIVER_TAGS) ? TRUE : FALSE);
 	bool is_harmless = ((mode & IS_HARMLESS) ? TRUE : FALSE);
 	bool quiver_tags = ((mode & QUIVER_TAGS) ? TRUE : FALSE);
 
@@ -653,14 +676,20 @@ bool get_item(int *cp, const char *pmt, const char *str, cmd_code cmd, int mode)
 
 	bool show_list = TRUE;
 
+/*	if (KTRL(cmdkey) == cmdkey)
+		cmdkey = UN_KTRL(cmdkey); */
 
 	/* Object list display modes */
 	if (mode & SHOW_FAIL)
-		olist_mode |= (OLIST_FAIL);
+		olist_mode |= OLIST_FAIL;
 	else
-		olist_mode |= (OLIST_WEIGHT);
+		olist_mode |= OLIST_WEIGHT;
+
 	if (mode & SHOW_PRICES)
-		olist_mode |= (OLIST_PRICE);
+		olist_mode |= OLIST_PRICE;
+
+	if (mode & SHOW_EMPTY)
+		olist_mode |= OLIST_SEMPTY;
 
 	/* Paranoia XXX XXX XXX */
 	message_flush();
@@ -741,7 +770,7 @@ bool get_item(int *cp, const char *pmt, const char *str, cmd_code cmd, int mode)
 			p_ptr->command_wrk = USE_FLOOR;
 
 		/* If we are using the quiver then start on equipment */
-		else if (use_quiver && allow_equip)
+		else if (quiver_tags && allow_equip)
 			p_ptr->command_wrk = USE_EQUIP;
 
 		/* Use inventory if allowed */
@@ -809,18 +838,15 @@ bool get_item(int *cp, const char *pmt, const char *str, cmd_code cmd, int mode)
 		/* Viewing inventory */
 		if (p_ptr->command_wrk == USE_INVEN)
 		{
-			/* Hack - show the quiver counts in certain cases like the 'i' command */
-			if (item_tester_full) {
-				olist_mode |= OLIST_QUIVER;
-			}
+			int nmode = olist_mode;
+
+			/* Show the quiver counts in certain cases, like the 'i' command */
+			if (mode & SHOW_QUIVER)
+				nmode |= OLIST_QUIVER;
 
 			/* Redraw if needed */
-			if (show_list) show_inven(olist_mode);
-
-			/* Hack - hide the quiver counts outside the inventory page */
-			if (item_tester_full) {
-				olist_mode &= ~OLIST_QUIVER;
-			}
+			if (show_list)
+				show_inven(nmode, cmdkey);
 
 			/* Begin the prompt */
 			strnfmt(out_val, sizeof(out_val), "Inven:");

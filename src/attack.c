@@ -464,7 +464,7 @@ static void ranged_helper(int item, int dir, int range, int shots, ranged_attack
 		target_get(&tx, &ty);
 		taim = distance(y, x, ty, tx);
 		if (taim > range) {
-			sprintf (msg, "Target out of range by %d squares. Fire anyway? ",
+			strnfmt(msg, sizeof(msg), "Target out of range by %d squares. Fire anyway? ",
 				taim - range);
 			if (!get_check(msg)) return;
 		}
@@ -554,7 +554,7 @@ static void ranged_helper(int item, int dir, int range, int shots, ranged_attack
 			if (dmg <= 0) {
 				dmg = 0;
 				msg_type = MSG_MISS;
-				hit_verb = "fail to harm";
+				hit_verb = "fails to harm";
 			}
 		
 			if (!visible) {
@@ -825,7 +825,7 @@ void textui_cmd_fire_at_nearest(void) {
 
 	/* Require usable ammo */
 	if (item < 0) {
-		msg("You have no ammunition in the quiver to fire");
+		msg("You have no ammunition in the quiver to fire.");
 		return;
 	}
 

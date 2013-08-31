@@ -23,10 +23,10 @@ void option_dump(ang_file *f);
 /*
  * Information for "do_cmd_options()".
  */
-#define OPT_PAGE_MAX				4
-#define OPT_PAGE_PER				16
+#define OPT_PAGE_MAX				3
+#define OPT_PAGE_PER				20
 
-#define OPT_PAGE_BIRTH				2
+#define OPT_PAGE_BIRTH				1
 
 /* The option data structures */
 extern const int option_page[OPT_PAGE_MAX][OPT_PAGE_PER];
@@ -60,7 +60,7 @@ extern const int option_page[OPT_PAGE_MAX][OPT_PAGE_PER];
 #define OPT_pickup_always			4
 #define OPT_pickup_inven			5
 #define OPT_show_flavors			6
-/* XXX 7 */
+#define OPT_show_target				7
 #define OPT_disturb_near			8
 /* XXX 9 */
 /* XXX 10 */
@@ -100,7 +100,7 @@ extern const int option_page[OPT_PAGE_MAX][OPT_PAGE_PER];
 #define OPT_birth_no_feelings	    (OPT_BIRTH+8)
 #define OPT_birth_no_selling 	    (OPT_BIRTH+9)
 #define OPT_birth_keep_randarts		(OPT_BIRTH+10)
-/* #define OPT_birth_ai_smell			(OPT_BIRTH+11) */
+#define OPT_birth_start_kit			(OPT_BIRTH+11)
 /* #define OPT_birth_ai_packs			(OPT_BIRTH+12) */
 #define OPT_birth_ai_learn			(OPT_BIRTH+13)
 /* #define OPT_birth_ai_cheat			(OPT_BIRTH+14) */

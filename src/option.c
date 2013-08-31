@@ -23,42 +23,35 @@
  */
 const int option_page[OPT_PAGE_MAX][OPT_PAGE_PER] =
 {
-	/* Interface */
+	/* User interface */
 	{
+		/* keyset */
 		OPT_rogue_like_commands,
 		OPT_use_old_target,
+		OPT_auto_more,
+		/* items */
 		OPT_pickup_always,
 		OPT_pickup_inven,
-		OPT_center_player,
+		OPT_notify_recharge,
 		OPT_show_flavors,
-		OPT_mouse_movement,
-		OPT_mouse_buttons,
-		OPT_use_sound,
+		/* panel change */
+		OPT_center_player,
+		OPT_disturb_near,
+		/* extra info */
 		OPT_show_damage,
+		OPT_show_target,
+		/* colouring */
 		OPT_view_yellow_light,
 		OPT_animate_flicker,
-		OPT_solid_walls,
-		OPT_hybrid_walls,
-		OPT_NONE,
-		OPT_NONE,
-	},
-
-
-	/* Warning */
-	{
 		OPT_hp_changes_color,
 		OPT_purple_uniques,
-		OPT_disturb_near,
-		OPT_auto_more,
-		OPT_notify_recharge,
-		OPT_NONE,
-		OPT_NONE,
-		OPT_NONE,
-		OPT_NONE,
-		OPT_NONE,
-		OPT_NONE,
-		OPT_NONE,
-		OPT_NONE,
+		OPT_solid_walls,
+		OPT_hybrid_walls,
+		/* mouse */
+		OPT_mouse_movement,
+		OPT_mouse_buttons,
+		/* sound */
+		OPT_use_sound,
 	},
 
 	/* Birth/Difficulty */
@@ -75,6 +68,10 @@ const int option_page[OPT_PAGE_MAX][OPT_PAGE_PER] =
 		OPT_birth_no_stairs,
 		OPT_birth_no_feelings,
 		OPT_birth_no_selling,
+		OPT_birth_start_kit,
+		OPT_NONE,
+		OPT_NONE,
+		OPT_NONE,
 		OPT_NONE,
 		OPT_NONE,
 		OPT_NONE,
@@ -88,6 +85,7 @@ const int option_page[OPT_PAGE_MAX][OPT_PAGE_PER] =
 		OPT_cheat_xtra,
 		OPT_cheat_know,
 		OPT_cheat_live,
+		OPT_NONE,
 		OPT_NONE,
 		OPT_NONE,
 		OPT_NONE,
@@ -119,7 +117,7 @@ static const struct option options[OPT_MAX] =
 { "pickup_always",       "Always pickup items",                         FALSE }, /* 4 */
 { "pickup_inven",        "Always pickup items matching inventory",      TRUE },  /* 5 */
 { "show_flavors",        "Show flavors in object descriptions",         FALSE }, /* 6 */
-{ NULL,                  NULL,                                          FALSE }, /* 7 */
+{ "show_target",         "Highlight target with cursor",                TRUE }, /* 7 */
 { "disturb_near",        "Disturb whenever viewable monster moves",     TRUE },  /* 8 */
 { NULL,                  NULL,                                          FALSE }, /* 9 */
 { NULL,                  NULL,                                          FALSE }, /* 10 */
@@ -171,9 +169,9 @@ static const struct option options[OPT_MAX] =
 { "birth_no_preserve",   "Lose artifacts when leaving level",           FALSE }, /* 56 */
 { "birth_no_stairs",     "Don't generate connected stairs",             FALSE }, /* 57 */
 { "birth_no_feelings",   "Don't show level feelings",                   FALSE }, /* 58 */
-{ "birth_no_selling",    "Items always sell for 0 gold",                FALSE }, /* 59 */
+{ "birth_no_selling",    "Items always sell for 0 gold",                TRUE }, /* 59 */
 { "birth_keep_randarts", "Use previous set of randarts",                TRUE },  /* 60 */
-{ NULL,                  NULL,                                          FALSE }, /* 61 */
+{ "birth_start_kit",     "Start with a kit of useful gear",             TRUE }, /* 61 */
 { NULL,                  NULL,                                          FALSE }, /* 62 */
 { "birth_ai_learn",      "Monsters learn from their mistakes",          FALSE }, /* 63 */
 { NULL,                  NULL,                                          FALSE }, /* 64 */
@@ -222,15 +220,7 @@ bool option_set(const char *name, int val)
 		return TRUE;
 	}
 
-	if (streq(name, "hp_warn_factor")) {
-		op_ptr->hitpoint_warn = val;
-	} else if (streq(name, "delay_factor")) {
-		op_ptr->delay_factor = val;
-	} else {
-		return FALSE;
-	}
-
-	return TRUE;
+	return FALSE;
 }
 
 void option_set_defaults(void)
@@ -254,18 +244,7 @@ void option_dump(ang_file *f)
 {
 	int i, j;
 
-	file_putf(f, "# Options\n");
-
-	/* Dump options (skip cheat, score) */
-	for (i = 0; i < OPT_CHEAT; i++) {
-		const char *name = option_name(i);
-		if (name)
-			file_putf(f, "%c:%s\n", op_ptr->opt[i] ? 'Y' : 'X', name);
-	}
-
-	file_putf(f, "O:hp_warn_factor:%d\n", op_ptr->hitpoint_warn);
-	file_putf(f, "O:delay_factor:%d\n", op_ptr->delay_factor);
-	file_putf(f, "\n");
+	file_putf(f, "# Options\n\n");
 
 	/* Dump window flags */
 	for (i = 1; i < ANGBAND_TERM_MAX; i++)

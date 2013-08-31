@@ -37,7 +37,7 @@
 static bool target_set;
 
 /* Current monster being tracked, or 0 */
-static u16b target_who;
+static struct monster *target_who;
 
 /* Target location */
 static s16b target_x, target_y;
@@ -101,39 +101,12 @@ static void look_mon_desc(char *buf, size_t max, int m_idx)
  * Future versions may restrict the ability to target "trappers"
  * and "mimics", but the semantics is a little bit weird.
  */
-bool target_able(int m_idx)
+bool target_able(struct monster *m)
 {
-	int py = p_ptr->py;
-	int px = p_ptr->px;
-
-	monster_type *m_ptr;
-
-	/* No monster */
-	if (m_idx <= 0) return (FALSE);
-
-	/* Get monster */
-	m_ptr = cave_monster(cave, m_idx);
-
-	/* Monster must be alive */
-	if (!m_ptr->race) return (FALSE);
-
-	/* Monster must be visible */
-	if (!m_ptr->ml) return (FALSE);
-	
-	/* Player must be aware this is a monster */
-	if (m_ptr->unaware) return (FALSE);
-
-	/* Monster must be projectable */
-	if (!projectable(py, px, m_ptr->fy, m_ptr->fx, PROJECT_NONE))
-		return (FALSE);
-
-	/* Hack -- no targeting hallucinations */
-	if (p_ptr->timed[TMD_IMAGE]) return (FALSE);
-
-	/* Assume okay */
-	return (TRUE);
+	return m && m->race && m->ml && !m->unaware &&
+			projectable(p_ptr->py, p_ptr->px, m->fy, m->fx, PROJECT_NONE) &&
+			!p_ptr->timed[TMD_IMAGE];
 }
-
 
 
 
@@ -145,50 +118,40 @@ bool target_able(int m_idx)
 bool target_okay(void)
 {
 	/* No target */
-	if (!target_set) return (FALSE);
-
-	/* Accept "location" targets */
-	if (target_who == 0) return (TRUE);
+	if (!target_set) return FALSE;
 
 	/* Check "monster" targets */
-	if (target_who > 0)
-	{
-		int m_idx = target_who;
-
-		/* Accept reasonable targets */
-		if (target_able(m_idx))
-		{
-			monster_type *m_ptr = cave_monster(cave, m_idx);
-
+	if (target_who) {
+		if (target_able(target_who)) {
 			/* Get the monster location */
-			target_y = m_ptr->fy;
-			target_x = m_ptr->fx;
+			target_y = target_who->fy;
+			target_x = target_who->fx;
 
 			/* Good target */
-			return (TRUE);
+			return TRUE;
 		}
+	} else if (target_x && target_y) {
+		/* Allow a direction without a monster */
+		return TRUE;
 	}
 
 	/* Assume no target */
-	return (FALSE);
+	return FALSE;
 }
 
 
 /*
  * Set the target to a monster (or nobody)
  */
-void target_set_monster(int m_idx)
+void target_set_monster(struct monster *mon)
 {
 	/* Acceptable target */
-	if ((m_idx > 0) && target_able(m_idx))
+	if (mon && target_able(mon))
 	{
-		monster_type *m_ptr = cave_monster(cave, m_idx);
-
-		/* Save target info */
 		target_set = TRUE;
-		target_who = m_idx;
-		target_y = m_ptr->fy;
-		target_x = m_ptr->fx;
+		target_who = mon;
+		target_y = mon->fy;
+		target_x = mon->fx;
 	}
 
 	/* Clear target */
@@ -196,7 +159,7 @@ void target_set_monster(int m_idx)
 	{
 		/* Reset target info */
 		target_set = FALSE;
-		target_who = 0;
+		target_who = NULL;
 		target_y = 0;
 		target_x = 0;
 	}
@@ -211,9 +174,16 @@ void target_set_location(int y, int x)
 	/* Legal target */
 	if (cave_in_bounds_fully(cave, y, x))
 	{
+		/* If there's a monster there, target that instead */
+		struct monster *m = cave_monster_at(cave, y, x);
+		if (m) {
+			target_set_monster(m);
+			return;
+		}
+
 		/* Save target info */
 		target_set = TRUE;
-		target_who = 0;
+		target_who = NULL;
 		target_y = y;
 		target_x = x;
 	}
@@ -387,7 +357,7 @@ static struct point_set *target_set_interactive_prepare(int mode)
 				if (!(cave->m_idx[y][x] > 0)) continue;
 
 				/* Must be a targettable monster */
-			 	if (!target_able(cave->m_idx[y][x])) continue;
+			 	if (!target_able(cave_monster_at(cave, y, x))) continue;
 			}
 
 			/* Save the location */
@@ -670,17 +640,8 @@ static ui_event target_set_interactive_aux(int y, int x, int mode)
 					/* Recall */
 					if (recall)
 					{
-						/* Save screen */
-						screen_save();
-
-						/* Recall on screen */
-						screen_roff(m_ptr->race, l_ptr);
-
-						/* Command */
+						lore_show_interactive(m_ptr->race, l_ptr);
 						press = inkey_m();
-
-						/* Load screen */
-						screen_load();
 					}
 
 					/* Normal */
@@ -1003,7 +964,7 @@ static ui_event target_set_interactive_aux(int y, int x, int mode)
 
 bool target_set_closest(int mode)
 {
-	int y, x, m_idx;
+	int y, x;
 	monster_type *m_ptr;
 	char m_name[80];
 	bool visibility;
@@ -1026,10 +987,10 @@ bool target_set_closest(int mode)
 	/* Find the first monster in the queue */
 	y = targets->pts[0].y;
 	x = targets->pts[0].x;
-	m_idx = cave->m_idx[y][x];
+	m_ptr = cave_monster_at(cave, y, x);
 	
 	/* Target the monster, if possible */
-	if ((m_idx <= 0) || !target_able(m_idx))
+	if (!target_able(m_ptr))
 	{
 		msg("No Available Target.");
 		point_set_dispose(targets);
@@ -1037,7 +998,6 @@ bool target_set_closest(int mode)
 	}
 
 	/* Target the monster */
-	m_ptr = cave_monster(cave, m_idx);
 	monster_desc(m_name, sizeof(m_name), m_ptr, MDESC_CAPITAL);
 	if (!(mode & TARGET_QUIET))
 		msg("%s is targeted.", m_name);
@@ -1046,7 +1006,7 @@ bool target_set_closest(int mode)
 	/* Set up target information */
 	monster_race_track(m_ptr->race);
 	health_track(p_ptr, m_ptr);
-	target_set_monster(m_idx);
+	target_set_monster(m_ptr);
 
 	/* Visual cue */
 	Term_get_cursor(&visibility);
@@ -1291,8 +1251,7 @@ bool target_set_interactive(int mode, int x, int y)
 		
 			/* Update help */
 			if (help) {
-				bool good_target = (cave->m_idx[y][x] > 0) &&
-					target_able(cave->m_idx[y][x]);
+				bool good_target = target_able(cave_monster_at(cave, y, x));
 				target_display_help(good_target, !(flag && point_set_size(targets)));
 			}
 
@@ -1328,15 +1287,13 @@ bool target_set_interactive(int mode, int x, int y)
 					x = KEY_GRID_X(press);//.mouse.x;
 					if (press.mouse.mods & KC_MOD_CONTROL) {
 						/* same as keyboard target selection command below */
-						int m_idx = cave->m_idx[y][x];
+						struct monster *m = cave_monster_at(cave, y, x);
 
-						if ((m_idx > 0) && target_able(m_idx)) {
-							monster_type *m_ptr = cave_monster(cave, m_idx);
+						if (target_able(m)) {
 							/* Set up target information */
-							monster_race_track(m_ptr->race);
-							health_track(p_ptr, m_ptr);
-							/*health_track(p_ptr, m_idx);*/
-							target_set_monster(m_idx);
+							monster_race_track(m->race);
+							health_track(p_ptr, m);
+							target_set_monster(m);
 							done = TRUE;
 						} else {
 							bell("Illegal target!");
@@ -1430,12 +1387,12 @@ bool target_set_interactive(int mode, int x, int y)
 				case '0':
 				case '.':
 				{
-					int m_idx = cave->m_idx[y][x];
+					struct monster *m = cave_monster_at(cave, y, x);
 
-					if ((m_idx > 0) && target_able(m_idx))
+					if (target_able(m))
 					{
-						health_track(p_ptr, cave_monster(cave, m_idx));
-						target_set_monster(m_idx);
+						health_track(p_ptr, m);
+						target_set_monster(m);
 						done = TRUE;
 					}
 					else
@@ -1528,7 +1485,7 @@ bool target_set_interactive(int mode, int x, int y)
 			/* Update help */
 			if (help) 
 			{
-				bool good_target = ((cave->m_idx[y][x] > 0) && target_able(cave->m_idx[y][x]));
+				bool good_target = target_able(cave_monster_at(cave, y, x));
 				target_display_help(good_target, !(flag && point_set_size(targets)));
 			}
 
@@ -1590,8 +1547,8 @@ bool target_set_interactive(int mode, int x, int y)
 				/*if (press.mouse.button == 3) {
 				} else*/
 				{
-					int dungeon_hgt = (p_ptr->depth == 0) ? TOWN_HGT : DUNGEON_HGT;
-					int dungeon_wid = (p_ptr->depth == 0) ? TOWN_WID : DUNGEON_WID;
+					int dungeon_hgt = cave->height;
+					int dungeon_wid = cave->width;
 
 					y = KEY_GRID_Y(press);//.mouse.y;
 					x = KEY_GRID_X(press);//.mouse.x;
@@ -1752,8 +1709,8 @@ bool target_set_interactive(int mode, int x, int y)
 			/* Handle "direction" */
 			if (d)
 			{
-				int dungeon_hgt = (p_ptr->depth == 0) ? TOWN_HGT : DUNGEON_HGT;
-				int dungeon_wid = (p_ptr->depth == 0) ? TOWN_WID : DUNGEON_WID;
+				int dungeon_hgt = cave->height;
+				int dungeon_wid = cave->width;
 
 				/* Move */
 				x += ddx[d];
@@ -1830,7 +1787,20 @@ void target_get(s16b *col, s16b *row)
 /**
  * Returns the currently targeted monster index.
  */
-s16b target_get_monster(void)
+struct monster *target_get_monster(void)
 {
 	return target_who;
 }
+
+
+/*
+ * True if the player's current target is in LOS.
+ */
+bool target_sighted(void)
+{
+	return target_okay() &&
+			panel_contains(target_y, target_x) &&
+			 /* either the target is a grid and is visible, or it is a monster that is visible */
+			((!target_who && player_can_see_bold(target_y, target_x)) || (target_who && target_who->ml));
+}
+

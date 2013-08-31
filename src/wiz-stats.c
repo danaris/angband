@@ -2,7 +2,7 @@
  * File: stats.c
  * Purpose: Statistics collection on dungeon generation
  *
- * Copyright (c) 2008 Andrew Sidwell
+ * Copyright (c) 2008 Andi Sidwell
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -847,7 +847,6 @@ static void get_obj_data(const object_type *o_ptr, int y, int x, bool mon, bool 
 			/*stat gain*/
 			switch(effect){
 			
-				/* skip CHR */
 				case EF_GAIN_STR:
 				case EF_GAIN_INT:
 				case EF_GAIN_WIS:
@@ -1497,8 +1496,7 @@ static void print_heading(void)
 	file_putf(stats_log," Armor:     Low resist armor may have more than one basic resist (acid, \n");
 	file_putf(stats_log,"		     elec, fire, cold) but not all. \n");
 	file_putf(stats_log," Books:     Prayer and Magic books have the same probability. \n");
-	file_putf(stats_log," Potions:   Stat gain potions do not include CHR.  Aug counts \n");
-	file_putf(stats_log,"			 as 5 potions, *enlight* as 2.  Healing potions are \n");
+	file_putf(stats_log," Potions:   Aug counts as 5 potions, *enlight* as 2.  Healing potions are \n");
 	file_putf(stats_log,"			 only *Healing* and Life\n");
 	file_putf(stats_log," Scrolls:   Endgame scrolls include *Dest*, Rune, MBan and Ban \n");
 	file_putf(stats_log,"    		 *Acq* counts as two Acq scrolls");
@@ -1980,8 +1978,8 @@ static void scan_for_objects(void)
 { 
 	int y, x;
 
-	for (y = 1; y < DUNGEON_HGT - 1; y++) {
-		for (x = 1; x < DUNGEON_WID - 1; x++) {
+	for (y = 1; y < cave->height - 1; y++) {
+		for (x = 1; x < cave->width - 1; x++) {
 			const object_type *o_ptr;
 
 			
@@ -2528,9 +2526,9 @@ void disconnect_stats(void)
 		calc_cave_distances();
 		
 		/*Cycle through the dungeon */
-		for (y = 1; y < DUNGEON_HGT - 1; y++){
+		for (y = 1; y < cave->height - 1; y++){
 		
-			for (x = 1; x < DUNGEON_WID - 1; x++){
+			for (x = 1; x < cave->width - 1; x++){
 			
 				/* don't care about walls */
 				if (cave_iswall(cave, y, x)) continue;

@@ -25,6 +25,8 @@
 #include "files.h"
 #include "game-event.h"
 #include "game-cmd.h"
+#include "grafmode.h"
+#include "hint.h"
 #include "monster/mon-lore.h"
 #include "monster/mon-util.h"
 #include "monster/monster.h"
@@ -524,7 +526,6 @@ static void prt_dex(int row, int col) { prt_stat(A_DEX, row, col); }
 static void prt_wis(int row, int col) { prt_stat(A_WIS, row, col); }
 static void prt_int(int row, int col) { prt_stat(A_INT, row, col); }
 static void prt_con(int row, int col) { prt_stat(A_CON, row, col); }
-static void prt_chr(int row, int col) { prt_stat(A_CHR, row, col); }
 static void prt_race(int row, int col) { prt_field(p_ptr->race->name, row, col); }
 static void prt_class(int row, int col) { prt_field(p_ptr->class->name, row, col); }
 
@@ -551,7 +552,6 @@ static const struct side_handler_t
 	{ prt_wis,      4, EVENT_STATS },
 	{ prt_dex,      3, EVENT_STATS },
 	{ prt_con,      2, EVENT_STATS },
-	{ prt_chr,      1, EVENT_STATS },
 	{ NULL,        15, 0 },
 	{ prt_ac,       7, EVENT_AC },
 	{ prt_hp,       8, EVENT_HP },
@@ -773,7 +773,7 @@ static size_t prt_stun(int row, int col)
  */
 static size_t prt_hunger(int row, int col)
 {
-	PRINT_STATE(<, hunger_data, p_ptr->food, row, col);
+	PRINT_STATE(<=, hunger_data, p_ptr->food, row, col);
 	return 0;
 }
 
@@ -1127,7 +1127,7 @@ static void update_inven_subwindow(game_event_type type, game_event_data *data,
 	Term_activate(inv_term);
 
 	if (!flip_inven)
-		show_inven(OLIST_WINDOW | OLIST_WEIGHT | OLIST_QUIVER);
+		show_inven(OLIST_WINDOW | OLIST_WEIGHT | OLIST_QUIVER, 0);
 	else
 		show_equip(OLIST_WINDOW | OLIST_WEIGHT);
 
@@ -1149,7 +1149,7 @@ static void update_equip_subwindow(game_event_type type, game_event_data *data,
 	if (!flip_inven)
 		show_equip(OLIST_WINDOW | OLIST_WEIGHT);
 	else
-		show_inven(OLIST_WINDOW | OLIST_WEIGHT | OLIST_QUIVER);
+		show_inven(OLIST_WINDOW | OLIST_WEIGHT | OLIST_QUIVER, 0);
 
 	Term_fresh();
 	
@@ -1176,7 +1176,7 @@ void toggle_inven_equip(void)
 		if (op_ptr->window_flag[i] & PW_INVEN)
 		{
 			if (!flip_inven)
-				show_inven(OLIST_WINDOW | OLIST_WEIGHT | OLIST_QUIVER);
+				show_inven(OLIST_WINDOW | OLIST_WEIGHT | OLIST_QUIVER, 0);
 			else
 				show_equip(OLIST_WINDOW | OLIST_WEIGHT);
 			
@@ -1187,7 +1187,7 @@ void toggle_inven_equip(void)
 			if (!flip_inven)
 				show_equip(OLIST_WINDOW | OLIST_WEIGHT);
 			else
-				show_inven(OLIST_WINDOW | OLIST_WEIGHT | OLIST_QUIVER);
+				show_inven(OLIST_WINDOW | OLIST_WEIGHT | OLIST_QUIVER, 0);
 			
 			Term_fresh();
 		}
@@ -1237,7 +1237,7 @@ static void update_monster_subwindow(game_event_type type, game_event_data *data
 
 	/* Display monster race info */
 	if (p_ptr->monster_race)
-		display_roff(p_ptr->monster_race, get_lore(p_ptr->monster_race));
+		lore_show_subwindow(p_ptr->monster_race, get_lore(p_ptr->monster_race));
 
 	Term_fresh();
 	
@@ -1256,8 +1256,8 @@ static void update_object_subwindow(game_event_type type, game_event_data *data,
 	
 	if (p_ptr->object_idx != NO_OBJECT)
 		display_object_idx_recall(p_ptr->object_idx);
-	else if(p_ptr->object_kind_idx != NO_OBJECT)
-		display_object_kind_recall(p_ptr->object_kind_idx);
+	else if (p_ptr->object_kind)
+		display_object_kind_recall(p_ptr->object_kind);
 	Term_fresh();
 	
 	/* Restore */
@@ -1340,6 +1340,17 @@ static void update_minimap_subwindow(game_event_type type,
 		Term_activate(old);
 
 		flags->needs_redraw = FALSE;
+	}
+	else if (type == EVENT_DUNGEONLEVEL) {
+		/* XXX map_height and map_width need to be kept in sync with display_map() */
+		term *t = angband_term[flags->win_idx];
+		int map_height = t->hgt - 2;
+		int map_width = t->wid - 2;
+
+		/* Clear the entire term if the new map isn't going to fit the entire thing */
+		if (cave->height <= map_height || cave->width <= map_width) {
+			flags->needs_redraw = TRUE;
+		}
 	}
 }
 
@@ -1547,6 +1558,8 @@ static void subwindow_flag_changed(int win_idx, u32b flag, bool new_state)
 			register_or_deregister(EVENT_MAP,
 					       update_minimap_subwindow,
 					       &minimap_data[win_idx]);
+
+			register_or_deregister(EVENT_DUNGEONLEVEL, update_minimap_subwindow, &minimap_data[win_idx]);
 
 			register_or_deregister(EVENT_END,
 					       update_minimap_subwindow,

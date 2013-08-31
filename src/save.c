@@ -23,6 +23,7 @@
 #include "monster/mon-make.h"
 #include "monster/monster.h"
 #include "option.h"
+#include "quest.h"
 #include "savefile.h"
 #include "squelch.h"
 
@@ -101,18 +102,15 @@ static void wr_item(const object_type *o_ptr)
 	wr_u16b(o_ptr->origin_xtra);
 	wr_byte(o_ptr->ignore);
 
-	for (i = 0; i < OF_BYTES && i < OF_SIZE; i++)
+	for (i = 0; i < OF_SIZE; i++)
 		wr_byte(o_ptr->flags[i]);
-	if (i < OF_BYTES) pad_bytes(OF_BYTES - i);
 
-	for (i = 0; i < OF_BYTES && i < OF_SIZE; i++)
+	for (i = 0; i < OF_SIZE; i++)
 		wr_byte(o_ptr->known_flags[i]);
-	if (i < OF_BYTES) pad_bytes(OF_BYTES - i);
 
 	for (j = 0; j < MAX_PVALS; j++) {
-		for (i = 0; i < OF_BYTES && i < OF_SIZE; i++)
+		for (i = 0; i < OF_SIZE; i++)
 			wr_byte(o_ptr->pval_flags[j][i]);
-		if (i < OF_BYTES) pad_bytes(OF_BYTES - i);
 	}
 
 	/* Held by monster index */
@@ -247,6 +245,9 @@ void wr_monster_memory(void)
 	int r_idx;
 
 	wr_u16b(z_info->r_max);
+	wr_byte(RF_SIZE);
+	wr_byte(RSF_SIZE);
+	wr_byte(MONSTER_BLOW_MAX);
 	for (r_idx = 0; r_idx < z_info->r_max; r_idx++)
 	{
 		monster_race *r_ptr = &r_info[r_idx];
@@ -275,13 +276,11 @@ void wr_monster_memory(void)
 			wr_byte(l_ptr->blows[i]);
 
 		/* Memorize flags */
-		for (i = 0; i < RF_BYTES && i < RF_SIZE; i++)
+		for (i = 0; i < RF_SIZE; i++)
 			wr_byte(l_ptr->flags[i]);
-		if (i < RF_BYTES) pad_bytes(RF_BYTES - i);
 
-		for (i = 0; i < RF_BYTES && i < RSF_SIZE; i++)
+		for (i = 0; i < RSF_SIZE; i++)
 			wr_byte(l_ptr->spell_flags[i]);
-		if (i < RF_BYTES) pad_bytes(RF_BYTES - i);
 
 		/* Monster limit per level */
 		wr_byte(r_ptr->max_num);
@@ -299,6 +298,8 @@ void wr_object_memory(void)
 	int k_idx;
 
 	wr_u16b(z_info->k_max);
+	wr_byte(OF_SIZE);
+	wr_byte(MAX_PVALS);
 	for (k_idx = 0; k_idx < z_info->k_max; k_idx++)
 	{
 		byte tmp8u = 0;
@@ -376,6 +377,7 @@ void wr_player(void)
 	wr_s16b(p_ptr->wt);
 
 	/* Dump the stats (maximum and current and birth) */
+	wr_byte(A_MAX);
 	for (i = 0; i < A_MAX; ++i) wr_s16b(p_ptr->stat_max[i]);
 	for (i = 0; i < A_MAX; ++i) wr_s16b(p_ptr->stat_cur[i]);
 	for (i = 0; i < A_MAX; ++i) wr_s16b(p_ptr->stat_birth[i]);
@@ -812,9 +814,8 @@ void wr_monsters(void)
 		if (m_ptr->unaware) unaware |= 0x01;
 		wr_byte(unaware);
 
-		for (j = 0; j < OF_BYTES && j < OF_SIZE; j++)
+		for (j = 0; j < OF_SIZE; j++)
 			wr_byte(m_ptr->known_pflags[j]);
-		if (j < OF_BYTES) pad_bytes(OF_BYTES - j);
 		
 		wr_byte(0);
 	}

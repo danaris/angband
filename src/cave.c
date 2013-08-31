@@ -24,6 +24,7 @@
 #include "object/tvalsval.h"
 #include "squelch.h"
 #include "cmds.h"
+#include "grafmode.h"
 
 /*
  * Approximate distance between two points.
@@ -618,8 +619,8 @@ void grid_data_as_text(grid_data *g, int *ap, wchar_t *cp, int *tap, wchar_t *tc
 				/* Use attr */
 				a = da;
 
-				/* Desired attr & char */
-				da = m_ptr->race->x_attr;
+				/* Desired attr & char. da is not used, but should a be set to it? */
+				/*da = m_ptr->race->x_attr;*/
 				dc = m_ptr->race->x_char;
 				
 				/* Use char */
@@ -1261,8 +1262,8 @@ void display_map(int *cy, int *cx)
 	map_hgt = Term->hgt - 2;
 	map_wid = Term->wid - 2;
 
-	dungeon_hgt = (p_ptr->depth == 0) ? TOWN_HGT : DUNGEON_HGT;
-	dungeon_wid = (p_ptr->depth == 0) ? TOWN_WID : DUNGEON_WID;
+	dungeon_hgt = cave->height;
+	dungeon_wid = cave->width;
 
 	/* Prevent accidents */
 	if (map_hgt > dungeon_hgt) map_hgt = dungeon_hgt;
@@ -2258,10 +2259,10 @@ void wiz_light(bool full)
 	}
 
 	/* Scan all normal grids */
-	for (y = 1; y < DUNGEON_HGT-1; y++)
+	for (y = 1; y < cave->height - 1; y++)
 	{
 		/* Scan all normal grids */
-		for (x = 1; x < DUNGEON_WID-1; x++)
+		for (x = 1; x < cave->width - 1; x++)
 		{
 			/* Process all non-walls */
 			if (cave->feat[y][x] < FEAT_SECRET)
@@ -2300,9 +2301,9 @@ void wiz_dark(void)
 
 
 	/* Forget every grid */
-	for (y = 0; y < DUNGEON_HGT; y++)
+	for (y = 0; y < cave->height; y++)
 	{
-		for (x = 0; x < DUNGEON_WID; x++)
+		for (x = 0; x < cave->width; x++)
 		{
 			/* Process the grid */
 			cave->info[y][x] &= ~(CAVE_MARK);
@@ -2728,15 +2729,12 @@ bool projectable(int y1, int x1, int y2, int x2, int flg)
  * This function is often called from inside a loop which searches for
  * locations while increasing the "d" distance.
  *
- * Currently the "m" parameter is unused.
+ * need_los determines whether line of sight is needed
  */
-void scatter(int *yp, int *xp, int y, int x, int d, int m)
+void scatter(int *yp, int *xp, int y, int x, int d, bool need_los)
 {
 	int nx, ny;
 
-
-	/* Unused parameter */
-	(void)m;
 
 	/* Pick a location */
 	while (TRUE)
@@ -2750,9 +2748,12 @@ void scatter(int *yp, int *xp, int y, int x, int d, int m)
 
 		/* Ignore "excessively distant" locations */
 		if ((d > 1) && (distance(y, x, ny, nx) > d)) continue;
+		
+		/* Don't need los */
+		if (!need_los) break;
 
-		/* Require "line of sight" */
-		if (los(y, x, ny, nx)) break;
+		/* Require "line of sight" if set */
+		if (need_los && (los(y, x, ny, nx))) break;
 	}
 
 	/* Save the location */
@@ -2803,20 +2804,6 @@ void disturb(struct player *p, int stop_search, int unused_flag)
 
 	/* Flush input */
 	flush();
-}
-
-bool is_quest(int level)
-{
-	int i;
-
-	/* Town is never a quest */
-	if (!level || !q_list) return FALSE;
-
-	for (i = 0; i < MAX_Q_IDX; i++)
-		if (q_list[i].level == level)
-			return TRUE;
-
-	return FALSE;
 }
 
 struct cave *cave = NULL;
@@ -2983,14 +2970,6 @@ bool cave_islockeddoor(struct cave *c, int y, int x) {
 }
 
 /**
- * True if the square is a closed, jammed door.
- */
-bool cave_isjammeddoor(struct cave *c, int y, int x) {
-	int feat = c->feat[y][x];
-	return feat >= FEAT_DOOR_HEAD + 0x08 && feat <= FEAT_DOOR_TAIL;
-}
-
-/**
  * True if the square is a door.
  *
  * This includes open, closed, and hidden doors.
@@ -3074,7 +3053,9 @@ bool cave_isshop(struct cave *c, int y, int x) {
 }
 
 int cave_shopnum(struct cave *c, int y, int x) {
-	return c->feat[y][x] - FEAT_SHOP_HEAD;
+	if (cave_isshop(c, y, x))
+		return c->feat[y][x] - FEAT_SHOP_HEAD;
+	return -1;
 }
 
 /**
@@ -3298,24 +3279,6 @@ void upgrade_mineral(struct cave *c, int y, int x) {
 		case FEAT_MAGMA: cave_set_feat(c, y, x, FEAT_MAGMA_K); break;
 		case FEAT_QUARTZ: cave_set_feat(c, y, x, FEAT_QUARTZ_K); break;
 	}
-}
-
-void cave_jam_door(struct cave *c, int y, int x) {
-	if (cave_islockeddoor(c, y, x))
-		/* become a stuck door of the same strength */
-		c->feat[y][x] += 0x08;
-
-	if (c->feat[y][x] < FEAT_DOOR_TAIL)
-		c->feat[y][x]++;
-}
-
-void cave_unjam_door(struct cave *c, int y, int x) {
-	if (c->feat[y][x] > FEAT_DOOR_HEAD + 0x08)
-		c->feat[y][x]--;
-}
-
-int cave_can_jam_door(struct cave *c, int y, int x) {
-	return c->feat[y][x] < FEAT_DOOR_TAIL;
 }
 
 int cave_door_power(struct cave *c, int y, int x) {

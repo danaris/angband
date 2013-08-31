@@ -17,6 +17,7 @@
  */
 
 #include "angband.h"
+#include "birth.h"
 #include "borg/borg1.h"
 #include "button.h"
 #include "cave.h"
@@ -25,12 +26,14 @@
 #include "files.h"
 #include "game-event.h"
 #include "generate.h"
+#include "grafmode.h"
 #include "init.h"
-#include "monster/monster.h"
 #include "monster/mon-make.h"
 #include "monster/mon-spell.h"
 #include "monster/mon-util.h"
+#include "monster/monster.h"
 #include "object/tvalsval.h"
+#include "pathfind.h"
 #include "prefs.h"
 #include "savefile.h"
 #include "spells.h"
@@ -591,7 +594,7 @@ static void process_world(struct cave *c)
 		if (check_state(p_ptr, OF_REGEN, p_ptr->state.flags)) i += 30;
 
 		/* Slow digestion takes less food */
-		if (check_state(p_ptr, OF_SLOW_DIGEST, p_ptr->state.flags)) i = 1;
+		if (check_state(p_ptr, OF_SLOW_DIGEST, p_ptr->state.flags)) i /= 5;
 
 		/* Minimal digestion */
 		if (i < 1) i = 1;
@@ -769,7 +772,7 @@ static void process_world(struct cave *c)
 	/*** Involuntary Movement ***/
 
 	/* Random teleportation */
-	if (check_state(p_ptr, OF_TELEPORT, p_ptr->state.flags) && one_in_(100))
+	if (check_state(p_ptr, OF_TELEPORT, p_ptr->state.flags) && one_in_(50))
 	{
 		wieldeds_notice_flag(p_ptr, OF_TELEPORT);
 		teleport_player(40);
@@ -912,6 +915,18 @@ static void process_player_aux(void)
 
 
 /*
+ * Place cursor on a monster or the player.
+ */
+static void place_cursor(void) {
+	if (OPT(show_target) && target_sighted()) {
+		s16b col, row;
+		target_get(&col, &row);
+		move_cursor_relative(row, col);
+	}
+}
+
+
+/*
  * Process the player
  *
  * Notice the annoying code to handle "pack overflow", which
@@ -1014,8 +1029,9 @@ static void process_player(void)
 		if (p_ptr->redraw) redraw_stuff(p_ptr);
 
 
-		/* Place the cursor on the player */
-		move_cursor_relative(p_ptr->py, p_ptr->px);
+		/* Place cursor on player/target */
+		place_cursor();
+
 
 		/* Refresh (optional) */
 		Term_fresh();
@@ -1105,8 +1121,8 @@ static void process_player(void)
 			/* Check monster recall */
 			process_player_aux();
 
-			/* Place the cursor on the player */
-			move_cursor_relative(p_ptr->py, p_ptr->px);
+			/* Place cursor on player/target */
+			place_cursor();
 
 			/* Get and process a command */
 			process_command(CMD_GAME, FALSE);
@@ -1463,8 +1479,8 @@ static void dungeon(struct cave *c)
 		/* Redraw stuff */
 		if (p_ptr->redraw) redraw_stuff(p_ptr);
 
-		/* Hack -- Highlight the player */
-		move_cursor_relative(p_ptr->py, p_ptr->px);
+		/* Place cursor on player/target */
+		place_cursor();
 
 		/* Handle "leaving" */
 		if (p_ptr->leaving) break;
@@ -1482,8 +1498,8 @@ static void dungeon(struct cave *c)
 		/* Redraw stuff */
 		if (p_ptr->redraw) redraw_stuff(p_ptr);
 
-		/* Hack -- Highlight the player */
-		move_cursor_relative(p_ptr->py, p_ptr->px);
+		/* Place cursor on player/target */
+		place_cursor();
 
 		/* Handle "leaving" */
 		if (p_ptr->leaving) break;
@@ -1501,8 +1517,8 @@ static void dungeon(struct cave *c)
 		/* Redraw stuff */
 		if (p_ptr->redraw) redraw_stuff(p_ptr);
 
-		/* Hack -- Highlight the player */
-		move_cursor_relative(p_ptr->py, p_ptr->px);
+		/* Place cursor on player/target */
+		place_cursor();
 
 		/* Handle "leaving" */
 		if (p_ptr->leaving) break;
@@ -1544,16 +1560,27 @@ static void dungeon(struct cave *c)
  */
 static void process_some_user_pref_files(void)
 {
+	bool found;
 	char buf[1024];
 
 	/* Process the "user.prf" file */
-	(void)process_pref_file("user.prf", TRUE, TRUE);
+	process_pref_file("user.prf", TRUE, TRUE);
 
 	/* Get the "PLAYER.prf" filename */
-	(void)strnfmt(buf, sizeof(buf), "%s.prf", player_safe_name(p_ptr), TRUE);
+	strnfmt(buf, sizeof(buf), "%s.prf", player_safe_name(p_ptr));
 
-	/* Process the "PLAYER.prf" file */
-	(void)process_pref_file(buf, TRUE, TRUE);
+	/* Process the "PLAYER.prf" file, using the character name */
+	found = process_pref_file(buf, TRUE, TRUE);
+
+    /* Try pref file using savefile name if we fail using character name */
+    if (!found) {
+		int filename_index = path_filename_index(savefile);
+		char filename[128];
+
+		my_strcpy(filename, &savefile[filename_index], sizeof(filename));
+		strnfmt(buf, sizeof(buf), "%s.prf", filename);
+		process_pref_file(buf, TRUE, TRUE);
+    }
 }
 
 
@@ -1697,7 +1724,8 @@ void play_game(void)
 		do_randart(seed_randart, TRUE);
 
 	/* Initialize temporary fields sensibly */
-	p_ptr->object_idx = p_ptr->object_kind_idx = NO_OBJECT;
+	p_ptr->object_idx = NO_OBJECT;
+	p_ptr->object_kind = NULL;
 	p_ptr->monster_race = NULL;
 
 	/* Set the savefile name if it's not already set */

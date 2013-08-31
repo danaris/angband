@@ -17,6 +17,7 @@
  */
 
 #include "angband.h"
+#include "attack.h"
 #include "cmds.h"
 #include "game-cmd.h"
 #include "object/object.h"
@@ -77,9 +78,7 @@ static const struct command_info game_cmds[] =
 	{ CMD_TUNNEL, "tunnel", { arg_DIRECTION }, do_cmd_tunnel, TRUE, 99 },
 	{ CMD_HOLD, "stay still", { arg_NONE }, do_cmd_hold, TRUE, 0 },
 	{ CMD_DISARM, "disarm", { arg_DIRECTION }, do_cmd_disarm, TRUE, 99 },
-	{ CMD_BASH, "bash", { arg_DIRECTION }, do_cmd_bash, TRUE, 99 },
 	{ CMD_ALTER, "alter", { arg_DIRECTION }, do_cmd_alter, TRUE, 99 },
-	{ CMD_JAM, "jam", { arg_DIRECTION }, do_cmd_spike, FALSE, 0 },
 	{ CMD_REST, "rest", { arg_CHOICE }, do_cmd_rest, FALSE, 0 },
 	{ CMD_PATHFIND, "walk", { arg_POINT }, do_cmd_pathfind, FALSE, 0 },
 	{ CMD_PICKUP, "pickup", { arg_ITEM }, do_cmd_pickup, FALSE, 0 },
@@ -394,6 +393,7 @@ void process_command(cmd_context ctx, bool no_request)
 				const char *type2 = is->type;
 
 				char prompt[1024], none[1024];
+				char capitalVerb[256];
 
 				/* Pluralise correctly or things look weird */
 				if (!type) {
@@ -401,11 +401,14 @@ void process_command(cmd_context ctx, bool no_request)
 					type2 = "items";
 				}
 
-				strnfmt(prompt, sizeof(prompt), "%s which %s?", verb, type);
-				strnfmt(none, sizeof(none), "You have no %s you can %s.",
-						type2, verb);
+				my_strcpy(capitalVerb, verb, sizeof(capitalVerb));
+				my_strcap(capitalVerb);
+
+				strnfmt(prompt, sizeof(prompt), "%s which %s?", capitalVerb, type);
+				strnfmt(none, sizeof(none), "You have no %s you can %s.", type2, verb);
 
 				item_tester_hook = is->filter;
+				if (cmd->command == CMD_USE_ANY) p_ptr->command_wrk = USE_INVEN;
 				if (!get_item(&item, prompt, none, cmd->command, is->mode))
 					return;
 
@@ -504,9 +507,7 @@ void process_command(cmd_context ctx, bool no_request)
 			case CMD_WALK:
 			case CMD_RUN:
 			case CMD_JUMP:
-			case CMD_BASH:
 			case CMD_ALTER:
-			case CMD_JAM:
 			{
 			get_dir:
 
@@ -525,6 +526,7 @@ void process_command(cmd_context ctx, bool no_request)
 			}
 
 			case CMD_DROP:
+			case CMD_STASH:
 			{
 				if (!cmd->arg_present[1])
 				{

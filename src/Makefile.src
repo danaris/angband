@@ -6,7 +6,7 @@
 #
 
 VERSION = 3.5-dev
-COPYRIGHT = (c) 1995-2012 Angband contributors
+COPYRIGHT = (c) 1995-2013 Angband contributors
 
 HEADERS = \
 	angband.h \
@@ -74,14 +74,13 @@ ANGFILES = \
 	birth.o \
 	button.o \
 	cave.o \
-	cmd0.o \
-	cmd1.o \
-	cmd2.o \
-	cmd3.o \
-	cmd4.o \
+	cmd-cave.o \
 	cmd-context.o \
+	cmd-know.o \
 	cmd-misc.o \
 	cmd-obj.o \
+	cmd-pickup.o \
+	cmd-process.o \
 	death.o \
 	debug.o \
 	dungeon.o \
@@ -93,7 +92,7 @@ ANGFILES = \
 	grafmode.o \
 	guid.o \
 	history.o \
-	init2.o \
+	init.o \
 	keymap.o \
 	load.o \
 	monster/mon-init.o \
@@ -130,6 +129,7 @@ ANGFILES = \
 	player/spell.o \
 	player/timed.o \
 	player/p-util.o \
+	quest.o \
 	score.o \
 	signals.o \
 	save.o \

@@ -2307,7 +2307,7 @@ static errr Term_pict_win(int x, int y, int n, const int *ap, const wchar_t *cp,
 
 	/* Draw attr/char pairs */
 	for (i = n-1; i >= 0; i--, x2 -= w2) {
-		byte a = ap[i];
+		int a = ap[i];
 		wchar_t c = cp[i];
 
 		/* Extract picture */
@@ -2494,7 +2494,7 @@ static errr Term_pict_win_alpha(int x, int y, int n, const int *ap, const wchar_
 	/* Draw attr/char pairs */
 	for (i = n-1; i >= 0; i--, x2 -= w2)
 	{
-		byte a = ap[i];
+		int a = ap[i];
 		wchar_t c = cp[i];
 
 		/* Extract picture */
@@ -2576,13 +2576,13 @@ static void windows_map_aux(void)
 	int ta;
 	wchar_t tc;
 
-	td->map_tile_wid = (td->tile_wid * td->cols) / DUNGEON_WID;
-	td->map_tile_hgt = (td->tile_hgt * td->rows) / DUNGEON_HGT;
+	td->map_tile_wid = (td->tile_wid * td->cols) / cave->width;
+	td->map_tile_hgt = (td->tile_hgt * td->rows) / cave->height;
 
 	min_x = 0;
 	min_y = 0;
-	max_x = DUNGEON_WID;
-	max_y = DUNGEON_HGT;
+	max_x = cave->width;
+	max_y = cave->height;
 
 	/* Draw the map */
 	for (x = min_x; x < max_x; x++)
@@ -4438,7 +4438,6 @@ static LRESULT FAR PASCAL AngbandWndProc(HWND hWnd, UINT uMsg,
 		case WM_KEYDOWN:
 		{
 			return handle_keydown(wParam, lParam);
-			break;
 		}
 
 		case WM_CHAR:
@@ -4449,6 +4448,17 @@ static LRESULT FAR PASCAL AngbandWndProc(HWND hWnd, UINT uMsg,
 			/* printf("wParam=%d lParam=%d vsc=%d vk=%d kp=%d\n", */
 			/*        wParam, lParam, vsc, vk, extended_key); */
 			/* fflush(stdout); */
+
+			if (!game_in_progress) {
+				/* Handle keyboard shortcuts pre-game */
+				switch (wParam) {
+					case KTRL('N'): process_menus(IDM_FILE_NEW); break;
+					case KTRL('O'): process_menus(IDM_FILE_OPEN); break;
+					case KTRL('X'): process_menus(IDM_FILE_EXIT); break;
+					default: return TRUE;
+				}
+				return FALSE;
+			}
 
 			// We don't want to translate some keys to their ascii values
 			// so we have to intercept them here.
@@ -4471,6 +4481,7 @@ static LRESULT FAR PASCAL AngbandWndProc(HWND hWnd, UINT uMsg,
 					Term_keypress(wParam, 0);
 					return 0;
 			}
+
 			mods = extract_modifiers(ch, kp);
 			Term_keypress(ch, mods);
 
@@ -4552,28 +4563,40 @@ static LRESULT FAR PASCAL AngbandWndProc(HWND hWnd, UINT uMsg,
 			return 0;
 		}
 
+#ifndef WM_QUERYENDSESSION
+#define WM_QUERYENDSESSION 0x0011
+#endif
+
+		case WM_QUERYENDSESSION:
+		case WM_QUIT: {
+			if (game_in_progress && character_generated) {
+				if (uMsg == WM_QUERYENDSESSION && !inkey_flag) {
+					plog("Please exit any open menus before closing the game.");
+					return FALSE;
+				}
+
+				msg_flag = FALSE;
+				save_game();
+			}
+
+			quit(NULL);
+			return TRUE;
+		}
+
+
 		case WM_CLOSE:
 		{
-			if (game_in_progress && character_generated)
-			{
-				if (!inkey_flag)
-				{
-					plog("You may not do that right now.");
+			if (game_in_progress && character_generated) {
+				if (!inkey_flag) {
+					plog("Please exit any open menus before closing the game.");
 					return 0;
 				}
 
 				/* Hack -- Forget messages */
 				msg_flag = FALSE;
-
-				/* Save the game */
 				save_game();
 			}
-			quit(NULL);
-			return 0;
-		}
 
-		case WM_QUIT:
-		{
 			quit(NULL);
 			return 0;
 		}

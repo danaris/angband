@@ -471,13 +471,11 @@ static void display_player_sust_info(void)
 	stat_flags[A_WIS] = OF_WIS;
 	stat_flags[A_DEX] = OF_DEX;
 	stat_flags[A_CON] = OF_CON;
-	stat_flags[A_CHR] = OF_CHR;
 	sustain_flags[A_STR] = OF_SUST_STR;
 	sustain_flags[A_INT] = OF_SUST_INT;
 	sustain_flags[A_WIS] = OF_SUST_WIS;
 	sustain_flags[A_DEX] = OF_SUST_DEX;
 	sustain_flags[A_CON] = OF_SUST_CON;
-	sustain_flags[A_CHR] = OF_SUST_CHR;
 
 	/* Header */
 	c_put_str(TERM_WHITE, "abcdefghijkl@", row-1, col);
@@ -677,38 +675,6 @@ static const char *show_speed(void)
 	return buffer;
 }
 
-static const char *show_melee_weapon(const object_type *o_ptr)
-{
-	static char buffer[12];
-	int hit = p_ptr->state.dis_to_h;
-	int dam = p_ptr->state.dis_to_d;
-
-	if (object_attack_plusses_are_visible(o_ptr))
-	{
-		hit += o_ptr->to_h;
-		dam += o_ptr->to_d;
-	}
-
-	strnfmt(buffer, sizeof(buffer), "(%+d,%+d)", hit, dam);
-	return buffer;
-}
-
-static const char *show_missile_weapon(const object_type *o_ptr)
-{
-	static char buffer[12];
-	int hit = p_ptr->state.dis_to_h;
-	int dam = 0;
-
-	if (object_attack_plusses_are_visible(o_ptr))
-	{
-		hit += o_ptr->to_h;
-		dam += o_ptr->to_d;
-	}
-
-	strnfmt(buffer, sizeof(buffer), "(%+d,%+d)", hit, dam);
-	return buffer;
-}
-
 static byte max_color(int val, int max)
 {
 	return val < max ? TERM_YELLOW : TERM_L_GREEN;
@@ -758,30 +724,35 @@ static struct panel *get_panel_midleft(void) {
 
 static struct panel *get_panel_combat(void) {
 	struct panel *p = panel_allocate(9);
-	int bth;
+	struct object *obj;
+	int bth, dam, hit;
 
 	/* AC */
 	panel_line(p, TERM_L_BLUE, "Armor", "[%d,%+d]",
 			p_ptr->state.dis_ac, p_ptr->state.dis_to_a);
 
 	/* Melee */
+	obj = &p_ptr->inventory[INVEN_WIELD];
 	bth = (p_ptr->state.skills[SKILL_TO_HIT_MELEE] * 10) / BTH_PLUS_ADJ;
+	dam = p_ptr->state.dis_to_d + (object_attack_plusses_are_visible(obj) ? obj->to_d : 0);
+	hit = p_ptr->state.dis_to_h + (object_attack_plusses_are_visible(obj) ? obj->to_h : 0);
 
 	panel_space(p);
-	panel_line(p, TERM_L_BLUE, "Melee", "%s",
-			show_melee_weapon(&p_ptr->inventory[INVEN_WIELD]));
+	panel_line(p, TERM_L_BLUE, "Melee", "%dd%d,%+d", obj->dd, obj->ds, dam);
+	panel_line(p, TERM_L_BLUE, "To-hit", "%d,%+d", bth / 10, hit);
 	panel_line(p, TERM_L_BLUE, "Blows", "%d.%d/turn",
 			p_ptr->state.num_blows / 100, (p_ptr->state.num_blows / 10 % 10));
-	panel_line(p, TERM_L_BLUE, "Base to-hit", "%.1f", bth / 10.0);
 
 	/* Ranged */
+	obj = &p_ptr->inventory[INVEN_BOW];
 	bth = (p_ptr->state.skills[SKILL_TO_HIT_BOW] * 10) / BTH_PLUS_ADJ;
+	hit = p_ptr->state.dis_to_h + (object_attack_plusses_are_visible(obj) ? obj->to_h : 0);
+	dam = object_attack_plusses_are_visible(obj) ? obj->to_d : 0;
 
 	panel_space(p);
-	panel_line(p, TERM_L_BLUE, "Shoot", "%s",
-			show_missile_weapon(&p_ptr->inventory[INVEN_BOW]));
+	panel_line(p, TERM_L_BLUE, "Shoot to-dam", "%+d", dam);
+	panel_line(p, TERM_L_BLUE, "To-hit", "%d,%+d", bth / 10, hit);
 	panel_line(p, TERM_L_BLUE, "Shots", "%d/turn", p_ptr->state.num_shots);
-	panel_line(p, TERM_L_BLUE, "Base to-hit", "%.1f", bth / 10.0);
 
 	return p;
 }
@@ -838,8 +809,8 @@ static struct panel *get_panel_misc(void) {
 	byte attr = TERM_L_BLUE;
 
 	panel_line(p, attr, "Age", "%d", p_ptr->age);
-	panel_line(p, attr, "Height", "%d in", p_ptr->ht);
-	panel_line(p, attr, "Weight", "%d lbs", p_ptr->wt);
+	panel_line(p, attr, "Height", "%d'%d\"", p_ptr->ht / 12, p_ptr->ht % 12);
+	panel_line(p, attr, "Weight", "%dst %dlb", p_ptr->wt / 14, p_ptr->wt % 14);
 	panel_line(p, attr, "Turns used:", "");
 	panel_line(p, attr, "Game", "%d", turn);
 	panel_line(p, attr, "Standard", "%d", p_ptr->total_energy / 100);
@@ -986,7 +957,7 @@ errr file_character(const char *path, bool full)
 		*p = '\0';
 
 		/* End the row */
-		x_file_putf(fp, "%s\n", buf);
+		file_putf(fp, "%s\n", buf);
 	}
 
 	/* Skip a line */
@@ -1016,7 +987,7 @@ errr file_character(const char *path, bool full)
 		*p = '\0';
 
 		/* End the row */
-		x_file_putf(fp, "%s\n", buf);
+		file_putf(fp, "%s\n", buf);
 	}
 
 	/* Skip a line */
@@ -1043,7 +1014,7 @@ errr file_character(const char *path, bool full)
 		*p = '\0';
 
 		/* End the row */
-		x_file_putf(fp, "%s\n", buf);
+		file_putf(fp, "%s\n", buf);
 	}
 
 	/* Skip some lines */
@@ -1058,9 +1029,9 @@ errr file_character(const char *path, bool full)
 		file_putf(fp, "  [Last Messages]\n\n");
 		while (i-- > 0)
 		{
-			x_file_putf(fp, "> %s\n", message_str((s16b)i));
+			file_putf(fp, "> %s\n", message_str((s16b)i));
 		}
-		x_file_putf(fp, "\nKilled by %s.\n\n", p_ptr->died_from);
+		file_putf(fp, "\nKilled by %s.\n\n", p_ptr->died_from);
 	}
 
 
@@ -1076,9 +1047,10 @@ errr file_character(const char *path, bool full)
 		object_desc(o_name, sizeof(o_name), &p_ptr->inventory[i],
 				ODESC_PREFIX | ODESC_FULL);
 
-		x_file_putf(fp, "%c) %s\n", index_to_label(i), o_name);
-		if (p_ptr->inventory[i].kind)
+		if (p_ptr->inventory[i].kind) {
+			file_putf(fp, "%c) %s\n", index_to_label(i), o_name);
 			object_info_chardump(fp, &p_ptr->inventory[i], 5, 72);
+		}
 	}
 
 	/* Dump the inventory */
@@ -1090,7 +1062,7 @@ errr file_character(const char *path, bool full)
 		object_desc(o_name, sizeof(o_name), &p_ptr->inventory[i],
 					ODESC_PREFIX | ODESC_FULL);
 
-		x_file_putf(fp, "%c) %s\n", index_to_label(i), o_name);
+		file_putf(fp, "%c) %s\n", index_to_label(i), o_name);
 		object_info_chardump(fp, &p_ptr->inventory[i], 5, 72);
 	}
 	file_putf(fp, "\n\n");
@@ -1107,7 +1079,7 @@ errr file_character(const char *path, bool full)
 		{
 			object_desc(o_name, sizeof(o_name), &st_ptr->stock[i],
 						ODESC_PREFIX | ODESC_FULL);
-			x_file_putf(fp, "%c) %s\n", I2A(i), o_name);
+			file_putf(fp, "%c) %s\n", I2A(i), o_name);
 
 			object_info_chardump(fp, &st_ptr->stock[i], 5, 72);
 		}
@@ -1128,9 +1100,8 @@ errr file_character(const char *path, bool full)
 		int j;
 		const char *title = "";
 		switch (i) {
-			case 0: title = "Interface"; break;
-			case 1: title = "Warning"; break;
-			case 2: title = "Birth"; break;
+			case 0: title = "User interface"; break;
+			case 1: title = "Birth"; break;
 		}
 
 		file_putf(fp, "  [%s]\n\n", title);
@@ -1759,179 +1730,4 @@ void close_game(void)
 
 	/* Allow suspending now */
 	signals_handle_tstp();
-}
-
-static void write_html_escape_char(ang_file *fp, wchar_t c)
-{
-	switch (c)
-	{
-		case L'<':
-			file_putf(fp, "&lt;");
-			break;
-		case L'>':
-			file_putf(fp, "&gt;");
-			break;
-		case L'&':
-			file_putf(fp, "&amp;");
-			break;
-		default:
-			{
-				char *mbseq = (char*) mem_alloc(sizeof(char)*(MB_CUR_MAX+1));
-				byte len;
-				len = wctomb(mbseq, c);
-				if (len > MB_CUR_MAX) 
-				    len = MB_CUR_MAX;
-				mbseq[len] = '\0';
-				file_putf(fp, "%s", mbseq);
-				mem_free(mbseq);
-				break;
-			}
-	}
-}
-
-
-/* Take an html screenshot */
-void html_screenshot(const char *name, int mode)
-{
-	int y, x;
-	int wid, hgt;
-
-	int a = TERM_WHITE;
-	int oa = TERM_WHITE;
-	int fg_colour = TERM_WHITE;
-	int bg_colour = TERM_DARK;
-	wchar_t c = L' ';
-
-	const char *new_color_fmt = (mode == 0) ?
-					"<font color=\"#%02X%02X%02X\" style=\"background-color: #%02X%02X%02X\">"
-				 	: "[COLOR=\"#%02X%02X%02X\"]";
-	const char *change_color_fmt = (mode == 0) ?
-					"</font><font color=\"#%02X%02X%02X\" style=\"background-color: #%02X%02X%02X\">"
-					: "[/COLOR][COLOR=\"#%02X%02X%02X\"]";
-	const char *close_color_fmt = mode ==  0 ? "</font>" : "[/COLOR]";
-
-	ang_file *fp;
-	char buf[1024];
-
-
-	path_build(buf, sizeof(buf), ANGBAND_DIR_USER, name);
-	fp = file_open(buf, MODE_WRITE, FTYPE_TEXT);
-
-	/* Oops */
-	if (!fp)
-	{
-		plog_fmt("Cannot write the '%s' file!", buf);
-		return;
-	}
-
-	/* Retrieve current screen size */
-	Term_get_size(&wid, &hgt);
-
-	if (mode == 0)
-	{
-		file_putf(fp, "<!DOCTYPE html><html><head>\n");
-		file_putf(fp, "  <meta='generator' content='%s'>\n", buildid);
-		file_putf(fp, "  <title>%s</title>\n", name);
-		file_putf(fp, "</head>\n\n");
-		file_putf(fp, "<body style='color: #fff; background: #000;'>\n");
-		file_putf(fp, "<pre>\n");
-	}
-	else 
-	{
-		file_putf(fp, "[CODE][TT][BC=black][COLOR=white]\n");
-	}
-
-	/* Dump the screen */
-	for (y = 0; y < hgt; y++)
-	{
-		for (x = 0; x < wid; x++)
-		{
-			/* Get the attr/char */
-			(void)(Term_what(x, y, &a, &c));
-
-			/* Set the foreground and background */
-			fg_colour = a % MAX_COLORS;
-			switch (a / MAX_COLORS)
-			{
-				case BG_BLACK:
-					bg_colour = TERM_DARK;
-					break;
-				case BG_SAME:
-					bg_colour = fg_colour;
-					break;
-				case BG_DARK:
-					bg_colour = TERM_SHADE;
-					break;
-				default:
-				assert((a >= BG_BLACK) && (a < BG_MAX * MAX_COLORS));
-			}
-
-			/* Color change */
-			if (oa != a)
-			{
-				/* From the default white to another color */
-				if (oa == TERM_WHITE)
-				{
-					file_putf(fp, new_color_fmt,
-							angband_color_table[fg_colour][1],
-							angband_color_table[fg_colour][2],
-							angband_color_table[fg_colour][3],
-							angband_color_table[bg_colour][1],
-							angband_color_table[bg_colour][2],
-							angband_color_table[bg_colour][3]);
-				}
-
-				/* From another color to the default white */
-				else if (fg_colour == TERM_WHITE &&
-						bg_colour == TERM_DARK)
-				{
-					file_putf(fp, close_color_fmt);
-				}
-
-				/* Change colors */
-				else
-				{
-					file_putf(fp, change_color_fmt,
-							angband_color_table[fg_colour][1],
-							angband_color_table[fg_colour][2],
-							angband_color_table[fg_colour][3],
-							angband_color_table[bg_colour][1],
-							angband_color_table[bg_colour][2],
-							angband_color_table[bg_colour][3]);
-				}
-
-				/* Remember the last color */
-				oa = a;
-			}
-
-			/* Write the character and escape special HTML characters */
-			if (mode == 0) write_html_escape_char(fp, c);
-			else
-			{
-				char mbseq[MB_LEN_MAX+1] = {0};
-				wctomb(mbseq, c);
-				file_putf(fp, "%s", mbseq);
-			}
-		}
-
-		/* End the row */
-		file_putf(fp, "\n");
-	}
-
-	/* Close the last font-color tag if necessary */
-	if (oa != TERM_WHITE) file_putf(fp, close_color_fmt);
-
-	if (mode == 0)
-	{
-		file_putf(fp, "</pre>\n");
-		file_putf(fp, "</body>\n");
-		file_putf(fp, "</html>\n");
-	}
-	else 
-	{
-		file_putf(fp, "[/COLOR][/BC][/TT][/CODE]\n");
-	}
-
-	/* Close it */
-	file_close(fp);
 }

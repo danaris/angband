@@ -64,9 +64,7 @@ static const grouper object_text_order[] =
 	{TV_DRAG_ARMOR,		"Dragon Scale Mail" },
 	{TV_HARD_ARMOR,		"Hard Armor"	},
 	{TV_SOFT_ARMOR,		"Soft Armor"	},
-	{TV_SPIKE,			"Spike"			},
 	{TV_DIGGING,		"Digger"		},
-	{TV_JUNK,			"Junk"			},
 	{0,					NULL			}
 };
 
@@ -1254,6 +1252,7 @@ static void mon_lore(int oid)
 	int r_idx;
 	monster_race *r_ptr;
 	const monster_lore *l_ptr;
+	textblock *tb;
 
 	r_idx = default_join[oid].oid;
 
@@ -1265,22 +1264,10 @@ static void mon_lore(int oid)
 	monster_race_track(r_ptr);
 	handle_stuff(p_ptr);
 
-	/* Save the screen */
-	screen_save();
-
-	/* Describe */
-	text_out_hook = text_out_to_screen;
-
-	/* Recall monster */
-	roff_top(r_ptr);
-	Term_gotoxy(0, 2);
-	describe_monster(r_ptr, l_ptr, FALSE);
-
-	text_out_c(TERM_L_BLUE, "\n[Press any key to continue]\n");
-	(void)anykey();
-
-	/* Load the screen */
-	screen_load();
+	tb = textblock_new();
+	lore_description(tb, r_ptr, l_ptr, FALSE);
+	textui_textblock_show(tb, SCREEN_REGION, NULL);
+	textblock_free(tb);
 }
 
 static void mon_summary(int gid, const int *object_list, int n, int top, int row, int col)
@@ -1774,7 +1761,7 @@ static void desc_obj_fake(int k_idx)
 	}
 
 	/* Update the object recall window */
-	track_object_kind(k_idx);
+	track_object_kind(kind);
 	handle_stuff(p_ptr);
 
 	/* Wipe the object */

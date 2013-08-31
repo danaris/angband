@@ -982,7 +982,7 @@ static enum parser_error parse_prefs_o(struct parser *p)
 	assert(d != NULL);
 	if (d->bypass) return PARSE_ERROR_NONE;
 
-	option_set(parser_getsym(p, "name"), parser_getuint(p, "value"));
+	/* Don't load options anymore */
 
 	return PARSE_ERROR_NONE;
 }
@@ -1094,6 +1094,8 @@ bool process_pref_file(const char *name, bool quiet, bool user)
 	{
 		if (!quiet)
 			msg("Cannot open '%s'.", buf);
+
+		e = PARSE_ERROR_INTERNAL; // signal failure to callers
 	}
 	else
 	{

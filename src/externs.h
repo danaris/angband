@@ -4,9 +4,9 @@
 #include "monster/constants.h"
 #include "monster/monster.h"
 #include "object/object.h"
-#include "player/types.h"
+#include "player/player.h"
 #include "store.h"
-#include "types.h"
+#include "z-term.h"
 #include "z-file.h"
 #include "z-msg.h"
 #include "spells.h"
@@ -62,12 +62,8 @@ extern s16b o_cnt;
 extern char savefile[1024];
 extern term *angband_term[ANGBAND_TERM_MAX];
 extern char angband_term_name[ANGBAND_TERM_MAX][16];
-extern byte angband_color_table[MAX_COLORS][4];
-extern color_type color_table[MAX_COLORS];
 extern const char *angband_sound_name[MSG_MAX];
-extern maxima *z_info;
 extern monster_lore *l_list;
-extern quest *q_list;
 extern struct store *stores;
 extern int store_knowledge;
 extern const char *** name_sections;
@@ -92,8 +88,7 @@ extern struct object_kind *objkinds;
 extern spell_type *s_info;
 extern struct hint *hints;
 extern struct pit_profile *pit_info;
-
-
+extern u16b lazymove_delay;
 
 extern const char *ANGBAND_SYS;
 extern const char *ANGBAND_GRAF;
@@ -113,7 +108,6 @@ extern char *ANGBAND_DIR_XTRA_GRAF;
 extern char *ANGBAND_DIR_XTRA_SOUND;
 extern char *ANGBAND_DIR_XTRA_ICON;
 
-extern bool item_tester_full;
 extern byte item_tester_tval;
 extern bool (*item_tester_hook)(const object_type *);
 extern ang_file *text_out_file;
@@ -127,30 +121,6 @@ extern void (*sound_hook)(int);
 /* util.c */
 extern struct keypress *inkey_next;
 
-
-
-/* birth.c */
-extern void player_birth(bool quickstart_allowed);
-
-/* cmd1.c */
-extern bool search(bool verbose);
-extern byte py_pickup(int pickup);
-extern void move_player(int dir, bool disarm);
-
-/* cmd2.c */
-int count_feats(int *y, int *x, bool (*test)(struct cave *cave, int y, int x), bool under);
-int coords_to_dir(int y, int x);
-
-/* dungeon.c */
-extern void dungeon_change_level(int dlev);
-extern void play_game(void);
-extern int value_check_aux1(const object_type *o_ptr);
-extern void idle_update(void);
-
-/* pathfind.c */
-extern bool findpath(int y, int x);
-extern void run_step(int dir);
-
 /* randart.c */
 extern errr do_randart(u32b randart_seed, bool full);
 
@@ -158,7 +128,6 @@ extern errr do_randart(u32b randart_seed, bool full);
 extern void enter_score(time_t *death_time);
 extern void show_scores(void);
 extern void predict_score(void);
-
 
 /* signals.c */
 extern void signals_ignore_tstp(void);
@@ -169,9 +138,6 @@ extern void signals_init(void);
 void do_cmd_store_knowledge(void);
 
 /* util.c */
-extern char *find_roman_suffix_start(const char *buf);
-extern int roman_to_int(const char *roman);
-extern int int_to_roman(int n, char *roman, size_t bufsize);
 extern void flush(void);
 extern void flush_fail(void);
 extern struct keypress inkey(void);
@@ -183,12 +149,6 @@ extern void sound(int val);
 extern void msg(const char *fmt, ...);
 extern void msgt(unsigned int type, const char *fmt, ...);
 extern void message_flush(void);
-extern void screen_save(void);
-extern void screen_load(void);
-extern void c_put_str(byte attr, const char *str, int row, int col);
-extern void put_str(const char *str, int row, int col);
-extern void c_prt(byte attr, const char *str, int row, int col);
-extern void prt(const char *str, int row, int col);
 extern void text_out_to_file(byte attr, const char *str);
 extern void text_out_to_screen(byte a, const char *str);
 extern void text_out(const char *fmt, ...);
@@ -204,7 +164,6 @@ extern bool get_check(const char *prompt);
 extern bool (*get_file)(const char *suggested_name, char *path, size_t len);
 extern bool get_com(const char *prompt, struct keypress *command);
 extern bool get_com_ex(const char *prompt, ui_event *command);
-extern void grid_data_as_text(grid_data *g, int *ap, wchar_t *cp, int *tap, wchar_t *tcp);
 extern void pause_line(struct term *term);
 extern bool is_a_vowel(int ch);
 extern int color_char_to_attr(char c);
@@ -237,16 +196,9 @@ char* random_hint(void);
 /* wiz-spoil.c */
 bool make_fake_artifact(object_type *o_ptr, struct artifact *artifact);
 
-
-
 /* borg.h */
 #ifdef ALLOW_BORG
 extern void do_cmd_borg(void);
 #endif /* ALLOW_BORG */
 
-
-extern u16b lazymove_delay;
-
-
 #endif /* !INCLUDED_EXTERNS_H */
-

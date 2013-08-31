@@ -294,9 +294,6 @@ int context_menu_player(int mx, int my)
 			/* Save screen */
 			screen_save();
 
-			/* Hack -- show empty slots */
-			item_tester_full = TRUE;
-
 			/* Prompt for a command */
 			prt(format("(Inventory) Burden %d.%d lb (%d.%d lb %s). Item for command: ",
 				p_ptr->total_weight / 10, p_ptr->total_weight % 10,
@@ -306,7 +303,7 @@ int context_menu_player(int mx, int my)
 
 
 			/* Get an item to use a context command on */
-			if (get_item(&diff, NULL, NULL, CMD_NULL, USE_EQUIP|USE_INVEN|USE_FLOOR|IS_HARMLESS)) {
+			if (get_item(&diff, NULL, NULL, CMD_NULL, USE_EQUIP|USE_INVEN|USE_FLOOR|SHOW_EMPTY|IS_HARMLESS)) {
 				object_type *o_ptr;
 
 				/* Track the object kind */
@@ -316,9 +313,6 @@ int context_menu_player(int mx, int my)
 
 				context_menu_object(o_ptr, diff);
 			}
-
-			/* Hack -- hide empty slots */
-			item_tester_full = FALSE;
 
 			/* Load screen */
 			screen_load();
@@ -398,9 +392,7 @@ int context_menu_cave(struct cave *c, int y, int x, int adjacent, int mx, int my
 		} else
 		if (cave_iscloseddoor(c, y, x)) {
 			menu_dynamic_add_label(m, "Open", 'o', 8, labels);
-			menu_dynamic_add_label(m, "Bash Open", 'B', 9, labels);
 			menu_dynamic_add_label(m, "Lock", 'D', 5, labels);
-			menu_dynamic_add_label(m, "Jam", 'j', 10, labels);
 		} else
 		if (cave_isdiggable(c, y, x)) {
 			menu_dynamic_add_label(m, "Tunnel", 'T', 11, labels);
@@ -528,16 +520,6 @@ int context_menu_cave(struct cave *c, int y, int x, int adjacent, int mx, int my
 		cmd_insert(CMD_OPEN);
 		cmd_set_arg_direction(cmd_get_top(), 0, coords_to_dir(y,x));
 	} else
-	if (selected == 9) {
-		/* bash a door */
-		cmd_insert(CMD_BASH);
-		cmd_set_arg_direction(cmd_get_top(), 0, coords_to_dir(y,x));
-	} else
-	if (selected == 10) {
-		/* jam a door */
-		cmd_insert(CMD_JAM);
-		cmd_set_arg_direction(cmd_get_top(), 0, coords_to_dir(y,x));
-	} else
 	if (selected == 11) {
 		/* Tunnel in a direction */
 		cmd_insert(CMD_TUNNEL);
@@ -577,18 +559,7 @@ int context_menu_cave(struct cave *c, int y, int x, int adjacent, int mx, int my
 		monster_type *m_ptr = cave_monster_at(c, y, x);
 		if (m_ptr) {
 			monster_lore *lore = get_lore(m_ptr->race);
-
-			/* Save screen */
-			screen_save();
-
-			/* Recall on screen */
-			screen_roff(m_ptr->race, lore);
-
-			/* wait for a key or mouse press */
-			anykey();
-
-			/* Load screen */
-			screen_load();
+			lore_show_interactive(m_ptr->race, lore);
 		}
 	}
 
@@ -631,48 +602,35 @@ int context_menu_object(const object_type *o_ptr, const int slot)
 	} else
 	if (obj_is_useable(o_ptr)) {
 		if (obj_is_wand(o_ptr)) {
-			if (obj_has_charges(o_ptr)) {
+			if (obj_has_charges(o_ptr))
 				menu_dynamic_add_label(m, "Aim", 'a', 8, labels);
-			} else {
+			else
 				menu_dynamic_add_label(m, "Aim (grey)", 'a', 8, labels);
-			}
-		} else
-		if (obj_is_rod(o_ptr)) {
-			if (obj_can_zap(o_ptr)) {
+		} else if (obj_is_rod(o_ptr)) {
+			if (obj_can_zap(o_ptr))
 				menu_dynamic_add_label(m, "Zap", 'z', 8, labels);
-			} else {
+			else
 				menu_dynamic_add_label(m, "Zap (grey)", 'z', 8, labels);
-			}
-		} else
-		if (obj_is_staff(o_ptr)) {
-			if (obj_has_charges(o_ptr)) {
+		} else if (obj_is_staff(o_ptr)) {
+			if (obj_has_charges(o_ptr))
 				menu_dynamic_add_label(m, "Use", 'u', 8, labels);
-			} else {
+			else
 				menu_dynamic_add_label(m, "Use (grey)", 'u', 8, labels);
-			}
-		} else
-		if (obj_is_scroll(o_ptr)) {
-			if (player_can_read()) {
+		} else if (obj_is_scroll(o_ptr)) {
+			if (player_can_read())
 				menu_dynamic_add_label(m, "Read", 'r', 8, labels);
-			} else {
+			else
 				menu_dynamic_add_label(m, "Read (grey)", 'r', 8, labels);
-			}
-		} else
-		if (obj_is_potion(o_ptr)) {
+		} else if (obj_is_potion(o_ptr))
 			menu_dynamic_add_label(m, "Quaff", 'q', 8, labels);
-		} else
-		if (obj_is_food(o_ptr)) {
+		else if (obj_is_food(o_ptr))
 			menu_dynamic_add_label(m, "Eat", 'E', 8, labels);
-		} else
-		if (obj_is_activatable(o_ptr)) {
+		else if (obj_is_activatable(o_ptr))
 			menu_dynamic_add_label(m, "Activate", 'A', 8, labels);
-		} else
-		if (obj_can_fire(o_ptr)) {
+		else if (obj_can_fire(o_ptr))
 			menu_dynamic_add_label(m, "Fire", 'f', 8, labels);
-		} else
-		{
+		else
 			menu_dynamic_add_label(m, "Use", 'U', 8, labels);
-		}
 	}
 	if (obj_can_refill(o_ptr)) {
 		menu_dynamic_add_label(m, "Refill", 'F', 11, labels);
@@ -689,35 +647,34 @@ int context_menu_object(const object_type *o_ptr, const int slot)
 		menu_dynamic_add_label(m, "Equip", 'w', 2, labels);
 	}
 	if (slot >= 0) {
-		menu_dynamic_add_label(m, "Drop", 'd', 6, labels);
-		if (o_ptr->number > 1) {
-			menu_dynamic_add_label(m, "Drop All", 'd', 13, labels);
+		if (!store_in_store || cave_shopnum(cave, p_ptr->py, p_ptr->px) == STORE_HOME) {
+			menu_dynamic_add_label(m, "Drop", 'd', 6, labels);
+			if (o_ptr->number > 1)
+				menu_dynamic_add_label(m, "Drop All", 'D', 13, labels);
 		}
-	} else
-	{
-		if (inven_carry_okay(o_ptr)) {
+	} else {
+		if (inven_carry_okay(o_ptr))
 			menu_dynamic_add_label(m, "Pickup", 'g', 7, labels);
-		} else {
+		else
 			menu_dynamic_add_label(m, "Pickup (Full)", 'g', 7, labels);
-		}
 	}
 	menu_dynamic_add_label(m, "Throw", 'v', 12, labels);
-	if (obj_has_inscrip(o_ptr)) {
+	menu_dynamic_add_label(m, "Inscribe", '{', 4, labels);
+	if (obj_has_inscrip(o_ptr))
 		menu_dynamic_add_label(m, "Uninscribe", '}', 5, labels);
-	} else {
-		menu_dynamic_add_label(m, "Inscribe", '{', 4, labels);
-	}
-	if (object_is_squelched(o_ptr)) {
+
+	if (object_is_squelched(o_ptr))
 		menu_dynamic_add_label(m, "Unignore", 'k', 14, labels);
-	} else {
+	else
 		menu_dynamic_add_label(m, "Ignore", 'k', 14, labels);
-	}
 
 	/* work out display region */
 	r.width = menu_dynamic_longest_entry(m) + 3 + 2; /* +3 for tag, 2 for pad */
 	r.col = Term->wid - r.width - 1;
 	r.row = 1;
 	r.page_rows = m->count;
+
+	area.width = -(r.width + 2);
 
 	/* Hack -- no flush needed */
 	msg_flag = FALSE;
@@ -749,38 +706,31 @@ int context_menu_object(const object_type *o_ptr, const int slot)
 		textui_textblock_show(tb, area, format("%s", header));
 		textblock_free(tb);
 		return 2;
-	} else
-	if (selected == 2) {
+	} else if (selected == 2) {
 		/* wield the item */
  		cmd_insert(CMD_WIELD);
 		cmd_set_arg_item(cmd_get_top(), 0, slot);
-	} else
-	if (selected == 3) {
+	} else if (selected == 3) {
 		/* take the item off */
  		cmd_insert(CMD_TAKEOFF);
 		cmd_set_arg_item(cmd_get_top(), 0, slot);
-	} else
-	if (selected == 4) {
+	} else if (selected == 4) {
 		/* inscribe the item */
  		cmd_insert(CMD_INSCRIBE);
 		cmd_set_arg_item(cmd_get_top(), 0, slot);
-	} else
-	if (selected == 5) {
+	} else if (selected == 5) {
 		/* uninscribe the item */
  		cmd_insert(CMD_UNINSCRIBE);
 		cmd_set_arg_item(cmd_get_top(), 0, slot);
-	} else
-	if (selected == 6) {
+	} else if (selected == 6) {
 		/* drop the item */
- 		cmd_insert(CMD_DROP);
+		cmd_insert(store_in_store ? CMD_STASH : CMD_DROP);
 		cmd_set_arg_item(cmd_get_top(), 0, slot);
-	} else
-	if (selected == 7) {
+	} else if (selected == 7) {
 		/* pick the item up */
  		cmd_insert(CMD_PICKUP);
 		cmd_set_arg_item(cmd_get_top(), 0, slot);
-	} else
-	if (selected == 8) {
+	} else if (selected == 8) {
 		/* use the item */
 		if (obj_can_browse(o_ptr)) {
 			/* copied from textui_obj_cast */
@@ -796,14 +746,12 @@ int context_menu_object(const object_type *o_ptr, const int slot)
 			cmd_insert(CMD_USE_ANY);
 			cmd_set_arg_item(cmd_get_top(), 0, slot);
 		}
-	} else
-	if (selected == 9) {
+	} else if (selected == 9) {
 		/* browse a spellbook */
 		/* copied from textui_spell_browse */
 		textui_book_browse(o_ptr);
 		return 2;
-	} else
-	if (selected == 10) {
+	} else if (selected == 10) {
 		/* study a spell book */
 		/* copied from textui_obj_study */
 		if (player_has(PF_CHOOSE_SPELLS)) {
@@ -817,30 +765,25 @@ int context_menu_object(const object_type *o_ptr, const int slot)
 			cmd_insert(CMD_STUDY_BOOK);
 			cmd_set_arg_item(cmd_get_top(), 0, slot);
 		}
-	} else
-	if (selected == 11) {
+	} else if (selected == 11) {
 		/* use the item to refill a light source */
 		cmd_insert(CMD_REFILL);
 		cmd_set_arg_item(cmd_get_top(), 0, slot);
-	} else
-	if (selected == 12) {
+	} else if (selected == 12) {
 		/* throw the item */
 		cmd_insert(CMD_THROW);
 		cmd_set_arg_item(cmd_get_top(), 0, slot);
-	} else
-	if (selected == 13) {
+	} else if (selected == 13) {
 		/* drop all of the item stack */
 		if (get_check(format("Drop %s? ", header))) {
-			cmd_insert(CMD_DROP);
+			cmd_insert(store_in_store ? CMD_STASH : CMD_DROP);
 			cmd_set_arg_item(cmd_get_top(), 0, slot);
 			cmd_set_arg_number(cmd_get_top(), 1, o_ptr->number);
 		}
-	} else
-	if (selected == 14) {
+	} else if (selected == 14) {
 		/* squelch or unsquelch the item */
 		textui_cmd_destroy_menu(slot);
-	} else
-	if (selected == -1) {
+	} else if (selected == -1) {
 		/* this menu was canceled, tell whatever called us to display its menu again */
 		return 3;
 	}

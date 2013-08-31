@@ -20,6 +20,7 @@
 #include "attack.h"
 #include "cave.h"
 #include "cmds.h"
+#include "dungeon.h"
 #include "files.h"
 #include "game-cmd.h"
 #include "game-event.h"
@@ -28,6 +29,7 @@
 #include "monster/mon-util.h"
 #include "monster/monster.h"
 #include "object/tvalsval.h"
+#include "pathfind.h"
 #include "spells.h"
 #include "squelch.h"
 #include "trap.h"
@@ -104,6 +106,121 @@ void do_cmd_go_down(cmd_code code, cmd_arg args[])
 
 	/* Change level */
 	dungeon_change_level(descend_to);
+}
+
+
+
+
+/*
+ * Search for hidden things.  Returns true if a search was attempted, returns
+ * false when the player has a 0% chance of finding anything.  Prints messages
+ * for negative confirmation when verbose mode is requested.
+ */
+bool search(bool verbose)
+{
+	int py = p_ptr->py;
+	int px = p_ptr->px;
+
+	int y, x, chance;
+
+	bool found = FALSE;
+
+	object_type *o_ptr;
+
+
+	/* Start with base search ability */
+	chance = p_ptr->state.skills[SKILL_SEARCH];
+
+	/* Penalize various conditions */
+	if (p_ptr->timed[TMD_BLIND] || no_light()) chance = chance / 10;
+	if (p_ptr->timed[TMD_CONFUSED] || p_ptr->timed[TMD_IMAGE]) chance = chance / 10;
+
+	/* Prevent fruitless searches */
+	if (chance <= 0)
+	{
+		if (verbose)
+		{
+			msg("You can't make out your surroundings well enough to search.");
+
+			/* Cancel repeat */
+			disturb(p_ptr, 0, 0);
+		}
+
+		return FALSE;
+	}
+
+	/* Search the nearby grids, which are always in bounds */
+	for (y = (py - 1); y <= (py + 1); y++)
+	{
+		for (x = (px - 1); x <= (px + 1); x++)
+		{
+			/* Sometimes, notice things */
+			if (randint0(100) < chance)
+			{
+				/* Invisible trap */
+				if (cave_issecrettrap(cave, y, x))
+				{
+					found = TRUE;
+
+					/* Pick a trap */
+					pick_trap(y, x);
+
+					/* Message */
+					msg("You have found a trap.");
+
+					/* Disturb */
+					disturb(p_ptr, 0, 0);
+				}
+
+				/* Secret door */
+				if (cave_issecretdoor(cave, y, x))
+				{
+					found = TRUE;
+
+					/* Message */
+					msg("You have found a secret door.");
+
+					/* Pick a door */
+					place_closed_door(cave, y, x);
+
+					/* Disturb */
+					disturb(p_ptr, 0, 0);
+				}
+
+				/* Scan all objects in the grid */
+				for (o_ptr = get_first_object(y, x); o_ptr; o_ptr = get_next_object(o_ptr))
+				{
+					/* Skip if not a trapped chest */
+					if (!is_trapped_chest(o_ptr)) continue;
+
+					/* Identify once */
+					if (!object_is_known(o_ptr))
+					{
+						found = TRUE;
+
+						/* Message */
+						msg("You have discovered a trap on the chest!");
+
+						/* Know the trap */
+						object_notice_everything(o_ptr);
+
+						/* Notice it */
+						disturb(p_ptr, 0, 0);
+					}
+				}
+			}
+		}
+	}
+
+	if (verbose && !found)
+	{
+		if (chance >= 100)
+			msg("There are no secrets here.");
+		else
+			msg("You found nothing.");
+	}
+
+	return TRUE;
 }
 
 
@@ -242,14 +359,8 @@ static bool do_cmd_open_aux(int y, int x)
 	if (!do_cmd_open_test(y, x)) return (FALSE);
 
 
-	/* Jammed door */
-	if (cave_isjammeddoor(cave, y, x))
-	{
-		msg("The door appears to be stuck.");
-	}
-
 	/* Locked door */
-	else if (cave_islockeddoor(cave, y, x))
+	if (cave_islockeddoor(cave, y, x))
 	{
 		/* Disarm factor */
 		i = p_ptr->state.skills[SKILL_DISARM];
@@ -1064,166 +1175,6 @@ void do_cmd_disarm(cmd_code code, cmd_arg args[])
 	if (!more) disturb(p_ptr, 0, 0);
 }
 
-
-/*
- * Determine if a given grid may be "bashed"
- */
-static bool do_cmd_bash_test(int y, int x)
-{
-	/* Must have knowledge */
-	if (!(cave->info[y][x] & (CAVE_MARK))) {
-		msg("You see nothing there.");
-		return (FALSE);
-	}
-
-	if (!cave_iscloseddoor(cave, y, x)) {
-		msg("You see nothing there to bash.");
-		return FALSE;
-	}
-
-	/* Okay */
-	return (TRUE);
-}
-
-
-/*
- * Perform the basic "bash" command
- *
- * Assume there is no monster blocking the destination
- *
- * Returns TRUE if repeated commands may continue
- */
-static bool do_cmd_bash_aux(int y, int x)
-{
-	int bash, temp;
-
-	bool more = FALSE;
-
-
-	/* Verify legality */
-	if (!do_cmd_bash_test(y, x)) return (FALSE);
-
-
-	/* Message */
-	msg("You smash into the door!");
-
-	/* Hack -- Bash power based on strength */
-	/* (Ranges from 3 to 20 to 100 to 200) */
-	bash = adj_str_blow[p_ptr->state.stat_ind[A_STR]];
-
-	/* Extract door power */
-	temp = cave_door_power(cave, y, x);
-
-	/* Compare bash power to door power */
-	temp = (bash - (temp * 10));
-
-	/* Hack -- always have a chance */
-	if (temp < 1) temp = 1;
-
-	/* Hack -- attempt to bash down the door */
-	if (randint0(100) < temp)
-	{
-		if (randint0(100) < 50)
-			cave_smash_door(cave, y, x);
-		else
-			cave_open_door(cave, y, x);
-
-		msgt(MSG_OPENDOOR, "The door crashes open!");
-
-		/* Update the visuals */
-		p_ptr->update |= (PU_UPDATE_VIEW | PU_MONSTERS);
-	}
-
-	/* Saving throw against stun */
-	else if (randint0(100) < adj_dex_safe[p_ptr->state.stat_ind[A_DEX]] +
-	         p_ptr->lev) {
-		msg("The door holds firm.");
-
-		/* Allow repeated bashing */
-		more = TRUE;
-	}
-
-	/* Low dexterity has bad consequences */
-	else {
-		msg("You are off-balance.");
-
-		/* Lose balance ala stun */
-		(void)player_inc_timed(p_ptr, TMD_STUN, 2 + randint0(2), TRUE, FALSE);
-	}
-
-	/* Result */
-	return more;
-}
-
-
-/*
- * Bash open a door, success based on character strength
- *
- * For a closed door, pval is positive if locked; negative if stuck.
- *
- * For an open door, pval is positive for a broken door.
- *
- * A closed door can be opened - harder if locked. Any door might be
- * bashed open (and thereby broken). Bashing a door is (potentially)
- * faster! You move into the door way. To open a stuck door, it must
- * be bashed. A closed door can be jammed (see do_cmd_spike()).
- *
- * Creatures can also open or bash doors, see elsewhere.
- */
-void do_cmd_bash(cmd_code code, cmd_arg args[])
-{
-	int y, x, dir;
-	bool more = FALSE;
-
-	dir = args[0].direction;
-
-	/* Get location */
-	y = p_ptr->py + ddy[dir];
-	x = p_ptr->px + ddx[dir];
-
-
-	/* Verify legality */
-	if (!do_cmd_bash_test(y, x))
-	{
-		/* Cancel repeat */
-		disturb(p_ptr, 0, 0);
-		return;
-	}
-
-	/* Take a turn */
-	p_ptr->energy_use = 100;
-
-	/* Apply confusion */
-	if (player_confuse_dir(p_ptr, &dir, FALSE))
-	{
-		/* Get location */
-		y = p_ptr->py + ddy[dir];
-		x = p_ptr->px + ddx[dir];
-	}
-
-
-	/* Monster */
-	if (cave->m_idx[y][x] > 0)
-	{
-		/* Message */
-		msg("There is a monster in the way!");
-
-		/* Attack */
-		py_attack(y, x);
-	}
-
-	/* Door */
-	else
-	{
-		/* Bash the door */
-		more = do_cmd_bash_aux(y, x);
-	}
-
-	/* Cancel repeat unless we may continue */
-	if (!more) disturb(p_ptr, 0, 0);
-}
-
-
 /*
  * Manipulate an adjacent grid in some way
  *
@@ -1282,139 +1233,6 @@ void do_cmd_alter(cmd_code code, cmd_arg args[])
 {
 	do_cmd_alter_aux(args[0].direction);
 }
-
-
-/*
- * Find the index of some "spikes", if possible.
- *
- * XXX XXX XXX Let user choose a pile of spikes, perhaps?
- */
-static bool get_spike(int *ip)
-{
-	int i;
-
-	/* Check every item in the pack */
-	for (i = 0; i < INVEN_PACK; i++)
-	{
-		object_type *o_ptr = &p_ptr->inventory[i];
-
-		/* Skip non-objects */
-		if (!o_ptr->kind) continue;
-
-		/* Check the "tval" code */
-		if (o_ptr->tval == TV_SPIKE)
-		{
-			/* Save the spike index */
-			(*ip) = i;
-
-			/* Success */
-			return (TRUE);
-		}
-	}
-
-	/* Oops */
-	return (FALSE);
-}
-
-
-/*
- * Determine if a given grid may be "spiked"
- */
-static bool do_cmd_spike_test(int y, int x)
-{
-	/* Must have knowledge */
-	if (!(cave->info[y][x] & (CAVE_MARK))) {
-		msg("You see nothing there.");
-		return FALSE;
-	}
-
-	/* Check if door is closed */
-	if (!cave_iscloseddoor(cave, y, x)) {
-		msg("You see nothing there to spike.");
-		return FALSE;
-	}
-
-	/* Check that the door is not fully spiked */
-	if (!cave_can_jam_door(cave, y, x)) {
-		msg("You can't use more spikes on this door.");
-		return FALSE;
-	}
-
-	/* Okay */
-	return TRUE;
-}
-
-
-/*
- * Jam a closed door with a spike
- *
- * This command may NOT be repeated
- */
-void do_cmd_spike(cmd_code code, cmd_arg args[])
-{
-	int y, x, dir, item = 0;
-
-	dir = args[0].direction;
-
-	/* Get a spike */
-	if (!get_spike(&item))
-	{
-		/* Message */
-		msg("You have no spikes!");
-
-		/* Done */
-		return;
-	}
-
-	/* Get location */
-	y = p_ptr->py + ddy[dir];
-	x = p_ptr->px + ddx[dir];
-
-
-	/* Verify legality */
-	if (!do_cmd_spike_test(y, x)) return;
-
-
-	/* Take a turn */
-	p_ptr->energy_use = 100;
-
-	/* Apply confusion */
-	if (player_confuse_dir(p_ptr, &dir, FALSE))
-	{
-		/* Get location */
-		y = p_ptr->py + ddy[dir];
-		x = p_ptr->px + ddx[dir];
-	}
-
-
-	/* Monster */
-	if (cave->m_idx[y][x] > 0)
-	{
-		/* Message */
-		msg("There is a monster in the way!");
-
-		/* Attack */
-		py_attack(y, x);
-	}
-
-	/* Go for it */
-	else
-	{
-		/* Verify legality */
-		if (!do_cmd_spike_test(y, x)) return;
-
-		/* Successful jamming */
-		msg("You jam the door with a spike.");
-
-		cave_jam_door(cave, y, x);
-
-		/* Use up, and describe, a single spike, from the bottom */
-		inven_item_increase(item, -1);
-		inven_item_describe(item);
-		inven_item_optimize(item);
-	}
-}
-
 
 /*
  * Determine if a given grid may be "walked"
@@ -1619,30 +1437,6 @@ void do_cmd_hold(cmd_code code, cmd_arg args[])
 }
 
 
-
-/*
- * Pick up objects on the floor beneath you.  -LM-
- */
-void do_cmd_pickup(cmd_code code, cmd_arg args[])
-{
-	int energy_cost;
-
-	/* Pick up floor objects, forcing a menu for multiple objects. */
-	energy_cost = py_pickup(1) * 10;
-
-	/* Charge this amount of energy. */
-	p_ptr->energy_use = energy_cost;
-}
-
-/*
- * Pick up objects on the floor beneath you.  -LM-
- */
-void do_cmd_autopickup(cmd_code code, cmd_arg args[])
-{
-	p_ptr->energy_use = do_autopickup() * 10;
-}
-
-
 /*
  * Rest (restores hit points and mana and such)
  */
@@ -1730,57 +1524,102 @@ void textui_cmd_rest(void)
 
 
 /*
- * Hack -- commit suicide
+ * Array of feeling strings for object feelings.
+ * Keep strings at 36 or less characters to keep the
+ * combined feeling on one row.
  */
-void do_cmd_suicide(cmd_code code, cmd_arg args[])
+static const char *obj_feeling_text[] =
 {
-	/* Commit suicide */
-	p_ptr->is_dead = TRUE;
+	"Looks like any other level.",
+	"you sense an item of wondrous power!",
+	"there are superb treasures here.",
+	"there are excellent treasures here.",
+	"there are very good treasures here.",
+	"there are good treasures here.",
+	"there may be something worthwhile here.",
+	"there may not be much interesting here.",
+	"there aren't many treasures here.",
+	"there are only scraps of junk here.",
+	"there are naught but cobwebs here."
+};
 
-	/* Stop playing */
-	p_ptr->playing = FALSE;
-
-	/* Leaving */
-	p_ptr->leaving = TRUE;
-
-	/* Cause of death */
-	my_strcpy(p_ptr->died_from, "Quitting", sizeof(p_ptr->died_from));
-}
-
-
-void textui_cmd_suicide(void)
+/*
+ * Array of feeling strings for monster feelings.
+ * Keep strings at 36 or less characters to keep the
+ * combined feeling on one row.
+ */
+static const char *mon_feeling_text[] =
 {
-	/* Flush input */
-	flush();
+	/* first string is just a place holder to 
+	 * maintain symmetry with obj_feeling.
+	 */
+	"You are still uncertain about this place",
+	"Omens of death haunt this place",
+	"This place seems murderous",
+	"This place seems terribly dangerous",
+	"You feel anxious about this place",
+	"You feel nervous about this place",
+	"This place does not seem too risky",
+	"This place seems reasonably safe",
+	"This seems a tame, sheltered place",
+	"This seems a quiet, peaceful place"
+};
 
-	/* Verify Retirement */
-	if (p_ptr->total_winner)
-	{
-		/* Verify */
-		if (!get_check("Do you want to retire? ")) return;
+/*
+ * Display the feeling.  Players always get a monster feeling.
+ * Object feelings are delayed until the player has explored some
+ * of the level.
+ */
+
+void display_feeling(bool obj_only)
+{
+	u16b obj_feeling = cave->feeling / 10;
+	u16b mon_feeling = cave->feeling - (10 * obj_feeling);
+	const char *join;
+
+	/* Don't show feelings for cold-hearted characters */
+	if (OPT(birth_no_feelings)) return;
+
+	/* No useful feeling in town */
+	if (!p_ptr->depth) {
+		msg("Looks like a typical town.");
+		return;
 	}
+	
+	/* Display only the object feeling when it's first discovered. */
+	if (obj_only){
+		msg("You feel that %s", obj_feeling_text[obj_feeling]);
+		return;
+	}
+	
+	/* Players automatically get a monster feeling. */
+	if (cave->feeling_squares < FEELING1){
+		msg("%s.", mon_feeling_text[mon_feeling]);
+		return;
+	}
+	
+	/* Verify the feelings */
+	if (obj_feeling >= N_ELEMENTS(obj_feeling_text))
+		obj_feeling = N_ELEMENTS(obj_feeling_text) - 1;
 
-	/* Verify Suicide */
+	if (mon_feeling >= N_ELEMENTS(mon_feeling_text))
+		mon_feeling = N_ELEMENTS(mon_feeling_text) - 1;
+
+	/* Decide the conjunction */
+	if ((mon_feeling <= 5 && obj_feeling > 6) ||
+			(mon_feeling > 5 && obj_feeling <= 6))
+		join = ", yet";
 	else
-	{
-		struct keypress ch;
+		join = ", and";
 
-		/* Verify */
-		if (!get_check("Do you really want to commit suicide? ")) return;
-
-		/* Special Verification for suicide */
-		prt("Please verify SUICIDE by typing the '@' sign: ", 0, 0);
-		flush();
-		ch = inkey();
-		prt("", 0, 0);
-		if (ch.code != '@') return;
-	}
-
-	cmd_insert(CMD_SUICIDE);
+	/* Display the feeling */
+	msg("%s%s %s", mon_feeling_text[mon_feeling], join,
+		obj_feeling_text[obj_feeling]);
 }
 
-void do_cmd_save_game(cmd_code code, cmd_arg args[])
+
+void do_cmd_feeling(void)
 {
-	save_game();
+	display_feeling(FALSE);
 }
 

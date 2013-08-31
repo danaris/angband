@@ -640,9 +640,6 @@ const char *describe_use(int i)
  */
 bool item_tester_okay(const object_type *o_ptr)
 {
-	/* Hack -- allow listing empty slots */
-	if (item_tester_full) return (TRUE);
-
 	/* Require an item */
 	if (!o_ptr->kind) return (FALSE);
 
@@ -894,8 +891,11 @@ void delete_object_idx(int o_idx)
 		
 		/* Clear the mimicry */
 		m_ptr->mimicked_o_idx = 0;
-		
+		m_ptr->unaware = FALSE;
+
+#if 0 /* Hack - just make the mimic obviously a mimic instead of deleting it */
 		delete_monster_idx(j_ptr->mimicking_m_idx);
+#endif
 	}
 
 	/* Wipe the object */
@@ -2145,7 +2145,7 @@ void drop_near(struct cave *c, object_type *j_ptr, int chance, int y, int x, boo
 		}
 
 		/* Require floor space */
-		if (!cave_canputitem(cave, y, x)) continue;
+		if (!cave_canputitem(cave, ty, tx)) continue;
 
 		/* Bounce to that location */
 		by = ty;
@@ -3527,10 +3527,6 @@ struct object_kind *objkind_byid(int kidx) {
  */
 static const grouper tval_names[] =
 {
-	{ TV_SKELETON,    "skeleton" },
-	{ TV_BOTTLE,      "bottle" },
-	{ TV_JUNK,        "junk" },
-	{ TV_SPIKE,       "spike" },
 	{ TV_CHEST,       "chest" },
 	{ TV_SHOT,        "shot" },
 	{ TV_ARROW,       "arrow" },
@@ -3771,11 +3767,11 @@ void display_object_idx_recall(s16b item)
  * This draws the Object Recall subwindow when displaying a recalled item kind
  * (e.g. a generic ring of acid or a generic blade of chaos)
  */
-void display_object_kind_recall(s16b k_idx)
+void display_object_kind_recall(struct object_kind *kind)
 {
 	object_type object = { 0 };
-	object_prep(&object, &k_info[k_idx], 0, EXTREMIFY);
-	if (k_info[k_idx].aware)
+	object_prep(&object, kind, 0, EXTREMIFY);
+	if (kind->aware)
 		object.ident |= IDENT_STORE;
 
 	display_object_recall(&object);
@@ -4222,6 +4218,21 @@ bool obj_needs_aim(object_type *o_ptr)
 			o_ptr->tval == TV_SHOT || o_ptr->tval == TV_ARROW ||
 			o_ptr->tval == TV_WAND ||
 			(o_ptr->tval == TV_ROD && !object_flavor_is_aware(o_ptr));
+}
+
+/*
+ * Can the object fail if used?
+ */
+bool obj_can_fail(const struct object *o) {
+	switch (o->tval) {
+		case TV_STAFF:
+		case TV_WAND:
+		case TV_ROD:
+			return TRUE;
+
+		default:
+			return wield_slot(o) == -1 ? FALSE : TRUE;
+	}
 }
 
 

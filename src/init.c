@@ -1,5 +1,5 @@
 /*
- * File: init2.c
+ * File: init.c
  * Purpose: Various game initialistion routines
  *
  * Copyright (c) 1997 Ben Harrison
@@ -25,6 +25,7 @@
 #include "game-cmd.h"
 #include "generate.h"
 #include "history.h"
+#include "hint.h"
 #include "keymap.h"
 #include "init.h"
 #include "monster/mon-init.h"
@@ -36,8 +37,15 @@
 #include "option.h"
 #include "parser.h"
 #include "prefs.h"
+#include "quest.h"
 #include "randname.h"
 #include "squelch.h"
+
+/*
+ * Structure (not array) of size limits
+ */
+maxima *z_info;
+
 
 static struct history_chart *histories;
 
@@ -1100,7 +1108,6 @@ static enum parser_error parse_f_x(struct parser *p) {
 	if (!f)
 		return PARSE_ERROR_MISSING_RECORD_HEADER;
 	f->locked = parser_getint(p, "locked");
-	f->jammed = parser_getint(p, "jammed");
 	f->shopnum = parser_getint(p, "shopnum");
 	f->dig = parser_getint(p, "dig");
 	return PARSE_ERROR_NONE;
@@ -1126,7 +1133,7 @@ struct parser *init_parse_f(void) {
 	parser_reg(p, "M uint index", parse_f_m);
 	parser_reg(p, "P uint priority", parse_f_p);
 	parser_reg(p, "F ?str flags", parse_f_f);
-	parser_reg(p, "X int locked int jammed int shopnum int dig", parse_f_x);
+	parser_reg(p, "X int locked int unused int shopnum int dig", parse_f_x);
 	parser_reg(p, "E str effect", parse_f_e);
 	return p;
 }
@@ -1452,7 +1459,6 @@ static enum parser_error parse_p_s(struct parser *p) {
 	r->r_adj[A_CON] = parser_getint(p, "con");
 	r->r_adj[A_INT] = parser_getint(p, "int");
 	r->r_adj[A_WIS] = parser_getint(p, "wis");
-	r->r_adj[A_CHR] = parser_getint(p, "chr");
 	return PARSE_ERROR_NONE;
 }
 
@@ -1587,7 +1593,7 @@ struct parser *init_parse_p(void) {
 	parser_setpriv(p, NULL);
 	parser_reg(p, "V sym version", ignored);
 	parser_reg(p, "N uint index str name", parse_p_n);
-	parser_reg(p, "S int str int int int wis int dex int con int chr", parse_p_s);
+	parser_reg(p, "S int str int int int wis int dex int con", parse_p_s);
 	parser_reg(p, "R int dis int dev int sav int stl int srh int fos int thm int thb int throw int dig", parse_p_r);
 	parser_reg(p, "X int mhp int exp int infra", parse_p_x);
 	parser_reg(p, "I uint hist int b-age int m-age", parse_p_i);
@@ -1652,7 +1658,6 @@ static enum parser_error parse_c_s(struct parser *p) {
 	c->c_adj[A_WIS] = parser_getint(p, "wis");
 	c->c_adj[A_DEX] = parser_getint(p, "dex");
 	c->c_adj[A_CON] = parser_getint(p, "con");
-	c->c_adj[A_CHR] = parser_getint(p, "chr");
 	return PARSE_ERROR_NONE;
 }
 
@@ -1819,7 +1824,7 @@ struct parser *init_parse_c(void) {
 	parser_setpriv(p, NULL);
 	parser_reg(p, "V sym version", ignored);
 	parser_reg(p, "N uint index str name", parse_c_n);
-	parser_reg(p, "S int str int int int wis int dex int con int chr", parse_c_s);
+	parser_reg(p, "S int str int int int wis int dex int con", parse_c_s);
 	parser_reg(p, "C int dis int dev int sav int stl int srh int fos int thm int thb int throw int dig", parse_c_c);
 	parser_reg(p, "X int dis int dev int sav int stl int srh int fos int thm int thb int throw int dig", parse_c_x);
 	parser_reg(p, "I int mhp int exp int sense-base int sense-div", parse_c_i);
@@ -2719,8 +2724,7 @@ static errr init_other(void)
 
 	/*** Prepare quest array ***/
 
-	/* Quests */
-	q_list = C_ZNEW(MAX_Q_IDX, quest);
+	quest_init();
 
 
 	/*** Prepare the inventory ***/
@@ -2992,10 +2996,9 @@ void cleanup_angband(void)
 	/* Free the stores */
 	if (stores) free_stores();
 
-	/* Free the quest list */
-	FREE(q_list);
-
+	quest_free();
 	button_free();
+
 	FREE(p_ptr->inventory);
 
 	/* Free the lore, monster, and object lists */

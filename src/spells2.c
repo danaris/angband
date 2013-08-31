@@ -201,10 +201,6 @@ bool do_dec_stat(int stat, bool perma)
 			if (check_state(p_ptr, OF_SUST_CON, p_ptr->state.flags)) sust = TRUE;
 			wieldeds_notice_flag(p_ptr, OF_SUST_CON);
 			break;
-		case A_CHR:
-			if (check_state(p_ptr, OF_SUST_CHR, p_ptr->state.flags)) sust = TRUE;
-			wieldeds_notice_flag(p_ptr, OF_SUST_CHR);
-			break;
 	}
 
 	/* Sustain */
@@ -505,8 +501,8 @@ void map_area(void)
 	/* Drag the co-ordinates into the dungeon */
 	if (y1 < 0) y1 = 0;
 	if (x1 < 0) x1 = 0;
-	if (y2 > DUNGEON_HGT - 1) y2 = DUNGEON_HGT - 1;
-	if (x2 > DUNGEON_WID - 1) x2 = DUNGEON_WID - 1;
+	if (y2 > cave->height - 1) y2 = cave->height - 1;
+	if (x2 > cave->width - 1) x2 = cave->width - 1;
 
 	/* Scan the dungeon */
 	for (y = y1; y < y2; y++)
@@ -3140,7 +3136,6 @@ void ring_of_power(int dir)
 			player_stat_dec(p_ptr, A_WIS, TRUE);
 			player_stat_dec(p_ptr, A_DEX, TRUE);
 			player_stat_dec(p_ptr, A_CON, TRUE);
-			player_stat_dec(p_ptr, A_CHR, TRUE);
 
 			/* Lose some experience (permanently) */
 			player_exp_lose(p_ptr, p_ptr->exp / 4, TRUE);
