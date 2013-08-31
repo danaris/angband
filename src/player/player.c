@@ -6,15 +6,74 @@
 #include "history.h" /* history_add */
 #include "player/player.h"
 #include "z-util.h" /* my_strcpy */
-
+#include "monster/mon-util.h" /* monster_desc */
 
 
 void health_track(struct player *p, struct monster *m_ptr)
 {
 	p->health_who = m_ptr;
+	monmem_push(p, m_ptr);
 	p->redraw |= PR_HEALTH;
 }
 
+void monmem_remove(struct player *p, struct monster *m_ptr) {
+	int i;
+	bool found = false;
+	for (i=0; i<PY_MAX_MONMEM; i++) {
+		if (!found) {
+			continue;
+		}
+		if (p->monster_memory[i] == m_ptr) {
+			found = true;
+		}
+		if (i+1 < PY_MAX_MONMEM) {
+			p->monster_memory[i] = p->monster_memory[i+1];
+		} else {
+			p->monster_memory[i] = 0;
+		}
+	}
+}
+			
+
+void monmem_push(struct player *p, struct monster *m_ptr) {
+	int i;
+	struct monster *tmp1, *tmp2;
+	tmp2 = m_ptr;
+	for (i=0; i<PY_MAX_MONMEM; i++) {
+		if (p->monster_memory[i] == m_ptr || p->monster_memory[i] == 0) {
+			p->monster_memory[i] = tmp2;
+			break;
+		}
+		tmp1 = p->monster_memory[i];
+		p->monster_memory[i] = tmp2;
+		tmp2 = tmp1;
+	}
+}
+
+void monmem_rotate(struct player *p) {
+	char out_val[256];
+	char name[80];
+	struct monster *last = p->monster_memory[PY_MAX_MONMEM-1];
+	int i = PY_MAX_MONMEM-1;
+	while (last == 0 && i>0) {
+		fprintf(stderr, "Looking for %d at position %d, where there's %d\n", last, i, p->monster_memory[i]);
+		i--;
+		last = p->monster_memory[i];
+	}
+	if (i == 0) {
+		prt("You don't remember any monsters.", 0, 0);
+		return;
+	}
+	monmem_push(p, last);
+	p->health_who = last;
+	p->redraw |= PR_HEALTH;
+	fprintf(stderr, "Remembering monster index %d, #%d in monmem array\n", last, i);
+	monster_desc(name, sizeof(name), last, MDESC_IND2);
+	strnfmt(out_val, sizeof(out_val), "You remember %s.",
+						name);
+	prt(out_val, 0, 0);
+}
+	
 /*
  * Hack -- track the given monster race
  */

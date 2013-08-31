@@ -154,6 +154,8 @@ void delete_monster_idx(int m_idx)
 
 	/* Hack -- remove tracked monster */
 	if (p_ptr->health_who == m_ptr) health_track(p_ptr, NULL);
+	
+	monmem_remove(p_ptr, m_ptr);
 
 	/* Monster is gone */
 	cave->m_idx[y][x] = 0;

@@ -46,6 +46,9 @@ extern struct player_class *player_id2class(guid id);
 
 /* player.c */
 extern void health_track(struct player *p, struct monster *m_ptr);
+extern void monmem_push(struct player *p, struct monster *m_ptr);
+extern void monmem_remove(struct player *p, struct monster *m_ptr);
+extern void monmem_rotate(struct player *p);
 extern void monster_race_track(monster_race *race);
 extern void track_object(int item);
 extern void track_object_kind(int k_idx);

@@ -123,7 +123,8 @@ static struct cmd_info cmd_info[] =
 	{ "Check knowledge", { '~' }, CMD_NULL, textui_browse_knowledge },
 	{ "Repeat level feeling", { KTRL('F') }, CMD_NULL, do_cmd_feeling },
 	{ "Show previous message", { KTRL('O') }, CMD_NULL, do_cmd_message_one },
-	{ "Show previous messages", { KTRL('P') }, CMD_NULL, do_cmd_messages }
+	{ "Show previous messages", { KTRL('P') }, CMD_NULL, do_cmd_messages },
+	{ "Cycle monster memory", { KTRL(']') }, CMD_NULL, do_cmd_monmem }
 };
 
 /* Utility/assorted commands */

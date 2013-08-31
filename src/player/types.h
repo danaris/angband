@@ -130,6 +130,8 @@ typedef struct player
 	bool is_dead;			/* Player is dead */
 
 	bool wizard;			/* Player is in wizard mode */
+	
+	struct monster *monster_memory[PY_MAX_MONMEM];
 
 
 	/*** Temporary fields ***/
