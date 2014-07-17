@@ -21,15 +21,27 @@
 #include "cave.h"
 #include "cmds.h"
 #include "history.h"
-#include "monster/mon-lore.h"
-#include "monster/monster.h"
-#include "monster/mon-util.h"
-#include "object/tvalsval.h"
-#include "squelch.h"
+#include "init.h"
+#include "mon-lore.h"
+#include "mon-util.h"
+#include "monster.h"
+#include "obj-desc.h"
+#include "obj-identify.h"
+#include "obj-ignore.h"
+#include "obj-info.h"
+#include "obj-make.h"
+#include "obj-tval.h"
+#include "obj-util.h"
+#include "object.h"
+#include "score.h"
 #include "store.h"
+#include "tables.h"
+#include "target.h"
 #include "ui.h"
 #include "ui-menu.h"
+#include "ui-options.h"
 #include "grafmode.h"
+#include "wizard.h"
 
 /* Flag value for missing array entry */
 #define MISSING -17
@@ -43,7 +55,8 @@ static const grouper object_text_order[] =
 	{TV_WAND,			"Wand"			},
 	{TV_STAFF,			"Staff"			},
 	{TV_ROD,			"Rod"			},
-	{TV_FOOD,			"Food"			},
+ 	{TV_FOOD,			"Food"			},
+ 	{TV_MUSHROOM,		"Mushroom"		},
 	{TV_PRAYER_BOOK,	"Priest Book"	},
 	{TV_MAGIC_BOOK,		"Magic Book"	},
 	{TV_LIGHT,			"Light"			},
@@ -65,6 +78,7 @@ static const grouper object_text_order[] =
 	{TV_HARD_ARMOR,		"Hard Armor"	},
 	{TV_SOFT_ARMOR,		"Soft Armor"	},
 	{TV_DIGGING,		"Digger"		},
+	{TV_GOLD,			"Money"			},
 	{0,					NULL			}
 };
 
@@ -552,7 +566,7 @@ static void display_knowledge(const char *title, int *obj_list, int o_count,
 		menu_refresh(inactive_menu, FALSE);
 		menu_refresh(active_menu, FALSE);
 
-		handle_stuff(p_ptr);
+		handle_stuff(player->upkeep);
 
 		if (tile_picker) 
 		{
@@ -1261,8 +1275,8 @@ static void mon_lore(int oid)
 	l_ptr = get_lore(r_ptr);
 
 	/* Update the monster recall window */
-	monster_race_track(r_ptr);
-	handle_stuff(p_ptr);
+	monster_race_track(player->upkeep, r_ptr);
+	handle_stuff(player->upkeep);
 
 	tb = textblock_new();
 	lore_description(tb, r_ptr, l_ptr, FALSE);
@@ -1417,14 +1431,14 @@ static object_type *find_artifact(struct artifact *artifact)
 	/* Look for the artifact, either in inventory, store or the object list */
 	for (i = 0; i < z_info->o_max; i++)
 	{
-		if (object_byid(i)->artifact == artifact)
-			return object_byid(i);
+		if (cave_object(cave, i)->artifact == artifact)
+			return cave_object(cave, i);
 	}
 
-	for (i = 0; i < INVEN_TOTAL; i++)
+	for (i = 0; i < player->max_gear; i++)
 	{
-		if (p_ptr->inventory[i].artifact == artifact)
-			return &p_ptr->inventory[i];
+		if (player->gear[i].artifact == artifact)
+			return &player->gear[i];
 	}
 
 	for (s = stores; s; s = s->next)
@@ -1456,16 +1470,17 @@ static void desc_art_fake(int a_idx)
 		o_ptr = &object_type_body;
 
 		make_fake_artifact(o_ptr, &a_info[a_idx]);
-		o_ptr->ident |= IDENT_NAME;
+		id_on(o_ptr->id_flags, ID_ARTIFACT);
 
 		/* Check the history entry, to see if it was fully known before it
 		 * was lost */
 		if (history_is_artifact_known(o_ptr->artifact))
-			object_notice_everything(o_ptr);
+			/* Be very careful not to influence anything but this object */
+			object_know_all_but_flavor(o_ptr);
 	}
 
 	/* Hack -- Handle stuff */
-	handle_stuff(p_ptr);
+	handle_stuff(player->upkeep);
 
 	tb = object_info(o_ptr, OINFO_NONE);
 	object_desc(header, sizeof(header), o_ptr,
@@ -1508,7 +1523,7 @@ static bool artifact_is_known(int a_idx)
 	if (!a_info[a_idx].name)
 		return FALSE;
 
-	if (p_ptr->wizard)
+	if (player->wizard)
 		return TRUE;
 
 	if (!a_info[a_idx].created)
@@ -1556,7 +1571,7 @@ static int collect_known_artifacts(int *artifacts, size_t artifacts_len)
 static void do_cmd_knowledge_artifacts(const char *name, int row)
 {
 	/* HACK -- should be TV_MAX */
-	group_funcs obj_f = {TV_GOLD, FALSE, kind_name, a_cmp_tval, art2gid, 0};
+	group_funcs obj_f = {TV_MAX, FALSE, kind_name, a_cmp_tval, art2gid, 0};
 	member_funcs art_f = {display_artifact, desc_art_fake, 0, 0, recall_prompt, 0, 0};
 
 	int *artifacts;
@@ -1627,40 +1642,51 @@ static int e_cmp_tval(const void *a, const void *b)
 static void do_cmd_knowledge_ego_items(const char *name, int row)
 {
 	group_funcs obj_f =
-		{TV_GOLD, FALSE, ego_grp_name, e_cmp_tval, default_group, 0};
+		{TV_MAX, FALSE, ego_grp_name, e_cmp_tval, default_group, 0};
 
-	member_funcs ego_f = {display_ego_item, desc_ego_fake, 0, 0, recall_prompt, 0, 0};
+	member_funcs ego_f =
+		{display_ego_item, desc_ego_fake, 0, 0, recall_prompt, 0, 0};
 
 	int *egoitems;
 	int e_count = 0;
-	int i, j;
+	int i;
 
-	/* HACK: currently no more than 3 tvals for one ego type */
-	egoitems = C_ZNEW(z_info->e_max * EGO_TVALS_MAX, int);
-	default_join = C_ZNEW(z_info->e_max * EGO_TVALS_MAX, join_t);
+	/* Overkill - NRM */
+	int max_pairs = z_info->e_max * N_ELEMENTS(object_text_order);
+	egoitems = mem_zalloc(max_pairs * sizeof(int));
+	default_join = mem_zalloc(max_pairs * sizeof(join_t));
 
-	for (i = 0; i < z_info->e_max; i++)
-	{
-		if (e_info[i].everseen || OPT(cheat_xtra))
-		{
-			for (j = 0; j < EGO_TVALS_MAX && e_info[i].tval[j]; j++)
-			{
-				int gid = obj_group_order[e_info[i].tval[j]];
+	/* Look at all the ego items */
+	for (i = 0; i < z_info->e_max; i++)	{
+		ego_item_type *ego = &e_info[i];
+		if (ego->everseen || OPT(cheat_xtra)) {
+			size_t j;
+			int *tval = mem_zalloc(N_ELEMENTS(object_text_order) * sizeof(int));
+			struct ego_poss_item *poss;
 
-				/* Ignore duplicate gids */
-				if (j > 0 && gid == default_join[e_count - 1].gid) continue;
-
-				egoitems[e_count] = e_count;
-				default_join[e_count].oid = i;
-				default_join[e_count++].gid = gid;
+			/* Note the tvals which are possible for this ego */
+			for (poss = ego->poss_items; poss; poss = poss->next) {
+				object_kind *kind = &k_info[poss->kidx];
+				tval[obj_group_order[kind->tval]]++;
 			}
+
+			/* Count and put into the list */
+			for (j = 0; j < N_ELEMENTS(object_text_order); j++) {
+				int gid = obj_group_order[j];
+				if (tval[obj_group_order[j]]) {
+					egoitems[e_count] = e_count;
+					default_join[e_count].oid = i;
+					default_join[e_count++].gid = gid;
+				}
+			}
+			mem_free(tval);
 		}
 	}
 
 	display_knowledge("ego items", egoitems, e_count, obj_f, ego_f, NULL);
 
-	FREE(default_join);
-	FREE(egoitems);
+	mem_free(default_join);
+	mem_free(egoitems);
 }
 
 /* =================== ORDINARY OBJECTS  ==================================== */
@@ -1675,7 +1701,7 @@ static int get_artifact_from_kind(object_kind *kind)
 {
 	int i;
 
-	assert(of_has(kind->flags, OF_INSTA_ART));
+	assert(kf_has(kind->kind_flags, KF_INSTA_ART));
 
 	/* Look for the corresponding artifact */
 	for (i = 0; i < z_info->a_max; i++)
@@ -1712,8 +1738,10 @@ static void display_object(int col, int row, bool cursor, int oid)
 	wchar_t c = use_flavour ? kind->flavor->x_char : kind->x_char;
 
 	/* Display known artifacts differently */
-	if (of_has(kind->flags, OF_INSTA_ART) && artifact_is_known(get_artifact_from_kind(kind)))
-		get_artifact_display_name(o_name, sizeof(o_name), get_artifact_from_kind(kind));
+	if (kf_has(kind->kind_flags, KF_INSTA_ART) && 
+		artifact_is_known(get_artifact_from_kind(kind)))
+		get_artifact_display_name(o_name, sizeof(o_name), 
+								  get_artifact_from_kind(kind));
 	else
  		object_kind_name(o_name, sizeof(o_name), kind, OPT(cheat_xtra));
 
@@ -1724,9 +1752,9 @@ static void display_object(int col, int row, bool cursor, int oid)
 	/* Display the name */
 	c_prt(attr, o_name, row, col);
 
-	/* Show squelch status */
-	if ((aware && kind_is_squelched_aware(kind)) ||
-		(!aware && kind_is_squelched_unaware(kind)))
+	/* Show ignore status */
+	if ((aware && kind_is_ignored_aware(kind)) ||
+		(!aware && kind_is_ignored_unaware(kind)))
 		c_put_str(attr, "Yes", row, 46);
 
 
@@ -1754,15 +1782,15 @@ static void desc_obj_fake(int k_idx)
 	region area = { 0, 0, 0, 0 };
 
 	/* Check for known artifacts, display them as artifacts */
-	if (of_has(kind->flags, OF_INSTA_ART) && artifact_is_known(get_artifact_from_kind(kind)))
-	{
+	if (kf_has(kind->kind_flags, KF_INSTA_ART) && 
+		artifact_is_known(get_artifact_from_kind(kind))) {
 		desc_art_fake(get_artifact_from_kind(kind));
 		return;
 	}
 
 	/* Update the object recall window */
-	track_object_kind(kind);
-	handle_stuff(p_ptr);
+	track_object_kind(player->upkeep, kind);
+	handle_stuff(player->upkeep);
 
 	/* Wipe the object */
 	object_wipe(o_ptr);
@@ -1771,13 +1799,13 @@ static void desc_obj_fake(int k_idx)
 	object_prep(o_ptr, kind, 0, EXTREMIFY);
 
 	/* Hack -- its in the store */
-	if (kind->aware) o_ptr->ident |= (IDENT_STORE);
+	if (kind->aware) object_know_all_but_flavor(o_ptr);
 
 	/* It's fully know */
 	if (!kind->flavor) object_notice_everything(o_ptr);
 
 	/* Hack -- Handle stuff */
-	handle_stuff(p_ptr);
+	handle_stuff(player->upkeep);
 
 	tb = object_info(o_ptr, OINFO_NONE);
 	object_desc(header, sizeof(header), o_ptr,
@@ -1854,8 +1882,8 @@ static const char *o_xtra_prompt(int oid)
 {
 	object_kind *k = objkind_byid(oid);
 
-	const char *no_insc = ", 's' to toggle squelch, 'r'ecall, '{'";
-	const char *with_insc = ", 's' to toggle squelch, 'r'ecall, '{', '}'";
+	const char *no_insc = ", 's' to toggle ignore, 'r'ecall, '{'";
+	const char *with_insc = ", 's' to toggle ignore, 'r'ecall, '{', '}'";
 
 	/* Forget it if we've never seen the thing */
 	if (k->flavor && !k->aware)
@@ -1871,22 +1899,22 @@ static void o_xtra_act(struct keypress ch, int oid)
 {
 	object_kind *k = objkind_byid(oid);
 
-	/* Toggle squelch */
-	if (squelch_tval(k->tval) && (ch.code == 's' || ch.code == 'S'))
+	/* Toggle ignore */
+	if (ignore_tval(k->tval) && (ch.code == 's' || ch.code == 'S'))
 	{
 		if (k->aware)
 		{
-			if (kind_is_squelched_aware(k))
-				kind_squelch_clear(k);
+			if (kind_is_ignored_aware(k))
+				kind_ignore_clear(k);
 			else
-				kind_squelch_when_aware(k);
+				kind_ignore_when_aware(k);
 		}
 		else
 		{
-			if (kind_is_squelched_unaware(k))
-				kind_squelch_clear(k);
+			if (kind_is_ignored_unaware(k))
+				kind_ignore_clear(k);
 			else
-				kind_squelch_when_unaware(k);
+				kind_ignore_when_unaware(k);
 		}
 
 		return;
@@ -1925,8 +1953,8 @@ static void o_xtra_act(struct keypress ch, int oid)
 			add_autoinscription(oid, note_text);
 
 			/* Notice stuff (later) */
-			p_ptr->notice |= (PN_AUTOINSCRIBE);
-			p_ptr->redraw |= (PR_INVEN | PR_EQUIP);
+			player->upkeep->notice |= (PN_AUTOINSCRIBE);
+			player->upkeep->redraw |= (PR_INVEN | PR_EQUIP);
 		}
 
 		/* Reload the screen */
@@ -1941,7 +1969,7 @@ static void o_xtra_act(struct keypress ch, int oid)
  */
 void textui_browse_object_knowledge(const char *name, int row)
 {
-	group_funcs kind_f = {TV_GOLD, FALSE, kind_name, o_cmp_tval, obj2gid, 0};
+	group_funcs kind_f = {TV_MAX, FALSE, kind_name, o_cmp_tval, obj2gid, 0};
 	member_funcs obj_f = {display_object, desc_obj_fake, o_xchar, o_xattr, o_xtra_prompt, o_xtra_act, 0};
 
 	int *objects;
@@ -1960,7 +1988,7 @@ void textui_browse_object_knowledge(const char *name, int row)
 		 * until it is found.
 		 */
 		if ((kind->everseen || kind->flavor || OPT(cheat_xtra)) &&
-				(!of_has(kind->flags, OF_INSTA_ART) ||
+				(!kf_has(kind->kind_flags, KF_INSTA_ART) ||
 				 !artifact_is_known(get_artifact_from_kind(kind))))
 		{
 			int c = obj_group_order[k_info[i].tval];
@@ -1968,7 +1996,7 @@ void textui_browse_object_knowledge(const char *name, int row)
 		}
 	}
 
-	display_knowledge("known objects", objects, o_count, kind_f, obj_f, "Squelch  Inscribed          Sym");
+	display_knowledge("known objects", objects, o_count, kind_f, obj_f, "Ignore  Inscribed          Sym");
 
 	FREE(objects);
 }
@@ -1988,13 +2016,15 @@ static void display_feature(int col, int row, bool cursor, int oid )
 
 	if (tile_height == 1) {
 		/* Display symbols */
-		col = 66;
+		col = 65;
 		col += big_pad(col, row, f_ptr->x_attr[FEAT_LIGHTING_DARK],
 				f_ptr->x_char[FEAT_LIGHTING_DARK]);
 		col += big_pad(col, row, f_ptr->x_attr[FEAT_LIGHTING_LIT],
 				f_ptr->x_char[FEAT_LIGHTING_LIT]);
-		col += big_pad(col, row, f_ptr->x_attr[FEAT_LIGHTING_BRIGHT],
-				f_ptr->x_char[FEAT_LIGHTING_BRIGHT]);
+		col += big_pad(col, row, f_ptr->x_attr[FEAT_LIGHTING_TORCH],
+				f_ptr->x_char[FEAT_LIGHTING_TORCH]);
+		col += big_pad(col, row, f_ptr->x_attr[FEAT_LIGHTING_LOS],
+				f_ptr->x_char[FEAT_LIGHTING_LOS]);
 	}
 }
 
@@ -2013,7 +2043,7 @@ static int f_cmp_fkind(const void *a, const void *b)
 }
 
 static const char *fkind_name(int gid) { return feature_group_text[gid]; }
-/* Disgusting hack to allow 3 in 1 editting of terrain visuals */
+/* Disgusting hack to allow 4 in 1 editing of terrain visuals */
 static enum grid_light_level f_uik_lighting = FEAT_LIGHTING_LIT;
 /* XXX needs *better* retooling for multi-light terrain */
 static byte *f_xattr(int oid) { return &f_info[oid].x_attr[f_uik_lighting]; }
@@ -2033,13 +2063,15 @@ static void f_xtra_act(struct keypress ch, int oid)
 	/* XXX must be a better way to cycle this */
 	if (ch.code == 'l') {
 		switch (f_uik_lighting) {
-				case FEAT_LIGHTING_LIT:  f_uik_lighting = FEAT_LIGHTING_BRIGHT; break;
-				case FEAT_LIGHTING_BRIGHT:  f_uik_lighting = FEAT_LIGHTING_DARK; break;
+				case FEAT_LIGHTING_LIT:  f_uik_lighting = FEAT_LIGHTING_TORCH; break;
+                case FEAT_LIGHTING_TORCH: f_uik_lighting = FEAT_LIGHTING_LOS; break;
+				case FEAT_LIGHTING_LOS:  f_uik_lighting = FEAT_LIGHTING_DARK; break;
 				default:	f_uik_lighting = FEAT_LIGHTING_LIT; break;
 		}		
 	} else if (ch.code == 'L') {
 		switch (f_uik_lighting) {
-				case FEAT_LIGHTING_DARK:  f_uik_lighting = FEAT_LIGHTING_BRIGHT; break;
+				case FEAT_LIGHTING_DARK:  f_uik_lighting = FEAT_LIGHTING_LOS; break;
+                case FEAT_LIGHTING_LOS: f_uik_lighting = FEAT_LIGHTING_TORCH; break;
 				case FEAT_LIGHTING_LIT:  f_uik_lighting = FEAT_LIGHTING_DARK; break;
 				default:	f_uik_lighting = FEAT_LIGHTING_LIT; break;
 		}
@@ -2083,9 +2115,7 @@ static void do_cmd_knowledge_features(const char *name, int row)
 
 static void do_cmd_knowledge_store(const char *name, int row)
 {
-	store_knowledge = row - 5;
-	do_cmd_store_knowledge();
-	store_knowledge = STORE_NONE;
+	textui_store_knowledge(row - 5);
 }
 
 static void do_cmd_knowledge_scores(const char *name, int row)
@@ -2151,11 +2181,11 @@ void textui_knowledge_init(void)
 		int i;
 		int gid = -1;
 
-		obj_group_order = C_ZNEW(TV_GOLD + 1, int);
+		obj_group_order = C_ZNEW(TV_MAX + 1, int);
 		atexit(cleanup_cmds);
 
 		/* Allow for missing values */
-		for (i = 0; i <= TV_GOLD; i++)
+		for (i = 0; i < TV_MAX; i++)
 			obj_group_order[i] = -1;
 
 		for (i = 0; 0 != object_text_order[i].tval; i++)

@@ -16,7 +16,9 @@
  *    are included in all such copies.  Other copyrights may also apply.
  */
 #include "angband.h"
+#include "monster.h"
 #include "quest.h"
+#include "obj-util.h"
 
 /*
  * Array[MAX_Q_IDX] of quests
@@ -28,7 +30,7 @@ quest q_list[MAX_Q_IDX];
  */
 bool is_quest(int level)
 {
-	int i;
+	size_t i;
 
 	/* Town is never a quest */
 	if (!level) return FALSE;
@@ -44,7 +46,7 @@ bool is_quest(int level)
  * Wipe all quests, add back in Sauron and Morgoth
  */
 void quest_reset(void) {
-	int i;
+	size_t i;
 
 	for (i = 0; i < N_ELEMENTS(q_list); i++)
 		q_list[i].level = 0;
@@ -61,9 +63,9 @@ static void build_quest_stairs(int y, int x)
 	int ny, nx;
 
 	/* Stagger around */
-	while (!cave_valid_bold(y, x) && !cave_iswall(cave, y, x) && !cave_isdoor(cave, y, x)) {
+	while (!square_valid_bold(y, x) && !square_iswall(cave, y, x) && !square_isdoor(cave, y, x)) {
 		/* Pick a location */
-		scatter(&ny, &nx, y, x, 1, FALSE);
+		scatter(cave, &ny, &nx, y, x, 1, FALSE);
 
 		/* Stagger */
 		y = ny; x = nx;
@@ -77,20 +79,20 @@ static void build_quest_stairs(int y, int x)
 
 	/* Create stairs down */
 	/* XXX: fake depth = 0 to always produce downstairs */
-	cave_add_stairs(cave, y, x, 0);
+	square_add_stairs(cave, y, x, 0);
 
 	/* Update the visuals */
-	p_ptr->update |= (PU_UPDATE_VIEW | PU_MONSTERS);
+	player->upkeep->update |= (PU_UPDATE_VIEW | PU_MONSTERS);
 
 	/* Fully update the flow */
-	p_ptr->update |= (PU_FORGET_FLOW | PU_UPDATE_FLOW);
+	player->upkeep->update |= (PU_FORGET_FLOW | PU_UPDATE_FLOW);
 }
 
 /*
  * Check if this (now dead) monster is a quest monster, and act appropriately
  */
 bool quest_check(const struct monster *m) {
-	int i;
+	size_t i;
 	int total = 0;
 
 	/* Don't bother with non-questors */
@@ -110,8 +112,8 @@ bool quest_check(const struct monster *m) {
 
 	/* Nothing left, game over... */
 	if (total == 0) {
-		p_ptr->total_winner = TRUE;
-		p_ptr->redraw |= (PR_TITLE);
+		player->total_winner = TRUE;
+		player->upkeep->redraw |= (PR_TITLE);
 		msg("*** CONGRATULATIONS ***");
 		msg("You have won the game!");
 		msg("You may retire (commit suicide) when you are ready.");

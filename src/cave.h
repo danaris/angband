@@ -3,13 +3,54 @@
 #ifndef CAVE_H
 #define CAVE_H
 
-#include "defines.h"
 #include "z-type.h"
 
 struct player;
 struct monster;
 
 /*** Constants ***/
+
+/*
+ * Maximum dungeon level.  The player can never reach this level
+ * in the dungeon, and this value is used for various calculations
+ * involving object and monster creation.  It must be at least 100.
+ * Setting it below 128 may prevent the creation of some objects.
+ */
+#define MAX_DEPTH	128
+
+/*
+ * Max number of grids in each dungeon (vertically)
+ * Must be less or equal to 256
+ */
+#define DUNGEON_HGT		66
+
+/*
+ * Max number of grids in each dungeon (horizontally)
+ * Must be less or equal to 256
+ */
+#define DUNGEON_WID		198
+
+#define TOWN_WID 66
+#define TOWN_HGT 22
+
+
+/*
+ * Maximum sight and projection values
+ */
+#define MAX_SIGHT_LGE   20      /* Maximum view distance */
+#define MAX_RANGE_LGE   20      /* Maximum projection range */
+#define MAX_SIGHT_SML   10      /* Maximum view distance (small devices) */
+#define MAX_RANGE_SML   10      /* Maximum projection range (small devices) */
+#define MAX_SIGHT (OPT(birth_small_range) ? MAX_SIGHT_SML : MAX_SIGHT_LGE)  
+#define MAX_RANGE (OPT(birth_small_range) ? MAX_RANGE_SML : MAX_RANGE_LGE)
+
+
+/* 
+ * Information for Feelings 
+ */
+#define FEELING_TOTAL	100		/* total number of feeling squares per level */ 
+#define FEELING1		10		/* Squares needed to see to get first feeling */
+
 
 
 /*** Feature Indexes (see "lib/edit/terrain.txt") ***/
@@ -20,7 +61,6 @@ struct monster;
 /* Various */
 #define FEAT_FLOOR 0x01
 #define FEAT_INVIS 0x02
-#define FEAT_GLYPH 0x03
 #define FEAT_OPEN 0x04
 #define FEAT_BROKEN 0x05
 #define FEAT_LESS 0x06
@@ -29,10 +69,6 @@ struct monster;
 /* Shops */
 #define FEAT_SHOP_HEAD 0x08
 #define FEAT_SHOP_TAIL 0x0F
-
-/* Traps */
-#define FEAT_TRAP_HEAD 0x10
-#define FEAT_TRAP_TAIL 0x1F
 
 /* Doors */
 #define FEAT_DOOR_HEAD 0x20
@@ -53,33 +89,46 @@ struct monster;
 #define FEAT_QUARTZ_K 0x37
 
 /* Walls */
-#define FEAT_WALL_EXTRA 0x38
-#define FEAT_WALL_INNER 0x39
-#define FEAT_WALL_OUTER 0x3A
-#define FEAT_WALL_SOLID 0x3B
-#define FEAT_PERM_EXTRA 0x3C
-#define FEAT_PERM_INNER 0x3D
-#define FEAT_PERM_OUTER 0x3E
-#define FEAT_PERM_SOLID 0x3F
+#define FEAT_GRANITE 0x38
+#define FEAT_PERM 0x39
+
+/* Special trap detect features  - should be replaced with square flags */
+#define FEAT_DTRAP_FLOOR 0x40
+#define FEAT_DTRAP_WALL 0x41
 
 
 
 /*
- * Special cave grid flags
+ * Square flags
  */
-#define CAVE_MARK		0x01 	/* memorized feature */
-#define CAVE_GLOW		0x02 	/* self-illuminating */
-#define CAVE_VAULT		0x04 	/* part of a vault */
-#define CAVE_ROOM		0x08 	/* part of a room */
-#define CAVE_SEEN		0x10 	/* seen flag */
-#define CAVE_VIEW		0x20 	/* view flag */
-#define CAVE_WASSEEN		0x40 	/* previously seen (during update) */
-#define CAVE_WALL		0x80 	/* wall flag */
 
-#define CAVE2_DTRAP		0x01	/* trap detected grid */
-#define CAVE2_FEEL		0x02	/* hidden points to trigger feelings*/
-#define CAVE2_DEDGE		0x04	/* border of trap detected area */
-#define CAVE2_VERT		0x08	/* use an alternate visual for this grid */
+enum
+{
+	#define SQUARE(a,b) SQUARE_##a,
+	#include "list-square-flags.h"
+	#undef SQUARE
+	SQUARE_MAX
+};
+
+#define SQUARE_SIZE                FLAG_SIZE(SQUARE_MAX)
+
+#define sqinfo_has(f, flag)        flag_has_dbg(f, SQUARE_SIZE, flag, #f, #flag)
+#define sqinfo_next(f, flag)       flag_next(f, SQUARE_SIZE, flag)
+#define sqinfo_is_empty(f)         flag_is_empty(f, SQUARE_SIZE)
+#define sqinfo_is_full(f)          flag_is_full(f, SQUARE_SIZE)
+#define sqinfo_is_inter(f1, f2)    flag_is_inter(f1, f2, SQUARE_SIZE)
+#define sqinfo_is_subset(f1, f2)   flag_is_subset(f1, f2, SQUARE_SIZE)
+#define sqinfo_is_equal(f1, f2)    flag_is_equal(f1, f2, SQUARE_SIZE)
+#define sqinfo_on(f, flag)         flag_on_dbg(f, SQUARE_SIZE, flag, #f, #flag)
+#define sqinfo_off(f, flag)        flag_off(f, SQUARE_SIZE, flag)
+#define sqinfo_wipe(f)             flag_wipe(f, SQUARE_SIZE)
+#define sqinfo_setall(f)           flag_setall(f, SQUARE_SIZE)
+#define sqinfo_negate(f)           flag_negate(f, SQUARE_SIZE)
+#define sqinfo_copy(f1, f2)        flag_copy(f1, f2, SQUARE_SIZE)
+#define sqinfo_union(f1, f2)       flag_union(f1, f2, SQUARE_SIZE)
+#define sqinfo_comp_union(f1, f2)  flag_comp_union(f1, f2, SQUARE_SIZE)
+#define sqinfo_inter(f1, f2)       flag_inter(f1, f2, SQUARE_SIZE)
+#define sqinfo_diff(f1, f2)        flag_diff(f1, f2, SQUARE_SIZE)
 
 
 /*
@@ -87,46 +136,15 @@ struct monster;
  */
 enum
 {
-	FF_NONE,
-	FF_PWALK,
-	FF_PPASS,
-	FF_MWALK,
-	FF_MPASS,
-	FF_LOOK,
-	FF_DIG,
-	FF_DOOR,
-	FF_EXIT_UP,
-	FF_EXIT_DOWN,
-	FF_PERM,
-	FF_TRAP,
-	FF_SHOP,
-	FF_HIDDEN,
-	FF_BORING,
-	FF_MAX
+	#define TF(a,b) TF_##a,
+	#include "list-terrain-flags.h"
+	#undef TF
+	TF_MAX
 };
 
-#define FF_SIZE               FLAG_SIZE(FF_MAX)
+#define TF_SIZE                FLAG_SIZE(TF_MAX)
 
-#define ff_has(f, flag)        flag_has_dbg(f, FF_SIZE, flag, #f, #flag)
-#define ff_next(f, flag)       flag_next(f, FF_SIZE, flag)
-#define ff_is_empty(f)         flag_is_empty(f, FF_SIZE)
-#define ff_is_full(f)          flag_is_full(f, FF_SIZE)
-#define ff_is_inter(f1, f2)    flag_is_inter(f1, f2, FF_SIZE)
-#define ff_is_subset(f1, f2)   flag_is_subset(f1, f2, FF_SIZE)
-#define ff_is_equal(f1, f2)    flag_is_equal(f1, f2, FF_SIZE)
-#define ff_on(f, flag)         flag_on_dbg(f, FF_SIZE, flag, #f, #flag)
-#define ff_off(f, flag)        flag_off(f, FF_SIZE, flag)
-#define ff_wipe(f)             flag_wipe(f, FF_SIZE)
-#define ff_setall(f)           flag_setall(f, FF_SIZE)
-#define ff_negate(f)           flag_negate(f, FF_SIZE)
-#define ff_copy(f1, f2)        flag_copy(f1, f2, FF_SIZE)
-#define ff_union(f1, f2)       flag_union(f1, f2, FF_SIZE)
-#define ff_comp_union(f1, f2)  flag_comp_union(f1, f2, FF_SIZE)
-#define ff_inter(f1, f2)       flag_inter(f1, f2, FF_SIZE)
-#define ff_diff(f1, f2)        flag_diff(f1, f2, FF_SIZE)
-
-
-
+#define tf_has(f, flag)        flag_has_dbg(f, TF_SIZE, flag, #f, #flag)
 
 /**
  * Information about terrain features.
@@ -149,21 +167,23 @@ typedef struct feature
 	byte shopnum;  /**< Which shop does it take you to? */
 	byte dig;      /**< How hard is it to dig through? */
 
-	u32b effect;   /**< Effect on entry to grid */
-	bitflag flags[FF_SIZE];    /**< Terrain flags */
+	bitflag flags[TF_SIZE];    /**< Terrain flags */
 
 	byte d_attr;   /**< Default feature attribute */
 	wchar_t d_char;   /**< Default feature character */
 
-	byte x_attr[3];   /**< Desired feature attribute (set by user/pref file) */
-	wchar_t x_char[3];   /**< Desired feature character (set by user/pref file) */
+	byte x_attr[4];   /**< Desired feature attribute (set by user/pref file) */
+	wchar_t x_char[4];   /**< Desired feature character (set by user/pref file) */
 } feature_type;
+
+extern feature_type *f_info;
 
 enum grid_light_level
 {
-	FEAT_LIGHTING_BRIGHT = 0,
-	FEAT_LIGHTING_LIT,
-	FEAT_LIGHTING_DARK,
+	FEAT_LIGHTING_LOS = 0,   /* line of sight */
+	FEAT_LIGHTING_TORCH,     /* torchlight */
+	FEAT_LIGHTING_LIT,       /* permanently lit (when not in line of sight) */
+	FEAT_LIGHTING_DARK,      /* dark */
 	FEAT_LIGHTING_MAX
 };
 
@@ -172,6 +192,7 @@ typedef struct
 	u32b m_idx;		/* Monster index */
 	u32b f_idx;		/* Feature index */
 	struct object_kind *first_kind;	/* The "kind" of the first item on the grid */
+    u32b trap;          /* Trap index */
 	bool multiple_objects;	/* Is there more than one item there? */
 	bool unseen_object;	/* Is there an unaware object there? */
 	bool unseen_money; /* Is there some unaware money there? */
@@ -185,16 +206,8 @@ typedef struct
 
 
 
-/** An array of 256 bytes */
-typedef byte byte_256[256];
-
-/** An array of DUNGEON_WID bytes */
-typedef byte byte_wid[DUNGEON_WID];
-
-/** An array of DUNGEON_WID s16b's */
-typedef s16b s16b_wid[DUNGEON_WID];
-
-struct cave {
+struct chunk {
+	char *name;
 	s32b created_at;
 	int depth;
 
@@ -206,25 +219,32 @@ struct cave {
 	int height;
 	int width;
 	
-	u16b feeling_squares; /* Keep track of how many feeling squares the player has visited */
+	u16b feeling_squares; /* How many feeling squares the player has visited */
+	int *feat_count;
 
-	byte (*info)[256];
-	byte (*info2)[256];
-	byte (*feat)[DUNGEON_WID];
-	byte (*cost)[DUNGEON_WID];
-	byte (*when)[DUNGEON_WID];
-	s16b (*m_idx)[DUNGEON_WID];
-	s16b (*o_idx)[DUNGEON_WID];
+	bitflag ***info;
+	byte **feat;
+	byte **cost;
+	byte **when;
+	s16b **m_idx;
+	s16b **o_idx;
 
 	struct monster *monsters;
-	int mon_max;
-	int mon_cnt;
+	u16b mon_max;
+	u16b mon_cnt;
+
+	struct object *objects;
+	u16b obj_max;
+	u16b obj_cnt;
+
+	struct trap_type *traps;
+	u16b trap_max;
 };
 
 extern int distance(int y1, int x1, int y2, int x2);
-extern bool los(int y1, int x1, int y2, int x2);
+extern bool los(struct chunk *c, int y1, int x1, int y2, int x2);
 extern bool no_light(void);
-extern bool cave_valid_bold(int y, int x);
+extern bool square_valid_bold(int y, int x);
 extern byte get_color(byte a, int attr, int n);
 extern void map_info(unsigned x, unsigned y, grid_data *g);
 extern void grid_data_as_text(grid_data *g, int *ap, wchar_t *cp, int *tap, wchar_t *tcp);
@@ -233,140 +253,161 @@ extern void print_rel(wchar_t c, byte a, int y, int x);
 extern void prt_map(void);
 extern void display_map(int *cy, int *cx);
 extern void do_cmd_view_map(void);
-extern void forget_view(struct cave *c);
-extern void update_view(struct cave *c, struct player *p);
+extern void forget_view(struct chunk *c);
+extern bool player_has_los_bold(int y, int x);
+extern bool player_can_see_bold(int y, int x);
+extern void update_view(struct chunk *c, struct player *p);
 extern void map_area(void);
-extern void wiz_light(bool full);
+extern void wiz_light(struct chunk *c, bool full);
 extern void wiz_dark(void);
 extern int project_path(u16b *gp, int range, int y1, int x1, int y2, int x2, int flg);
-extern bool projectable(int y1, int x1, int y2, int x2, int flg);
-extern void scatter(int *yp, int *xp, int y, int x, int d, bool need_los);
-extern void disturb(struct player *p, int stop_search, int unused_flag);
+extern bool projectable(struct chunk *c, int y1, int x1, int y2, int x2, int flg);
+extern void scatter(struct chunk *c, int *yp, int *xp, int y, int x, int d, bool need_los);
 extern bool is_quest(int level);
 extern bool dtrap_edge(int y, int x);
 
 /* XXX: temporary while I refactor */
-extern struct cave *cave;
+extern struct chunk *cave;
+extern struct chunk **chunk_list;
+extern u16b chunk_list_max;
 
-extern struct cave *cave_new(void);
-extern void cave_free(struct cave *c);
+extern struct chunk *cave_new(int height, int width);
+extern void cave_free(struct chunk *c);
 
-extern struct feature *cave_feat(struct cave *c, int y, int x);
-extern void cave_set_feat(struct cave *c, int y, int x, int feat);
-extern void cave_note_spot(struct cave *c, int y, int x);
-extern void cave_light_spot(struct cave *c, int y, int x);
-extern void cave_update_flow(struct cave *c);
-extern void cave_forget_flow(struct cave *c);
-extern void cave_illuminate(struct cave *c, bool daytime);
+extern struct feature *square_feat(struct chunk *c, int y, int x);
+extern void square_set_feat(struct chunk *c, int y, int x, int feat);
+extern void square_note_spot(struct chunk *c, int y, int x);
+extern void square_light_spot(struct chunk *c, int y, int x);
+extern void cave_update_flow(struct chunk *c);
+extern void cave_forget_flow(struct chunk *c);
+extern void cave_illuminate(struct chunk *c, bool daytime);
 
 /**
- * cave_predicate is a function pointer which tests a given square to
+ * square_predicate is a function pointer which tests a given square to
  * see if the predicate in question is true.
  */
-typedef bool (*cave_predicate)(struct cave *c, int y, int x);
+typedef bool (*square_predicate)(struct chunk *c, int y, int x);
 
 /* FEATURE PREDICATES */
-extern bool cave_isfloor(struct cave *c, int y, int x);
-extern bool cave_isrock(struct cave *c, int y, int x);
-extern bool cave_isperm(struct cave *c, int y, int x);
-extern bool cave_ismagma(struct cave *c, int y, int x);
-extern bool cave_isquartz(struct cave *c, int y, int x);
-extern bool cave_ismineral(struct cave *c, int y, int x);
-extern bool cave_hassecretvein(struct cave *c, int y, int x);
-extern bool cave_hasgoldvein(struct cave *c, int y, int x);
+extern bool square_isfloor(struct chunk *c, int y, int x);
+extern bool square_isrock(struct chunk *c, int y, int x);
+extern bool square_isperm(struct chunk *c, int y, int x);
+extern bool feat_is_magma(int feat);
+extern bool square_ismagma(struct chunk *c, int y, int x);
+extern bool feat_is_quartz(int feat);
+extern bool square_isquartz(struct chunk *c, int y, int x);
+extern bool square_ismineral(struct chunk *c, int y, int x);
+extern bool square_hassecretvein(struct chunk *c, int y, int x);
+extern bool square_hasgoldvein(struct chunk *c, int y, int x);
 extern bool feat_is_treasure(int feat);
-extern bool cave_issecretdoor(struct cave *c, int y, int x);
-extern bool cave_isopendoor(struct cave *c, int y, int x);
-extern bool cave_iscloseddoor(struct cave *c, int y, int x);
-extern bool cave_islockeddoor(struct cave *c, int y, int x);
-extern bool cave_isbrokendoor(struct cave *c, int y, int x);
-extern bool cave_isdoor(struct cave *c, int y, int x);
-extern bool cave_issecrettrap(struct cave *c, int y, int x);
-extern bool feat_is_known_trap(int feat);
+extern bool square_issecretdoor(struct chunk *c, int y, int x);
+extern bool square_isopendoor(struct chunk *c, int y, int x);
+extern bool square_iscloseddoor(struct chunk *c, int y, int x);
+extern bool square_islockeddoor(struct chunk *c, int y, int x);
+extern bool square_isbrokendoor(struct chunk *c, int y, int x);
+extern bool square_isdoor(struct chunk *c, int y, int x);
+extern bool square_issecrettrap(struct chunk *c, int y, int x);
 extern bool feat_is_wall(int feat);
-extern bool cave_isknowntrap(struct cave *c, int y, int x);
-extern bool cave_istrap(struct cave *c, int y, int x);
+extern bool square_isknowntrap(struct chunk *c, int y, int x);
+extern bool square_istrap(struct chunk *c, int y, int x);
 extern bool feature_isshop(int feat);
-extern bool cave_isstairs(struct cave *c, int y, int x);
-extern bool cave_isupstairs(struct cave *c, int y, int x);
-extern bool cave_isdownstairs(struct cave *c, int y, int x);
-extern bool cave_isshop(struct cave *c, int y, int x);
-extern bool cave_isglyph(struct cave *c, int y, int x);
+extern bool square_isstairs(struct chunk *c, int y, int x);
+extern bool square_isupstairs(struct chunk *c, int y, int x);
+extern bool square_isdownstairs(struct chunk *c, int y, int x);
+extern bool square_isshop(struct chunk *c, int y, int x);
+extern bool square_isglyph(struct chunk *c, int y, int x);
 
 /* BEHAVIOR PREDICATES */
-extern bool cave_isopen(struct cave *c, int y, int x);
-extern bool cave_isempty(struct cave *c, int y, int x);
-extern bool cave_canputitem(struct cave *c, int y, int x);
-extern bool cave_isdiggable(struct cave *c, int y, int x);
+extern bool square_isopen(struct chunk *c, int y, int x);
+extern bool square_isempty(struct chunk *c, int y, int x);
+extern bool square_canputitem(struct chunk *c, int y, int x);
+extern bool square_isdiggable(struct chunk *c, int y, int x);
+extern bool feat_is_monster_walkable(feature_type *feature);
+extern bool square_is_monster_walkable(struct chunk *c, int y, int x);
 extern bool feat_ispassable(feature_type *f_ptr);
-extern bool cave_ispassable(struct cave *c, int y, int x);
-extern bool cave_iswall(struct cave *c, int y, int x);
-extern bool cave_isstrongwall(struct cave *c, int y, int x);
-extern bool cave_isvault(struct cave *c, int y, int x);
-extern bool cave_isroom(struct cave *c, int y, int x);
-extern bool cave_isrubble(struct cave *c, int y, int x);
-extern bool cave_isfeel(struct cave *c, int y, int x);
+extern bool square_ispassable(struct chunk *c, int y, int x);
+extern bool feat_isprojectable(feature_type *f_ptr);
+extern bool square_isprojectable(struct chunk *c, int y, int x);
+extern bool square_iswall(struct chunk *c, int y, int x);
+extern bool square_isstrongwall(struct chunk *c, int y, int x);
+extern bool square_isvault(struct chunk *c, int y, int x);
+extern bool square_isroom(struct chunk *c, int y, int x);
+extern bool square_isrubble(struct chunk *c, int y, int x);
+extern bool square_isfeel(struct chunk *c, int y, int x);
 extern bool feat_isboring(feature_type *f_ptr);
-extern bool cave_isboring(struct cave *c, int y, int x);
-extern bool cave_isview(struct cave *c, int y, int x);
-extern bool cave_isseen(struct cave *c, int y, int x);
-extern bool cave_wasseen(struct cave *c, int y, int x);
-extern bool cave_isglow(struct cave *c, int y, int x);
-extern bool cave_iswarded(struct cave *c, int y, int x);
-extern bool cave_canward(struct cave *c, int y, int x);
+extern bool square_isboring(struct chunk *c, int y, int x);
+extern bool square_isview(struct chunk *c, int y, int x);
+extern bool square_isseen(struct chunk *c, int y, int x);
+extern bool square_wasseen(struct chunk *c, int y, int x);
+extern bool square_isglow(struct chunk *c, int y, int x);
+extern bool square_is_no_teleport(struct chunk *c, int y, int x);
+extern bool square_is_no_map(struct chunk *c, int y, int x);
+extern bool square_is_no_esp(struct chunk *c, int y, int x);
+extern bool square_iswarded(struct chunk *c, int y, int x);
+extern bool square_canward(struct chunk *c, int y, int x);
 
-extern bool cave_seemslikewall(struct cave *c, int y, int x);
+extern bool square_seemslikewall(struct chunk *c, int y, int x);
 /* interesting to memorize when mapping */
-extern bool cave_isinteresting(struct cave *c, int y, int x);
+extern bool square_isinteresting(struct chunk *c, int y, int x);
 /* noticeable when running */
-extern bool cave_noticeable(struct cave *c, int y, int x);
+extern bool square_noticeable(struct chunk *c, int y, int x);
 
 /* Feature placers */
-extern void cave_add_trap(struct cave *c, int y, int x);
-extern void cave_add_ward(struct cave *c, int y, int x);
-extern void cave_add_stairs(struct cave *c, int y, int x, int depth);
-extern void cave_add_door(struct cave *c, int y, int x, bool closed);
+extern void square_add_trap(struct chunk *c, int y, int x);
+extern void square_add_ward(struct chunk *c, int y, int x);
+extern void square_add_stairs(struct chunk *c, int y, int x, int depth);
+extern void square_add_door(struct chunk *c, int y, int x, bool closed);
 
-extern void cave_remove_ward(struct cave *c, int y, int x);
+extern void square_remove_ward(struct chunk *c, int y, int x);
 
-extern void cave_generate(struct cave *c, struct player *p);
+extern void cave_generate(struct chunk *c, struct player *p);
 
-extern bool cave_in_bounds(struct cave *c, int y, int x);
-extern bool cave_in_bounds_fully(struct cave *c, int y, int x);
+extern bool square_in_bounds(struct chunk *c, int y, int x);
+extern bool square_in_bounds_fully(struct chunk *c, int y, int x);
 
-extern struct monster *cave_monster(struct cave *c, int idx);
-extern struct monster *cave_monster_at(struct cave *c, int y, int x);
-extern int cave_monster_max(struct cave *c);
-extern int cave_monster_count(struct cave *c);
+extern struct monster *cave_monster(struct chunk *c, int idx);
+extern struct monster *square_monster(struct chunk *c, int y, int x);
+extern int cave_monster_max(struct chunk *c);
+extern int cave_monster_count(struct chunk *c);
 
-void upgrade_mineral(struct cave *c, int y, int x);
+extern struct object *cave_object(struct chunk *c, int idx); 
+extern struct object *square_object(struct chunk *c, int y, int x);
+extern int cave_object_max(struct chunk *c);
+extern int cave_object_count(struct chunk *c);
+
+extern struct trap_type *cave_trap(struct chunk *c, int idx);
+extern int cave_trap_max(struct chunk *c);
+
+void upgrade_mineral(struct chunk *c, int y, int x);
 
 /* Feature modifiers */
-int cave_door_power(struct cave *c, int y, int x);
-void cave_open_door(struct cave *c, int y, int x);
-void cave_close_door(struct cave *c, int y, int x);
-void cave_smash_door(struct cave *c, int y, int x);
-void cave_lock_door(struct cave *c, int y, int x, int power);
-void cave_unlock_door(struct cave *c, int y, int x);
-void cave_destroy_door(struct cave *c, int y, int x);
+int square_door_power(struct chunk *c, int y, int x);
+void square_open_door(struct chunk *c, int y, int x);
+void square_close_door(struct chunk *c, int y, int x);
+void square_smash_door(struct chunk *c, int y, int x);
+void square_lock_door(struct chunk *c, int y, int x, int power);
+void square_unlock_door(struct chunk *c, int y, int x);
+void square_destroy_door(struct chunk *c, int y, int x);
 
-void cave_show_trap(struct cave *c, int y, int x, int type);
-void cave_destroy_trap(struct cave *c, int y, int x);
+void square_show_trap(struct chunk *c, int y, int x, int type);
+void square_destroy_trap(struct chunk *c, int y, int x);
 
-void cave_tunnel_wall(struct cave *c, int y, int x);
-void cave_destroy_wall(struct cave *c, int y, int x);
+void square_tunnel_wall(struct chunk *c, int y, int x);
+void square_destroy_wall(struct chunk *c, int y, int x);
 
-void cave_show_vein(struct cave *c, int y, int x);
+void square_show_vein(struct chunk *c, int y, int x);
 
 /* destroy this cell, as destruction spell */
-void cave_destroy(struct cave *c, int y, int x);
-void cave_earthquake(struct cave *c, int y, int x);
+void square_destroy(struct chunk *c, int y, int x);
+void square_earthquake(struct chunk *c, int y, int x);
 
-int cave_shopnum(struct cave *c, int y, int x);
-const char *cave_apparent_name(struct cave *c, struct player *p, int y, int x);
+int square_shopnum(struct chunk *c, int y, int x);
+const char *square_apparent_name(struct chunk *c, struct player *p, int y, int x);
 
-void cave_destroy_rubble(struct cave *c, int y, int x);
+void square_destroy_rubble(struct chunk *c, int y, int x);
 
-void cave_force_floor(struct cave *c, int y, int x);
+void square_force_floor(struct chunk *c, int y, int x);
+
+int count_feats(int *y, int *x, bool (*test)(struct chunk *cave, int y, int x), bool under);
 
 #endif /* !CAVE_H */

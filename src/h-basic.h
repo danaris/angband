@@ -141,8 +141,10 @@
  */
 
 /* C++ defines its own bool type, so we hack around it */
+#ifdef __cplusplus
 #undef bool
 #define bool bool_hack
+#endif
 
 typedef int errr;
 
@@ -250,12 +252,6 @@ typedef int errr;
  * Given an array, determine how many elements are in it.
  */
 #define N_ELEMENTS(a) (sizeof(a) / sizeof((a)[0]))
-
-/*
- * Return "s" (or not) depending on whether n is singular.
- */
-#define PLURAL(n)		((n) == 1 ? "" : "s")
-
 
 /*** Some hackish character manipulation ***/
 

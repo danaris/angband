@@ -1,6 +1,5 @@
-/*
- * File: init.c
- * Purpose: Various game initialistion routines
+/** \file init.c
+	\brief Various game initialistion routines
  *
  * Copyright (c) 1997 Ben Harrison
  *
@@ -14,76 +13,174 @@
  *    This software may be copied and distributed for educational, research,
  *    and not for profit purposes provided that this copyright and statement
  *    are included in all such copies.  Other copyrights may also apply.
+ *
+ * This file is used to initialize various variables and arrays for the
+ * Angband game.
+ *
+ * Several of the arrays for Angband are built from "template" files in
+ * the "lib/edit" directory.
  */
+
 
 #include "angband.h"
 #include "buildid.h"
-#include "button.h"
 #include "cave.h"
 #include "cmds.h"
 #include "game-event.h"
-#include "game-cmd.h"
+#include "cmd-core.h"
 #include "generate.h"
 #include "history.h"
 #include "hint.h"
 #include "keymap.h"
 #include "init.h"
-#include "monster/mon-init.h"
-#include "monster/mon-msg.h"
-#include "monster/mon-util.h"
-#include "object/object.h"
-#include "object/slays.h"
-#include "object/tvalsval.h"
+#include "mon-init.h"
+#include "mon-list.h"
+#include "mon-msg.h"
+#include "mon-util.h"
+#include "monster.h"
+#include "obj-ignore.h"
+#include "obj-list.h"
+#include "obj-make.h"
+#include "obj-slays.h"
+#include "obj-tval.h"
+#include "obj-util.h"
+#include "object.h"
 #include "option.h"
 #include "parser.h"
+#include "player.h"
+#include "player-spell.h"
+#include "player-timed.h"
 #include "prefs.h"
+#include "project.h"
 #include "quest.h"
 #include "randname.h"
-#include "squelch.h"
+#include "spells.h"
+#include "store.h"
+#include "trap.h"
 
 /*
  * Structure (not array) of size limits
  */
 maxima *z_info;
 
+/*
+ * Hack -- The special Angband "System Suffix"
+ * This variable is used to choose an appropriate "pref-xxx" file
+ */
+const char *ANGBAND_SYS = "xxx";
+
+/*
+ * Hack -- The special Angband "Graphics Suffix"
+ * This variable is used to choose an appropriate "graf-xxx" file
+ */
+const char *ANGBAND_GRAF = "old";
+
+/*
+ * Various directories. These are no longer necessarily all subdirs of "lib"
+ */
+char *ANGBAND_DIR_APEX;
+char *ANGBAND_DIR_EDIT;
+char *ANGBAND_DIR_FILE;
+char *ANGBAND_DIR_HELP;
+char *ANGBAND_DIR_INFO;
+char *ANGBAND_DIR_SAVE;
+char *ANGBAND_DIR_PREF;
+char *ANGBAND_DIR_USER;
+char *ANGBAND_DIR_XTRA;
+
+/*
+ * Various xtra/ subdirectories.
+ */
+char *ANGBAND_DIR_XTRA_FONT;
+char *ANGBAND_DIR_XTRA_GRAF;
+char *ANGBAND_DIR_XTRA_SOUND;
+char *ANGBAND_DIR_XTRA_ICON;
 
 static struct history_chart *histories;
 
-/*
- * This file is used to initialize various variables and arrays for the
- * Angband game.  Note the use of "fd_read()" and "fd_write()" to bypass
- * the common limitation of "read()" and "write()" to only 32767 bytes
- * at a time.
- *
- * Several of the arrays for Angband are built from "template" files in
- * the "lib/edit" directory.
- *
- * Warning -- the "ascii" file parsers use a minor hack to collect the
- * name and text information in a single pass.  Thus, the game will not
- * be able to load any template file with more than 20K of names or 60K
- * of text, even though technically, up to 64K should be legal.
- */
+static const char *slots[] = {
+	#define EQUIP(a, b, c, d, e, f) #a,
+	#include "list-equip-slots.h"
+	#undef EQUIP
+	NULL
+};
 
-static const char *k_info_flags[] = {
-	#define OF(a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s) #a,
-	#include "object/list-object-flags.h"
+static const char *obj_flags[] = {
+	"NONE",
+	#define STAT(a, b, c, d, e, f, g, h) #c,
+	#include "list-stats.h"
+	#undef STAT
+	#define OF(a, b, c, d, e) #a,
+	#include "list-object-flags.h"
 	#undef OF
 	NULL
 };
 
+static const char *obj_mods[] = {
+	#define STAT(a, b, c, d, e, f, g, h) #a,
+	#include "list-stats.h"
+	#undef STAT
+	#define OBJ_MOD(a, b, c, d) #a,
+	#include "list-object-modifiers.h"
+	#undef OBJ_MOD
+	NULL
+};
+
+static const char *kind_flags[] = {
+	#define KF(a, b) #a,
+	#include "list-kind-flags.h"
+	#undef KF
+	NULL
+};
+
+static const char *elements[] = {
+	#define ELEM(a, b, c, d, e, col, f, fh, oh, mh, ph) #a,
+	#include "list-elements.h"
+	#undef ELEM
+	NULL
+};
+
+static const char *slays[] = {
+	#define RF(a, b, c) #a,
+	#include "list-mon-flags.h"
+	#undef RF
+	NULL
+};
+
+static const char *brand_names[] = {
+	#define ELEM(a, b, c, d, e, col, f, fh, oh, mh, ph) b,
+	#include "list-elements.h"
+	#undef ELEM
+	NULL
+};
+
+static const char *slay_names[] = {
+	#define RF(a, b, c) b,
+	#include "list-mon-flags.h"
+	#undef RF
+	NULL
+};
+
 static const char *effect_list[] = {
-	#define EFFECT(x, y, r, z)    #x,
+	#define EFFECT(x, a, r, h, v, c, d)	#x,
 	#include "list-effects.h"
 	#undef EFFECT
 };
 
-static u32b grab_one_effect(const char *what) {
-	size_t i;
+static const char *spell_effect_list[] = {
+	#define S_EF(x, a, s) #x,
+	#include "list-player-spells.h"
+	#undef S_EF
+};
+
+static u32b grab_one_effect(const char *what, const char *list[], int num)
+{
+	int i;
 
 	/* Scan activations */
-	for (i = 0; i < N_ELEMENTS(effect_list); i++)
+	for (i = 0; i < num; i++)
 	{
-		if (streq(what, effect_list[i]))
+		if (streq(what, list[i]))
 			return i;
 	}
 
@@ -94,6 +191,31 @@ static u32b grab_one_effect(const char *what) {
 	return 0;
 }
 
+static bool grab_element_flag(struct element_info *info, const char *flag_name)
+{
+	char prefix[20];
+	char suffix[20];
+	size_t i;
+
+	if (2 != sscanf(flag_name, "%[^_]_%s", prefix, suffix))
+		return FALSE;
+
+	/* Ignore or hate */
+	for (i = 0; i < ELEM_MAX; i++)
+		if (streq(suffix, elements[i])) {
+			if (streq(prefix, "IGNORE")) {
+				info[i].flags |= EL_INFO_IGNORE;
+				return TRUE;
+			}
+			if (streq(prefix, "HATES")) {
+				info[i].flags |= EL_INFO_HATES;
+				return TRUE;
+			}
+		}
+
+	return FALSE;
+}
+
 static struct history_chart *findchart(struct history_chart *hs, unsigned int idx) {
 	for (; hs; hs = hs->next)
 		if (hs->idx == idx)
@@ -101,7 +223,57 @@ static struct history_chart *findchart(struct history_chart *hs, unsigned int id
 	return hs;
 }
 
-/*
+static enum parser_error write_dummy_object_record(struct artifact *art, const char *name)
+{
+	struct object_kind *temp, *dummy;
+	int i;
+	char mod_name[100];
+
+	/* Extend by 1 and realloc */
+	z_info->k_max += 1;
+	temp = mem_realloc(k_info, (z_info->k_max+1) * sizeof(*temp));
+
+	/* Copy if no errors */
+	if (!temp)
+		return PARSE_ERROR_INTERNAL;
+	else
+		k_info = temp;
+
+	/* Use the (second) last entry for the dummy */
+	dummy = &k_info[z_info->k_max - 1];
+	memset(dummy, 0, sizeof(*dummy));
+
+	/* Copy the tval and base */
+	dummy->tval = art->tval;
+	dummy->base = &kb_info[dummy->tval];
+
+	/* Make the name */
+	my_strcpy(mod_name, format("& %s~", name), sizeof(mod_name));
+	dummy->name = string_make(mod_name);
+
+	/* Increase the sval count for this tval, set the new one to the max */
+	for (i = 0; i < TV_MAX; i++)
+		if (kb_info[i].tval == dummy->tval) {
+			kb_info[i].num_svals++;
+			dummy->sval = kb_info[i].num_svals;
+			break;
+		}
+	if (i == TV_MAX) return PARSE_ERROR_INTERNAL;
+
+	/* Copy the sval to the artifact info */
+	art->sval = dummy->sval;
+
+	/* Give the object default colours (these should be overwritten) */
+	dummy->d_char = '*';
+	dummy->d_attr = TERM_RED;
+
+	/* Register this as an INSTA_ART object */
+	kf_on(dummy->kind_flags, KF_INSTA_ART);
+
+	return PARSE_ERROR_NONE;
+}
+
+/**
  * Find the default paths to all of our important sub-directories.
  *
  * All of the sub-directories should, by default, be located inside
@@ -198,7 +370,7 @@ void init_file_paths(const char *configpath, const char *libpath, const char *da
 }
 
 
-/*
+/**
  * Create any missing directories. We create only those dirs which may be
  * empty (user/, save/, apex/, info/, help/). The others are assumed 
  * to contain required files and therefore must exist at startup 
@@ -257,6 +429,8 @@ static enum parser_error parse_z(struct parser *p) {
 		z->o_max = value;
 	else if (streq(label, "M"))
 		z->m_max = value;
+	else if (streq(label, "N"))
+		z->l_max = value;
 	else if (streq(label, "I"))
 		z->pit_max = value;
 	else
@@ -270,7 +444,6 @@ struct parser *init_parse_z(void) {
 	struct parser *p = parser_new();
 
 	parser_setpriv(p, z);
-	parser_reg(p, "V sym version", ignored);
 	parser_reg(p, "M sym label int value", parse_z);
 	return p;
 }
@@ -338,7 +511,28 @@ static enum parser_error parse_kb_n(struct parser *p) {
 	if (kb->tval == -1)
 		return PARSE_ERROR_UNRECOGNISED_TVAL;
 
-	kb->name = string_make(parser_getstr(p, "name"));
+	if (parser_hasval(p, "name"))
+		kb->name = string_make(parser_getstr(p, "name"));
+	kb->num_svals = 0;
+
+	return PARSE_ERROR_NONE;
+}
+
+static enum parser_error parse_kb_g(struct parser *p) {
+	struct object_base *kb;
+	const char *color;
+
+	struct kb_parsedata *d = parser_priv(p);
+	assert(d);
+
+	kb = d->kb;
+	assert(kb);
+
+	color = parser_getsym(p, "color");
+	if (strlen(color) > 1)
+		kb->attr = color_text_to_attr(color);
+	else
+		kb->attr = color_char_to_attr(color[0]);
 
 	return PARSE_ERROR_NONE;
 }
@@ -370,7 +564,14 @@ static enum parser_error parse_kb_f(struct parser *p) {
 	s = string_make(parser_getstr(p, "flags"));
 	t = strtok(s, " |");
 	while (t) {
-		if (grab_flag(kb->flags, OF_SIZE, k_info_flags, t))
+		bool found = FALSE;
+		if (!grab_flag(kb->flags, OF_SIZE, obj_flags, t))
+			found = TRUE;
+		if (!grab_flag(kb->kind_flags, KF_SIZE, kind_flags, t))
+			found = TRUE;
+		if (grab_element_flag(kb->el_info, t))
+			found = TRUE;
+		if (!found)
 			break;
 		t = strtok(NULL, " |");
 	}
@@ -385,9 +586,9 @@ struct parser *init_parse_kb(void) {
 	struct kb_parsedata *d = mem_zalloc(sizeof(*d));
 	parser_setpriv(p, d);
 
-	parser_reg(p, "V sym version", ignored);
 	parser_reg(p, "D sym label int value", parse_kb_d);
-	parser_reg(p, "N sym tval str name", parse_kb_n);
+	parser_reg(p, "N sym tval ?str name", parse_kb_n);
+	parser_reg(p, "G sym color", parse_kb_g);
 	parser_reg(p, "B int breakage", parse_kb_b);
 	parser_reg(p, "F str flags", parse_kb_f);
 	return p;
@@ -480,9 +681,9 @@ static enum parser_error parse_k_i(struct parser *p) {
 		return PARSE_ERROR_UNRECOGNISED_TVAL;
 
 	k->tval = tval;
-	k->sval = parser_getint(p, "sval");
-
 	k->base = &kb_info[k->tval];
+	k->base->num_svals++;
+	k->sval = k->base->num_svals;
 
 	return PARSE_ERROR_NONE;
 }
@@ -551,7 +752,14 @@ static enum parser_error parse_k_f(struct parser *p) {
 
 	t = strtok(s, " |");
 	while (t) {
-		if (grab_flag(k->flags, OF_SIZE, k_info_flags, t))
+		bool found = FALSE;
+		if (!grab_flag(k->flags, OF_SIZE, obj_flags, t))
+			found = TRUE;
+		if (!grab_flag(k->kind_flags, KF_SIZE, kind_flags, t))
+			found = TRUE;
+		if (grab_element_flag(k->el_info, t))
+			found = TRUE;
+		if (!found)
 			break;
 		t = strtok(NULL, " |");
 	}
@@ -559,15 +767,95 @@ static enum parser_error parse_k_f(struct parser *p) {
 	return t ? PARSE_ERROR_INVALID_FLAG : PARSE_ERROR_NONE;
 }
 
-static enum parser_error parse_k_e(struct parser *p) {
+static enum parser_error parse_k_effect(struct parser *p) {
+	struct object_kind *k = parser_priv(p);
+	struct effect *effect;
+	struct effect *new_effect = mem_zalloc(sizeof(*new_effect));
+	const char *type;
+	int val, r;
+
+	if (!k)
+		return PARSE_ERROR_MISSING_RECORD_HEADER;
+
+	/* Go to the next vacant effect and set it to the new one  */
+	if (k->effect) {
+		effect = k->effect;
+		while (effect->next)
+			effect = effect->next;
+		effect->next = new_effect;
+	} else
+		k->effect = new_effect;
+
+	new_effect->index = grab_one_effect(parser_getsym(p, "eff"), effect_list,
+										N_ELEMENTS(effect_list));
+
+	if (parser_hasval(p, "type")) {
+		type = parser_getsym(p, "type");
+
+		if (type == NULL)
+			return PARSE_ERROR_INVALID_VALUE;
+
+		/* Check for a value */
+		if (sscanf(type, "%u", &r) == 1)
+			val = r;
+		else {
+			/* Run through the possibilities */
+			val = gf_name_to_idx(type);
+			if (val < 0) {
+				val = timed_name_to_idx(type);
+				if (val < 0) {
+					val = stat_name_to_idx(type);
+					if (val < 0) { //Hack - NRM
+						if (streq(type, "TOHIT")) val = ENCH_TOHIT;
+						else if (streq(type, "TODAM")) val = ENCH_TODAM;
+						else if (streq(type, "TOAC")) val = ENCH_TOAC;
+					}
+				}
+			}
+		}
+		if (val < 0)
+			return PARSE_ERROR_INVALID_EFFECT;
+		else
+			new_effect->params[0] = val;
+	}
+
+	if (parser_hasval(p, "xtra"))
+		new_effect->params[1] = parser_getint(p, "xtra");
+
+	return PARSE_ERROR_NONE;
+}
+
+static enum parser_error parse_k_dice(struct parser *p) {
+	struct object_kind *k = parser_priv(p);
+	dice_t *dice = NULL;
+	const char *string = NULL;
+
+	if (!k)
+		return PARSE_ERROR_MISSING_RECORD_HEADER;
+
+	dice = dice_new();
+
+	if (dice == NULL)
+		return PARSE_ERROR_INTERNAL;
+
+	string = parser_getstr(p, "dice");
+
+	if (dice_parse_string(dice, string)) {
+		k->effect->dice = dice;
+	}
+	else {
+		dice_free(dice);
+		return PARSE_ERROR_GENERIC;
+	}
+
+	return PARSE_ERROR_NONE;
+}
+
+static enum parser_error parse_k_time(struct parser *p) {
 	struct object_kind *k = parser_priv(p);
 	assert(k);
 
-	k->effect = grab_one_effect(parser_getsym(p, "name"));
-	if (parser_hasval(p, "time"))
-		k->time = parser_getrand(p, "time");
-	if (!k->effect)
-		return PARSE_ERROR_GENERIC;
+	k->time = parser_getrand(p, "time");
 	return PARSE_ERROR_NONE;
 }
 
@@ -580,51 +868,88 @@ static enum parser_error parse_k_d(struct parser *p) {
 
 static enum parser_error parse_k_l(struct parser *p) {
 	struct object_kind *k = parser_priv(p);
+	assert(k);
+
+	k->pval = parser_getrand(p, "pval");
+	return PARSE_ERROR_NONE;
+}
+
+static enum parser_error parse_k_v(struct parser *p) {
+	struct object_kind *k = parser_priv(p);
 	char *s;
 	char *t;
 	assert(k);
 
-	k->pval[k->num_pvals] = parser_getrand(p, "pval");
-
-	if (!parser_hasval(p, "flags")) {
-		k->num_pvals++;
-		return PARSE_ERROR_NONE;
-	}
-
-	s = string_make(parser_getstr(p, "flags"));
+	s = string_make(parser_getstr(p, "values"));
 	t = strtok(s, " |");
 
 	while (t) {
-		if (grab_flag(k->flags, OF_SIZE, k_info_flags, t) ||
-			grab_flag(k->pval_flags[k->num_pvals], OF_SIZE, k_info_flags, t))
+		int value = 0;
+		int index = 0;
+		char *name;
+		bool found = FALSE;
+		if (!grab_rand_value(k->modifiers, obj_mods, t))
+			found = TRUE;
+		if (!grab_index_and_int(&value, &index, elements, "BRAND_", t)) {
+			struct brand *b;
+			found = TRUE;
+			b = mem_zalloc(sizeof *b);
+			b->name = string_make(brand_names[index]);
+			b->element = index;
+			b->multiplier = value;
+			b->next = k->brands;
+			k->brands = b;
+		}
+		if (!grab_index_and_int(&value, &index, slays, "SLAY_", t)) {
+			struct slay *s;
+			found = TRUE;
+			s = mem_zalloc(sizeof *s);
+			s->name = string_make(slay_names[index]);
+			s->race_flag = index;
+			s->multiplier = value;
+			s->next = k->slays;
+			k->slays = s;
+		} else if (!grab_base_and_int(&value, &name, t)) {
+			struct slay *s;
+			found = TRUE;
+			s = mem_zalloc(sizeof *s);
+			s->name = string_make(name);
+			s->multiplier = value;
+			s->next = k->slays;
+			k->slays = s;
+		}
+		if (!grab_index_and_int(&value, &index, elements, "RES_", t)) {
+			found = TRUE;
+			k->el_info[index].res_level = value;
+		}
+		if (!found)
 			break;
 
 		t = strtok(NULL, " |");
 	}
 
-	k->num_pvals++;
-	if (k->num_pvals > MAX_PVALS)
-		return PARSE_ERROR_TOO_MANY_ENTRIES;
-
 	mem_free(s);
-	return t ? PARSE_ERROR_INVALID_FLAG : PARSE_ERROR_NONE;
+	return t ? PARSE_ERROR_INVALID_VALUE : PARSE_ERROR_NONE;
 }
+
 
 struct parser *init_parse_k(void) {
 	struct parser *p = parser_new();
 	parser_setpriv(p, NULL);
-	parser_reg(p, "V sym version", ignored);
 	parser_reg(p, "N int index str name", parse_k_n);
 	parser_reg(p, "G char glyph sym color", parse_k_g);
-	parser_reg(p, "I sym tval int sval", parse_k_i);
+	parser_reg(p, "I sym tval", parse_k_i);
 	parser_reg(p, "W int level int extra int weight int cost", parse_k_w);
 	parser_reg(p, "A int common str minmax", parse_k_a);
 	parser_reg(p, "P int ac rand hd rand to-h rand to-d rand to-a", parse_k_p);
 	parser_reg(p, "C rand charges", parse_k_c);
 	parser_reg(p, "M int prob rand stack", parse_k_m);
 	parser_reg(p, "F str flags", parse_k_f);
-	parser_reg(p, "E sym name ?rand time", parse_k_e);
-	parser_reg(p, "L rand pval ?str flags", parse_k_l);
+	parser_reg(p, "effect sym eff ?sym type ?int xtra", parse_k_effect);
+	parser_reg(p, "dice str dice", parse_k_dice);
+	parser_reg(p, "time rand time", parse_k_time);
+	parser_reg(p, "L rand pval", parse_k_l);
+	parser_reg(p, "V str values", parse_k_v);
 	parser_reg(p, "D str text", parse_k_d);
 	return p;
 }
@@ -652,6 +977,10 @@ static errr finish_parse_k(struct parser *p) {
 	k_info = mem_zalloc((z_info->k_max+1) * sizeof(*k));
 	for (k = parser_priv(p); k; k = next) {
 		memcpy(&k_info[k->kidx], k, sizeof(*k));
+
+		/* Add base kind flags to kind kind flags */
+		kf_union(k_info[k->kidx].kind_flags, kb_info[k->tval].kind_flags);
+
 		next = k->next;
 		if (next)
 			k_info[k->kidx].next = &k_info[next->kidx];
@@ -672,6 +1001,9 @@ static void cleanup_k(void)
 	for (idx = 0; idx < z_info->k_max; idx++) {
 		string_free(k_info[idx].name);
 		mem_free(k_info[idx].text);
+		free_brand(k_info[idx].brands);
+		free_slay(k_info[idx].slays);
+		free_effect(k_info[idx].effect);
 	}
 	mem_free(k_info);
 }
@@ -686,7 +1018,7 @@ static struct file_parser k_parser = {
 
 /* Parsing functions for artifact.txt */
 static enum parser_error parse_a_n(struct parser *p) {
-	bitflag f[OF_SIZE];
+	size_t i;
 	int idx = parser_getint(p, "index");
 	const char *name = parser_getstr(p, "name");
 	struct artifact *h = parser_priv(p);
@@ -697,9 +1029,9 @@ static enum parser_error parse_a_n(struct parser *p) {
 	a->aidx = idx;
 	a->name = string_make(name);
 
-	/* Ignore all elements */
-	create_mask(f, FALSE, OFT_IGNORE, OFT_MAX);
-	of_union(a->flags, f);
+	/* Ignore all base elements */
+	for (i = ELEM_BASE_MIN; i < ELEM_HIGH_MIN; i++)
+		a->el_info[i].flags |= EL_INFO_IGNORE;
 
 	return PARSE_ERROR_NONE;
 }
@@ -707,6 +1039,7 @@ static enum parser_error parse_a_n(struct parser *p) {
 static enum parser_error parse_a_i(struct parser *p) {
 	struct artifact *a = parser_priv(p);
 	int tval, sval;
+	const char *sval_name;
 
 	assert(a);
 
@@ -715,10 +1048,31 @@ static enum parser_error parse_a_i(struct parser *p) {
 		return PARSE_ERROR_UNRECOGNISED_TVAL;
 	a->tval = tval;
 
-	sval = lookup_sval(a->tval, parser_getsym(p, "sval"));
+	sval_name = parser_getsym(p, "sval");
+	sval = lookup_sval(a->tval, sval_name);
 	if (sval < 0)
-		return PARSE_ERROR_UNRECOGNISED_SVAL;
+		return write_dummy_object_record(a, sval_name);
 	a->sval = sval;
+
+	return PARSE_ERROR_NONE;
+}
+
+static enum parser_error parse_a_g(struct parser *p) {
+	wchar_t glyph = parser_getchar(p, "glyph");
+	const char *color = parser_getsym(p, "color");
+	struct artifact *a = parser_priv(p);
+	struct object_kind *k = lookup_kind(a->tval, a->sval);
+	assert(a);
+	assert(k);
+
+	if (!kf_has(k->kind_flags, KF_INSTA_ART))
+		return PARSE_ERROR_GENERIC;
+
+	k->d_char = glyph;
+	if (strlen(color) > 1)
+		k->d_attr = color_text_to_attr(color);
+	else
+		k->d_attr = color_char_to_attr(color[0]);
 
 	return PARSE_ERROR_NONE;
 }
@@ -777,7 +1131,12 @@ static enum parser_error parse_a_f(struct parser *p) {
 
 	t = strtok(s, " |");
 	while (t) {
-		if (grab_flag(a->flags, OF_SIZE, k_info_flags, t))
+		bool found = FALSE;
+		if (!grab_flag(a->flags, OF_SIZE, obj_flags, t))
+			found = TRUE;
+		if (grab_element_flag(a->el_info, t))
+			found = TRUE;
+		if (!found)
 			break;
 		t = strtok(NULL, " |");
 	}
@@ -785,14 +1144,85 @@ static enum parser_error parse_a_f(struct parser *p) {
 	return t ? PARSE_ERROR_INVALID_FLAG : PARSE_ERROR_NONE;
 }
 
-static enum parser_error parse_a_e(struct parser *p) {
+static enum parser_error parse_a_effect(struct parser *p) {
+	struct artifact *a = parser_priv(p);
+	struct effect *effect;
+	struct effect *new_effect = mem_zalloc(sizeof(*new_effect));
+	const char *type;
+	int val;
+
+	if (!a)
+		return PARSE_ERROR_MISSING_RECORD_HEADER;
+
+	/* Go to the next vacant effect and set it to the new one  */
+	if (a->effect) {
+		effect = a->effect;
+		while (effect->next)
+			effect = effect->next;
+		effect->next = new_effect;
+	} else
+		a->effect = new_effect;
+
+	/* Fill in the detail */
+	new_effect->index = grab_one_effect(parser_getsym(p, "eff"), effect_list,
+									   N_ELEMENTS(effect_list));
+
+	if (parser_hasval(p, "type")) {
+		type = parser_getsym(p, "type");
+
+		if (type == NULL)
+			return PARSE_ERROR_INVALID_VALUE;
+
+		/* Run through the possibilities */
+		val = gf_name_to_idx(type);
+		if (val < 0) {
+			val = timed_name_to_idx(type);
+			if (val < 0)
+				val = stat_name_to_idx(type);
+		}
+		if (val < 0)
+			return PARSE_ERROR_INVALID_EFFECT;
+		else
+			new_effect->params[0] = val;
+	}
+
+	if (parser_hasval(p, "xtra"))
+		new_effect->params[1] = parser_getint(p, "xtra");
+
+	return PARSE_ERROR_NONE;
+}
+
+static enum parser_error parse_a_dice(struct parser *p) {
+	struct artifact *a = parser_priv(p);
+	dice_t *dice = NULL;
+	const char *string = NULL;
+
+	if (!a)
+		return PARSE_ERROR_MISSING_RECORD_HEADER;
+
+	dice = dice_new();
+
+	if (dice == NULL)
+		return PARSE_ERROR_INTERNAL;
+
+	string = parser_getstr(p, "dice");
+
+	if (dice_parse_string(dice, string)) {
+		a->effect->dice = dice;
+	}
+	else {
+		dice_free(dice);
+		return PARSE_ERROR_GENERIC;
+	}
+
+	return PARSE_ERROR_NONE;
+}
+
+static enum parser_error parse_a_time(struct parser *p) {
 	struct artifact *a = parser_priv(p);
 	assert(a);
 
-	a->effect = grab_one_effect(parser_getsym(p, "name"));
 	a->time = parser_getrand(p, "time");
-	if (!a->effect)
-		return PARSE_ERROR_GENERIC;
 	return PARSE_ERROR_NONE;
 }
 
@@ -804,34 +1234,62 @@ static enum parser_error parse_a_m(struct parser *p) {
 	return PARSE_ERROR_NONE;
 }
 
-static enum parser_error parse_a_l(struct parser *p) {
+static enum parser_error parse_a_v(struct parser *p) {
 	struct artifact *a = parser_priv(p);
 	char *s; 
 	char *t;
 	assert(a);
 
-	a->pval[a->num_pvals] = parser_getint(p, "pval");
-
-	if (!parser_hasval(p, "flags"))
-		return PARSE_ERROR_MISSING_FIELD;
-
-	s = string_make(parser_getstr(p, "flags"));
+	s = string_make(parser_getstr(p, "values"));
 	t = strtok(s, " |");
 
 	while (t) {
-		if (grab_flag(a->flags, OF_SIZE, k_info_flags, t) ||
-			grab_flag(a->pval_flags[a->num_pvals], OF_SIZE, k_info_flags, t))
+		bool found = FALSE;
+		int value = 0;
+		int index = 0;
+		char *name;
+		if (!grab_int_value(a->modifiers, obj_mods, t))
+			found = TRUE;
+		if (!grab_index_and_int(&value, &index, elements, "BRAND_", t)) {
+			struct brand *b;
+			found = TRUE;
+			b = mem_zalloc(sizeof *b);
+			b->name = string_make(brand_names[index]);
+			b->element = index;
+			b->multiplier = value;
+			b->next = a->brands;
+			a->brands = b;
+		}
+		if (!grab_index_and_int(&value, &index, slays, "SLAY_", t)) {
+			struct slay *s;
+			found = TRUE;
+			s = mem_zalloc(sizeof *s);
+			s->name = string_make(slay_names[index]);
+			s->race_flag = index;
+			s->multiplier = value;
+			s->next = a->slays;
+			a->slays = s;
+		} else if (!grab_base_and_int(&value, &name, t)) {
+			struct slay *s;
+			found = TRUE;
+			s = mem_zalloc(sizeof *s);
+			s->name = string_make(name);
+			s->multiplier = value;
+			s->next = a->slays;
+			a->slays = s;
+		}
+		if (!grab_index_and_int(&value, &index, elements, "RES_", t)) {
+			found = TRUE;
+			a->el_info[index].res_level = value;
+		}
+		if (!found)
 			break;
 
 		t = strtok(NULL, " |");
 	}
 
-	a->num_pvals++;
-	if (a->num_pvals > MAX_PVALS)
-		return PARSE_ERROR_TOO_MANY_ENTRIES;
-
 	mem_free(s);
-	return t ? PARSE_ERROR_INVALID_FLAG : PARSE_ERROR_NONE;
+	return t ? PARSE_ERROR_INVALID_VALUE : PARSE_ERROR_NONE;
 }
 
 static enum parser_error parse_a_d(struct parser *p) {
@@ -845,16 +1303,18 @@ static enum parser_error parse_a_d(struct parser *p) {
 struct parser *init_parse_a(void) {
 	struct parser *p = parser_new();
 	parser_setpriv(p, NULL);
-	parser_reg(p, "V sym version", ignored);
 	parser_reg(p, "N int index str name", parse_a_n);
 	parser_reg(p, "I sym tval sym sval", parse_a_i);
+	parser_reg(p, "G char glyph sym color", parse_a_g);
 	parser_reg(p, "W int level int rarity int weight int cost", parse_a_w);
 	parser_reg(p, "A int common str minmax", parse_a_a);
 	parser_reg(p, "P int ac rand hd int to-h int to-d int to-a", parse_a_p);
 	parser_reg(p, "F ?str flags", parse_a_f);
-	parser_reg(p, "E sym name rand time", parse_a_e);
+	parser_reg(p, "effect sym eff ?sym type ?int xtra", parse_a_effect);
+	parser_reg(p, "dice str dice", parse_a_dice);
+	parser_reg(p, "time rand time", parse_a_time);
 	parser_reg(p, "M str text", parse_a_m);
-	parser_reg(p, "L int pval str flags", parse_a_l);
+	parser_reg(p, "V str values", parse_a_v);
 	parser_reg(p, "D str text", parse_a_d);
 	return p;
 }
@@ -900,6 +1360,9 @@ static void cleanup_a(void)
 		string_free(a_info[idx].name);
 		mem_free(a_info[idx].effect_msg);
 		mem_free(a_info[idx].text);
+		free_brand(a_info[idx].brands);
+		free_slay(a_info[idx].slays);
+		free_effect(a_info[idx].effect);
 	}
 	mem_free(a_info);
 }
@@ -1002,6 +1465,210 @@ static struct file_parser names_parser = {
 	cleanup_names
 };
 
+static const char *trap_flags[] =
+{
+#define TRF(a, b) #a,
+#include "list-trap-flags.h"
+#undef TRF
+    NULL
+};
+
+static enum parser_error parse_trap_n(struct parser *p) {
+    int idx = parser_getuint(p, "index");
+    const char *name = parser_getstr(p, "name");
+    struct trap *h = parser_priv(p);
+
+    struct trap *t = mem_zalloc(sizeof *t);
+    t->next = h;
+    t->tidx = idx;
+    t->name = string_make(name);
+    parser_setpriv(p, t);
+    return PARSE_ERROR_NONE;
+}
+
+static enum parser_error parse_trap_g(struct parser *p) {
+    char glyph = parser_getchar(p, "glyph");
+    const char *color = parser_getsym(p, "color");
+    int attr = 0;
+    struct trap *t = parser_priv(p);
+
+    if (!t)
+		return PARSE_ERROR_MISSING_RECORD_HEADER;
+    t->d_char = glyph;
+    if (strlen(color) > 1)
+		attr = color_text_to_attr(color);
+    else
+		attr = color_char_to_attr(color[0]);
+    if (attr < 0)
+		return PARSE_ERROR_INVALID_COLOR;
+    t->d_attr = attr;
+    t->x_char = t->d_char;
+    t->x_attr = t->d_attr;
+    return PARSE_ERROR_NONE;
+}
+
+static enum parser_error parse_trap_m(struct parser *p) {
+    struct trap *t = parser_priv(p);
+
+    if (!t)
+		return PARSE_ERROR_MISSING_RECORD_HEADER;
+    t->rarity =  parser_getuint(p, "rarity");
+    t->min_depth =  parser_getuint(p, "mindepth");
+    t->max_num =  parser_getuint(p, "maxnum");
+    return PARSE_ERROR_NONE;
+}
+
+static enum parser_error parse_trap_f(struct parser *p) {
+    char *flags;
+    struct trap *t = parser_priv(p);
+    char *s;
+
+    if (!t)
+		return PARSE_ERROR_MISSING_RECORD_HEADER;
+
+    if (!parser_hasval(p, "flags"))
+		return PARSE_ERROR_NONE;
+    flags = string_make(parser_getstr(p, "flags"));
+
+    s = strtok(flags, " |");
+    while (s) {
+		if (grab_flag(t->flags, TRF_SIZE, trap_flags, s)) {
+			mem_free(s);
+			return PARSE_ERROR_INVALID_FLAG;
+		}
+		s = strtok(NULL, " |");
+    }
+
+    mem_free(flags);
+    return PARSE_ERROR_NONE;
+}
+
+static enum parser_error parse_trap_effect(struct parser *p) {
+    struct trap *t = parser_priv(p);
+	struct effect *effect;
+	struct effect *new_effect = mem_zalloc(sizeof(*new_effect));
+	const char *type;
+	int val;
+
+	if (!t)
+		return PARSE_ERROR_MISSING_RECORD_HEADER;
+
+	/* Go to the next vacant effect and set it to the new one  */
+	if (t->effect) {
+		effect = t->effect;
+		while (effect->next)
+			effect = effect->next;
+		effect->next = new_effect;
+	} else
+		t->effect = new_effect;
+
+	/* Fill in the detail */
+	new_effect->index = grab_one_effect(parser_getsym(p, "eff"), effect_list,
+										N_ELEMENTS(effect_list));
+
+	if (parser_hasval(p, "type")) {
+		type = parser_getsym(p, "type");
+
+		if (type == NULL)
+			return PARSE_ERROR_INVALID_VALUE;
+
+		/* Run through the possibilities */
+		val = gf_name_to_idx(type);
+		if (val < 0) {
+			val = timed_name_to_idx(type);
+			if (val < 0)
+				val = stat_name_to_idx(type);
+		}
+		if (val < 0)
+			return PARSE_ERROR_INVALID_EFFECT;
+		else
+			new_effect->params[0] = val;
+	}
+
+	if (parser_hasval(p, "xtra"))
+		new_effect->params[1] = parser_getint(p, "xtra");
+
+	return PARSE_ERROR_NONE;
+}
+
+static enum parser_error parse_trap_d(struct parser *p) {
+    struct trap *t = parser_priv(p);
+    assert(t);
+
+    t->text = string_append(t->text, parser_getstr(p, "text"));
+    return PARSE_ERROR_NONE;
+}
+
+struct parser *init_parse_trap(void) {
+    struct parser *p = parser_new();
+    parser_setpriv(p, NULL);
+    parser_reg(p, "V sym version", ignored);
+    parser_reg(p, "N uint index str name", parse_trap_n);
+    parser_reg(p, "G char glyph sym color", parse_trap_g);
+    parser_reg(p, "M uint rarity uint mindepth uint maxnum", parse_trap_m);
+    parser_reg(p, "F ?str flags", parse_trap_f);
+	parser_reg(p, "effect sym eff ?sym type ?int xtra", parse_trap_effect);
+    parser_reg(p, "D str text", parse_trap_d);
+    return p;
+}
+
+static errr run_parse_trap(struct parser *p) {
+    return parse_file(p, "trap");
+}
+
+static errr finish_parse_trap(struct parser *p) {
+	struct trap *t, *n;
+	
+	/* scan the list for the max id */
+	z_info->trap_max = 0;
+	t = parser_priv(p);
+	while (t) {
+		if (t->tidx > z_info->trap_max)
+			z_info->trap_max = t->tidx;
+		t = t->next;
+	}
+	
+	trap_info = mem_zalloc((z_info->trap_max + 1) * sizeof(*t));
+    for (t = parser_priv(p); t; t = t->next) {
+		if (t->tidx >= z_info->trap_max)
+			continue;
+		memcpy(&trap_info[t->tidx], t, sizeof(*t));
+    }
+	z_info->trap_max += 1;
+
+    t = parser_priv(p);
+    while (t) {
+		n = t->next;
+		string_free(t->name);
+		mem_free(t->text);
+		mem_free(t->effect);
+		mem_free(t);
+		t = n;
+    }
+
+    parser_destroy(p);
+    return 0;
+}
+
+static void cleanup_trap(void)
+{
+	int i;
+	for (i = 0; i < z_info->trap_max; i++) {
+		string_free(trap_info[i].name);
+		mem_free(trap_info[i].text);
+		free_effect(trap_info[i].effect);
+	}
+	mem_free(trap_info);
+}
+
+struct file_parser trap_parser = {
+    "trap",
+    init_parse_trap,
+    run_parse_trap,
+    finish_parse_trap,
+    cleanup_trap
+};
+
 /* Parsing functions for terrain.txt */
 static enum parser_error parse_f_n(struct parser *p) {
 	int idx = parser_getuint(p, "index");
@@ -1056,24 +1723,12 @@ static enum parser_error parse_f_p(struct parser *p) {
 	return PARSE_ERROR_NONE;
 }
 
-static const char *f_info_flags[] =
+static const char *terrain_flags[] =
 {
-	"NONE",
-	"PWALK",
-	"PPASS",
-	"MWALK",
-	"MPASS",
-	"LOOK",
-	"DIG",
-	"DOOR",
-	"EXIT_UP",
-	"EXIT_DOWN",
-	"PERM",
-	"TRAP",
-	"SHOP",
-	"HIDDEN",
-	"BORING",
-	NULL
+#define TF(a, b) #a,
+#include "list-terrain-flags.h"
+#undef TF
+    NULL
 };
 
 static enum parser_error parse_f_f(struct parser *p) {
@@ -1090,7 +1745,7 @@ static enum parser_error parse_f_f(struct parser *p) {
 
 	s = strtok(flags, " |");
 	while (s) {
-		if (grab_flag(f->flags, FF_SIZE, f_info_flags, s)) {
+		if (grab_flag(f->flags, TF_SIZE, terrain_flags, s)) {
 			mem_free(flags);
 			quit_fmt("bad f-flag: %s", s);
 			return PARSE_ERROR_INVALID_FLAG;
@@ -1113,28 +1768,15 @@ static enum parser_error parse_f_x(struct parser *p) {
 	return PARSE_ERROR_NONE;
 }
 
-static enum parser_error parse_f_e(struct parser *p) {
-	struct feature *f = parser_priv(p);
-
-	if (!f)
-		return PARSE_ERROR_MISSING_RECORD_HEADER;
-	f->effect = grab_one_effect(parser_getstr(p, "effect"));
-	if (!f->effect)
-		return PARSE_ERROR_INVALID_EFFECT;
-	return PARSE_ERROR_NONE;
-}
-
 struct parser *init_parse_f(void) {
 	struct parser *p = parser_new();
 	parser_setpriv(p, NULL);
-	parser_reg(p, "V sym version", ignored);
 	parser_reg(p, "N uint index str name", parse_f_n);
 	parser_reg(p, "G char glyph sym color", parse_f_g);
 	parser_reg(p, "M uint index", parse_f_m);
 	parser_reg(p, "P uint priority", parse_f_p);
 	parser_reg(p, "F ?str flags", parse_f_f);
 	parser_reg(p, "X int locked int unused int shopnum int dig", parse_f_x);
-	parser_reg(p, "E str effect", parse_f_e);
 	return p;
 }
 
@@ -1201,10 +1843,11 @@ static enum parser_error parse_e_n(struct parser *p) {
 	return PARSE_ERROR_NONE;
 }
 
-static enum parser_error parse_e_w(struct parser *p) {
+static enum parser_error parse_e_x(struct parser *p) {
 	int level = parser_getint(p, "level");
 	int rarity = parser_getint(p, "rarity");
 	int cost = parser_getint(p, "cost");
+	int rating = parser_getint(p, "rating");
 	struct ego_item *e = parser_priv(p);
 
 	if (!e)
@@ -1212,18 +1855,7 @@ static enum parser_error parse_e_w(struct parser *p) {
 	e->level = level;
 	e->rarity = rarity;
 	e->cost = cost;
-	return PARSE_ERROR_NONE;
-}
-
-static enum parser_error parse_e_x(struct parser *p) {
-	int rating = parser_getint(p, "rating");
-	int xtra = parser_getint(p, "xtra");
-	struct ego_item *e = parser_priv(p);
-
-	if (!e)
-		return PARSE_ERROR_MISSING_RECORD_HEADER;
 	e->rating = rating;
-	e->xtra = xtra;
 	return PARSE_ERROR_NONE;
 }
 
@@ -1244,32 +1876,50 @@ static enum parser_error parse_e_a(struct parser *p) {
 	return PARSE_ERROR_NONE;
 }
 
-static enum parser_error parse_e_t(struct parser *p) {
+static enum parser_error parse_e_type(struct parser *p) {
+	struct ego_poss_item *poss;
 	int i;
-	int tval;
-	int min_sval, max_sval;
+	int tval = tval_find_idx(parser_getsym(p, "tval"));
+	bool found_one_kind = FALSE;
 
 	struct ego_item *e = parser_priv(p);
 	if (!e)
 		return PARSE_ERROR_MISSING_RECORD_HEADER;
-
-	tval = tval_find_idx(parser_getsym(p, "tval"));
 	if (tval < 0)
 		return PARSE_ERROR_UNRECOGNISED_TVAL;
 
-	min_sval = parser_getint(p, "min-sval");
-	max_sval = parser_getint(p, "max-sval");
-
-	for (i = 0; i < EGO_TVALS_MAX; i++) {
-		if (!e->tval[i]) {
-			e->tval[i] = tval;
-			e->min_sval[i] = min_sval;
-			e->max_sval[i] = max_sval;
-			break;
-		}
+	/* Find all the right object kinds */
+	for (i = 0; i < z_info->k_max; i++) {
+		if (k_info[i].tval != tval) continue;
+		poss = mem_zalloc(sizeof(struct ego_poss_item));
+		poss->kidx = i;
+		poss->next = e->poss_items;
+		e->poss_items = poss;
+		found_one_kind = TRUE;
 	}
 
-	if (i == EGO_TVALS_MAX)
+	if (!found_one_kind)
+		return PARSE_ERROR_GENERIC;
+	return PARSE_ERROR_NONE;
+}
+
+static enum parser_error parse_e_item(struct parser *p) {
+	struct ego_poss_item *poss;
+	int tval = tval_find_idx(parser_getsym(p, "tval"));
+	int sval = lookup_sval(tval, parser_getsym(p, "sval"));
+
+	struct ego_item *e = parser_priv(p);
+	if (!e)
+		return PARSE_ERROR_MISSING_RECORD_HEADER;
+	if (tval < 0)
+		return PARSE_ERROR_UNRECOGNISED_TVAL;
+
+	poss = mem_zalloc(sizeof(struct ego_poss_item));
+	poss->kidx = lookup_kind(tval, sval)->kidx;
+	poss->next = e->poss_items;
+	e->poss_items = poss;
+
+	if (poss->kidx <= 0)
 		return PARSE_ERROR_GENERIC;
 	return PARSE_ERROR_NONE;
 }
@@ -1306,6 +1956,88 @@ static enum parser_error parse_e_m(struct parser *p) {
 	return PARSE_ERROR_NONE;
 }
 
+static enum parser_error parse_e_effect(struct parser *p) {
+	struct ego_item *e = parser_priv(p);
+	struct effect *effect;
+	struct effect *new_effect = mem_zalloc(sizeof(*new_effect));
+	const char *type;
+	int val;
+
+	if (!e)
+		return PARSE_ERROR_MISSING_RECORD_HEADER;
+
+	/* Go to the next vacant effect and set it to the new one  */
+	if (e->effect) {
+		effect = e->effect;
+		while (effect->next)
+			effect = effect->next;
+		effect->next = new_effect;
+	} else
+		e->effect = new_effect;
+
+	/* Fill in the detail */
+	new_effect->index = grab_one_effect(parser_getsym(p, "eff"), effect_list,
+										N_ELEMENTS(effect_list));
+
+	if (parser_hasval(p, "type")) {
+		type = parser_getsym(p, "type");
+
+		if (type == NULL)
+			return PARSE_ERROR_INVALID_VALUE;
+
+		/* Run through the possibilities */
+		val = gf_name_to_idx(type);
+		if (val < 0) {
+			val = timed_name_to_idx(type);
+			if (val < 0)
+				val = stat_name_to_idx(type);
+		}
+		if (val < 0)
+			return PARSE_ERROR_INVALID_EFFECT;
+		else
+			new_effect->params[0] = val;
+	}
+
+	if (parser_hasval(p, "xtra"))
+		new_effect->params[1] = parser_getint(p, "xtra");
+
+	return PARSE_ERROR_NONE;
+}
+
+static enum parser_error parse_e_dice(struct parser *p) {
+	struct ego_item *e = parser_priv(p);
+	dice_t *dice = NULL;
+	const char *string = NULL;
+
+	if (!e)
+		return PARSE_ERROR_MISSING_RECORD_HEADER;
+
+	dice = dice_new();
+
+	if (dice == NULL)
+		return PARSE_ERROR_INTERNAL;
+
+	string = parser_getstr(p, "dice");
+
+	if (dice_parse_string(dice, string)) {
+		e->effect->dice = dice;
+	}
+	else {
+		dice_free(dice);
+		return PARSE_ERROR_GENERIC;
+	}
+
+	return PARSE_ERROR_NONE;
+}
+
+static enum parser_error parse_e_time(struct parser *p) {
+	struct ego_item *e = parser_priv(p);
+	assert(e);
+
+	e->time = parser_getrand(p, "time");
+	return PARSE_ERROR_NONE;
+}
+
 static enum parser_error parse_e_f(struct parser *p) {
 	struct ego_item *e = parser_priv(p);
 	char *s;
@@ -1318,12 +2050,81 @@ static enum parser_error parse_e_f(struct parser *p) {
 	s = string_make(parser_getstr(p, "flags"));
 	t = strtok(s, " |");
 	while (t) {
-		if (grab_flag(e->flags, OF_SIZE, k_info_flags,t))
+		bool found = FALSE;
+		if (!grab_flag(e->flags, OF_SIZE, obj_flags, t))
+			found = TRUE;
+		if (!grab_flag(e->kind_flags, KF_SIZE, kind_flags, t))
+			found = TRUE;
+		if (grab_element_flag(e->el_info, t))
+			found = TRUE;
+		if (!found)
 			break;
 		t = strtok(NULL, " |");
 	}
 	mem_free(s);
 	return t ? PARSE_ERROR_INVALID_FLAG : PARSE_ERROR_NONE;
+}
+
+static enum parser_error parse_e_v(struct parser *p) {
+	struct ego_item *e = parser_priv(p);
+	char *s; 
+	char *t;
+
+	if (!e)
+		return PARSE_ERROR_MISSING_RECORD_HEADER;
+	if (!parser_hasval(p, "values"))
+		return PARSE_ERROR_MISSING_FIELD;
+
+	s = string_make(parser_getstr(p, "values"));
+	t = strtok(s, " |");
+
+	while (t) {
+		bool found = FALSE;
+		int value = 0;
+		int index = 0;
+		char *name;
+		if (!grab_rand_value(e->modifiers, obj_mods, t))
+			found = TRUE;
+		if (!grab_index_and_int(&value, &index, elements, "BRAND_", t)) {
+			struct brand *b;
+			found = TRUE;
+			b = mem_zalloc(sizeof *b);
+			b->name = string_make(brand_names[index]);
+			b->element = index;
+			b->multiplier = value;
+			b->next = e->brands;
+			e->brands = b;
+		}
+		if (!grab_index_and_int(&value, &index, slays, "SLAY_", t)) {
+			struct slay *s;
+			found = TRUE;
+			s = mem_zalloc(sizeof *s);
+			s->name = string_make(slay_names[index]);
+			s->race_flag = index;
+			s->multiplier = value;
+			s->next = e->slays;
+			e->slays = s;
+		} else if (!grab_base_and_int(&value, &name, t)) {
+			struct slay *s;
+			found = TRUE;
+			s = mem_zalloc(sizeof *s);
+			s->name = string_make(name);
+			s->multiplier = value;
+			s->next = e->slays;
+			e->slays = s;
+		}
+		if (!grab_index_and_int(&value, &index, elements, "RES_", t)) {
+			found = TRUE;
+			e->el_info[index].res_level = value;
+		}
+		if (!found)
+			break;
+
+		t = strtok(NULL, " |");
+	}
+
+	mem_free(s);
+	return t ? PARSE_ERROR_INVALID_VALUE : PARSE_ERROR_NONE;
 }
 
 static enum parser_error parse_e_l(struct parser *p) {
@@ -1333,29 +2134,24 @@ static enum parser_error parse_e_l(struct parser *p) {
 
 	if (!e)
 		return PARSE_ERROR_MISSING_RECORD_HEADER;
-	if (!parser_hasval(p, "flags"))
+	if (!parser_hasval(p, "min_values"))
 		return PARSE_ERROR_MISSING_FIELD;
 
-	e->pval[e->num_pvals] = parser_getrand(p, "pval");
-	e->min_pval[e->num_pvals] = parser_getint(p, "min");
-
-	s = string_make(parser_getstr(p, "flags"));
+	s = string_make(parser_getstr(p, "min_values"));
 	t = strtok(s, " |");
 
 	while (t) {
-		if (grab_flag(e->flags, OF_SIZE, k_info_flags, t) ||
-			grab_flag(e->pval_flags[e->num_pvals], OF_SIZE, k_info_flags, t))
+		bool found = FALSE;
+		if (!grab_int_value(e->min_modifiers, obj_mods, t))
+			found = TRUE;
+		if (!found)
 			break;
 
 		t = strtok(NULL, " |");
 	}
 
-	e->num_pvals++;
-	if (e->num_pvals > MAX_PVALS)
-		return PARSE_ERROR_TOO_MANY_ENTRIES;
-
 	mem_free(s);
-	return t ? PARSE_ERROR_INVALID_FLAG : PARSE_ERROR_NONE;
+	return t ? PARSE_ERROR_INVALID_VALUE : PARSE_ERROR_NONE;
 }
 
 static enum parser_error parse_e_d(struct parser *p) {
@@ -1370,16 +2166,19 @@ static enum parser_error parse_e_d(struct parser *p) {
 struct parser *init_parse_e(void) {
 	struct parser *p = parser_new();
 	parser_setpriv(p, NULL);
-	parser_reg(p, "V sym version", ignored);
 	parser_reg(p, "N int index str name", parse_e_n);
-	parser_reg(p, "W int level int rarity int pad int cost", parse_e_w);
-	parser_reg(p, "X int rating int xtra", parse_e_x);
+	parser_reg(p, "X int level int rarity int cost int rating", parse_e_x);
 	parser_reg(p, "A int common str minmax", parse_e_a);
-	parser_reg(p, "T sym tval int min-sval int max-sval", parse_e_t);
+	parser_reg(p, "type sym tval", parse_e_type);
+	parser_reg(p, "item sym tval sym sval", parse_e_item);
 	parser_reg(p, "C rand th rand td rand ta", parse_e_c);
 	parser_reg(p, "M int th int td int ta", parse_e_m);
+	parser_reg(p, "effect sym eff ?sym type ?int xtra", parse_e_effect);
+	parser_reg(p, "dice str dice", parse_e_dice);
+	parser_reg(p, "time rand time", parse_e_time);
 	parser_reg(p, "F ?str flags", parse_e_f);
-	parser_reg(p, "L rand pval int min str flags", parse_e_l);
+	parser_reg(p, "V str values", parse_e_v);
+	parser_reg(p, "L str min_values", parse_e_l);
 	parser_reg(p, "D str text", parse_e_d);
 	return p;
 }
@@ -1422,9 +2221,19 @@ static errr finish_parse_e(struct parser *p) {
 static void cleanup_e(void)
 {
 	int idx;
+	struct ego_poss_item *poss, *pn;
 	for (idx = 0; idx < z_info->e_max; idx++) {
 		string_free(e_info[idx].name);
 		mem_free(e_info[idx].text);
+		free_brand(e_info[idx].brands);
+		free_slay(e_info[idx].slays);
+		free_effect(e_info[idx].effect);
+		poss = e_info[idx].poss_items;
+		while (poss) {
+			pn = poss->next;
+			mem_free(poss);
+			poss = pn;
+		}
 	}
 	mem_free(e_info);
 	free_slay_cache();
@@ -1438,6 +2247,76 @@ static struct file_parser e_parser = {
 	cleanup_e
 };
 
+/* Parsing functions for body.txt */
+static enum parser_error parse_body_body(struct parser *p) {
+	struct player_body *h = parser_priv(p);
+	struct player_body *b = mem_zalloc(sizeof *b);
+
+	b->next = h;
+	b->name = string_make(parser_getstr(p, "name"));
+	parser_setpriv(p, b);
+	return PARSE_ERROR_NONE;
+}
+
+static enum parser_error parse_body_slot(struct parser *p) {
+	struct player_body *b = parser_priv(p);
+	char *slot;
+	int n;
+
+	if (!b)
+		return PARSE_ERROR_MISSING_RECORD_HEADER;
+	slot = string_make(parser_getsym(p, "slot"));
+	n = lookup_flag(slots, slot);
+	if (!n)
+		return PARSE_ERROR_GENERIC;
+	b->slots[b->count].type = n;
+	b->slots[b->count++].name = string_make(parser_getsym(p, "name"));
+	mem_free(slot);
+	return PARSE_ERROR_NONE;
+}
+
+struct parser *init_parse_body(void) {
+	struct parser *p = parser_new();
+	parser_setpriv(p, NULL);
+	parser_reg(p, "body str name", parse_body_body);
+	parser_reg(p, "slot sym slot sym name", parse_body_slot);
+	return p;
+}
+
+static errr run_parse_body(struct parser *p) {
+	return parse_file(p, "body");
+}
+
+static errr finish_parse_body(struct parser *p) {
+	bodies = parser_priv(p);
+	parser_destroy(p);
+	return 0;
+}
+
+static void cleanup_body(void)
+{
+	struct player_body *b = bodies;
+	struct player_body *next;
+	int i;
+
+	while (b) {
+		next = b->next;
+		string_free((char *)b->name);
+		for (i = 0; i < b->count; i++)
+			string_free((char *)b->slots[i].name);
+		mem_free(b);
+		b = next;
+	}
+}
+
+static struct file_parser body_parser = {
+	"body",
+	init_parse_body,
+	run_parse_body,
+	finish_parse_body,
+	cleanup_body
+};
+
 /* Parsing functions for prace.txt */
 static enum parser_error parse_p_n(struct parser *p) {
 	struct player_race *h = parser_priv(p);
@@ -1446,6 +2325,8 @@ static enum parser_error parse_p_n(struct parser *p) {
 	r->next = h;
 	r->ridx = parser_getuint(p, "index");
 	r->name = string_make(parser_getstr(p, "name"));
+	/* Default body is humanoid */
+	r->body = 0;
 	parser_setpriv(p, r);
 	return PARSE_ERROR_NONE;
 }
@@ -1454,11 +2335,11 @@ static enum parser_error parse_p_s(struct parser *p) {
 	struct player_race *r = parser_priv(p);
 	if (!r)
 		return PARSE_ERROR_MISSING_RECORD_HEADER;
-	r->r_adj[A_STR] = parser_getint(p, "str");
-	r->r_adj[A_DEX] = parser_getint(p, "dex");
-	r->r_adj[A_CON] = parser_getint(p, "con");
-	r->r_adj[A_INT] = parser_getint(p, "int");
-	r->r_adj[A_WIS] = parser_getint(p, "wis");
+	r->r_adj[STAT_STR] = parser_getint(p, "str");
+	r->r_adj[STAT_DEX] = parser_getint(p, "dex");
+	r->r_adj[STAT_CON] = parser_getint(p, "con");
+	r->r_adj[STAT_INT] = parser_getint(p, "int");
+	r->r_adj[STAT_WIS] = parser_getint(p, "wis");
 	return PARSE_ERROR_NONE;
 }
 
@@ -1533,7 +2414,7 @@ static enum parser_error parse_p_f(struct parser *p) {
 	flags = string_make(parser_getstr(p, "flags"));
 	s = strtok(flags, " |");
 	while (s) {
-		if (grab_flag(r->flags, OF_SIZE, k_info_flags, s))
+		if (grab_flag(r->flags, OF_SIZE, obj_flags, s))
 			break;
 		s = strtok(NULL, " |");
 	}
@@ -1569,29 +2450,37 @@ static enum parser_error parse_p_y(struct parser *p) {
 	return s ? PARSE_ERROR_INVALID_FLAG : PARSE_ERROR_NONE;
 }
 
-static enum parser_error parse_p_c(struct parser *p) {
+static enum parser_error parse_p_v(struct parser *p) {
 	struct player_race *r = parser_priv(p);
-	char *classstr;
 	char *s;
+	char *t;
 
 	if (!r)
 		return PARSE_ERROR_MISSING_RECORD_HEADER;
-	if (!parser_hasval(p, "classes"))
-		return PARSE_ERROR_NONE;
-	classstr = string_make(parser_getstr(p, "classes"));
-	s = strtok(classstr, " |");
-	while (s) {
-		r->choice |= 1 << atoi(s);
-		s = strtok(NULL, " |");
+	s = string_make(parser_getstr(p, "values"));
+	t = strtok(s, " |");
+
+	while (t) {
+		int value = 0;
+		int index = 0;
+		bool found = FALSE;
+		if (!grab_index_and_int(&value, &index, elements, "RES_", t)) {
+			found = TRUE;
+			r->el_info[index].res_level = value;
+		}
+		if (!found)
+			break;
+
+		t = strtok(NULL, " |");
 	}
-	mem_free(classstr);
-	return PARSE_ERROR_NONE;
+
+	mem_free(s);
+	return t ? PARSE_ERROR_INVALID_VALUE : PARSE_ERROR_NONE;
 }
 
 struct parser *init_parse_p(void) {
 	struct parser *p = parser_new();
 	parser_setpriv(p, NULL);
-	parser_reg(p, "V sym version", ignored);
 	parser_reg(p, "N uint index str name", parse_p_n);
 	parser_reg(p, "S int str int int int wis int dex int con", parse_p_s);
 	parser_reg(p, "R int dis int dev int sav int stl int srh int fos int thm int thb int throw int dig", parse_p_r);
@@ -1601,7 +2490,7 @@ struct parser *init_parse_p(void) {
 	parser_reg(p, "W int mbwt int mmwt int fbwt int fmwt", parse_p_w);
 	parser_reg(p, "F ?str flags", parse_p_f);
 	parser_reg(p, "Y ?str flags", parse_p_y);
-	parser_reg(p, "C ?str classes", parse_p_c);
+	parser_reg(p, "V str values", parse_p_v);
 	return p;
 }
 
@@ -1653,11 +2542,11 @@ static enum parser_error parse_c_s(struct parser *p) {
 	if (!c)
 		return PARSE_ERROR_MISSING_RECORD_HEADER;
 
-	c->c_adj[A_STR] = parser_getint(p, "str");
-	c->c_adj[A_INT] = parser_getint(p, "int");
-	c->c_adj[A_WIS] = parser_getint(p, "wis");
-	c->c_adj[A_DEX] = parser_getint(p, "dex");
-	c->c_adj[A_CON] = parser_getint(p, "con");
+	c->c_adj[STAT_STR] = parser_getint(p, "str");
+	c->c_adj[STAT_INT] = parser_getint(p, "int");
+	c->c_adj[STAT_WIS] = parser_getint(p, "wis");
+	c->c_adj[STAT_DEX] = parser_getint(p, "dex");
+	c->c_adj[STAT_CON] = parser_getint(p, "con");
 	return PARSE_ERROR_NONE;
 }
 
@@ -1720,34 +2609,6 @@ static enum parser_error parse_c_a(struct parser *p) {
 	return PARSE_ERROR_NONE;
 }
 
-static enum parser_error parse_c_m(struct parser *p) {
-	struct player_class *c = parser_priv(p);
-
-	if (!c)
-		return PARSE_ERROR_MISSING_RECORD_HEADER;
-	c->spell_book = parser_getuint(p, "book");
-	c->spell_stat = parser_getuint(p, "stat");
-	c->spell_first = parser_getuint(p, "first");
-	c->spell_weight = parser_getuint(p, "weight");
-	return PARSE_ERROR_NONE;
-}
-
-static enum parser_error parse_c_b(struct parser *p) {
-	struct player_class *c = parser_priv(p);
-	unsigned int spell;
-
-	if (!c)
-		return PARSE_ERROR_MISSING_RECORD_HEADER;
-	spell = parser_getuint(p, "spell");
-	if (spell >= PY_MAX_SPELLS)
-		return PARSE_ERROR_OUT_OF_BOUNDS;
-	c->spells.info[spell].slevel = parser_getint(p, "level");
-	c->spells.info[spell].smana = parser_getint(p, "mana");
-	c->spells.info[spell].sfail = parser_getint(p, "fail");
-	c->spells.info[spell].sexp = parser_getint(p, "exp");
-	return PARSE_ERROR_NONE;
-}
-
 static enum parser_error parse_c_t(struct parser *p) {
 	struct player_class *c = parser_priv(p);
 	int i;
@@ -1783,7 +2644,7 @@ static enum parser_error parse_c_e(struct parser *p) {
 		return PARSE_ERROR_UNRECOGNISED_SVAL;
 
 	si = mem_zalloc(sizeof *si);
-	si->kind = objkind_get(tval, sval);
+	si->kind = lookup_kind(tval, sval);
 	si->min = parser_getuint(p, "min");
 	si->max = parser_getuint(p, "max");
 
@@ -1819,21 +2680,202 @@ static enum parser_error parse_c_f(struct parser *p) {
 	return s ? PARSE_ERROR_INVALID_FLAG : PARSE_ERROR_NONE;
 }
 
+static enum parser_error parse_c_magic(struct parser *p) {
+	struct player_class *c = parser_priv(p);
+	int num_books;
+
+	if (!c)
+		return PARSE_ERROR_MISSING_RECORD_HEADER;
+	c->magic.spell_first = parser_getuint(p, "first");
+	c->magic.spell_weight = parser_getuint(p, "weight");
+	c->magic.spell_realm = &realms[parser_getuint(p, "realm")];
+	num_books = parser_getuint(p, "books");
+	c->magic.books = mem_zalloc(num_books * sizeof(class_book));
+	return PARSE_ERROR_NONE;
+}
+
+static enum parser_error parse_c_book(struct parser *p) {
+	struct player_class *c = parser_priv(p);
+	int tval, sval, spells;
+
+	if (!c)
+		return PARSE_ERROR_MISSING_RECORD_HEADER;
+
+	tval = tval_find_idx(parser_getsym(p, "tval"));
+	if (tval < 0)
+		return PARSE_ERROR_UNRECOGNISED_TVAL;
+
+	sval = lookup_sval(tval, parser_getsym(p, "sval"));
+	if (sval < 0)
+		return PARSE_ERROR_UNRECOGNISED_SVAL;
+
+	c->magic.books[c->magic.num_books].tval = tval;
+	c->magic.books[c->magic.num_books].sval = sval;
+	spells = parser_getuint(p, "spells");
+	c->magic.books[c->magic.num_books].spells =
+		mem_zalloc(spells * sizeof(class_spell));
+	c->magic.books[c->magic.num_books++].realm = parser_getuint(p, "realm");
+
+	return PARSE_ERROR_NONE;
+}
+
+static enum parser_error parse_c_spell(struct parser *p) {
+	struct player_class *c = parser_priv(p);
+	class_book *book = &c->magic.books[c->magic.num_books - 1];
+
+	if (!c)
+		return PARSE_ERROR_MISSING_RECORD_HEADER;
+
+	book->spells[book->num_spells].name = string_make(parser_getsym(p, "name"));
+	book->spells[book->num_spells].sidx = c->magic.total_spells;
+	c->magic.total_spells++;
+	book->spells[book->num_spells].bidx = c->magic.num_books - 1;
+	book->spells[book->num_spells].slevel = parser_getint(p, "level");
+	book->spells[book->num_spells].smana = parser_getint(p, "mana");
+	book->spells[book->num_spells].sfail = parser_getint(p, "fail");
+	book->spells[book->num_spells++].sexp = parser_getint(p, "exp");
+	return PARSE_ERROR_NONE;
+}
+
+static enum parser_error parse_c_effect(struct parser *p) {
+	struct player_class *c = parser_priv(p);
+	class_book *book = &c->magic.books[c->magic.num_books - 1];
+	class_spell *spell = &book->spells[book->num_spells - 1];
+	struct effect *effect;
+	struct effect *new_effect = mem_zalloc(sizeof(*effect));
+	const char *type;
+
+	if (!c)
+		return PARSE_ERROR_MISSING_RECORD_HEADER;
+
+	/* Go to the next vacant effect and set it to the new one  */
+	if (spell->effect) {
+		effect = spell->effect;
+		while (effect->next)
+			effect = effect->next;
+		effect->next = new_effect;
+	} else
+		spell->effect = new_effect;
+
+	/* Fill in the detail */
+	new_effect->index = grab_one_effect(parser_getsym(p, "eff"),
+										spell_effect_list,
+										N_ELEMENTS(spell_effect_list));
+
+	if (parser_hasval(p, "type")) {
+		type = parser_getsym(p, "type");
+
+		if (type == NULL)
+			return PARSE_ERROR_INVALID_VALUE;
+
+		new_effect->params[0] = gf_name_to_idx(type);
+	}
+
+	if (parser_hasval(p, "xtra"))
+		new_effect->params[1] = parser_getint(p, "xtra");
+
+	return PARSE_ERROR_NONE;
+}
+
+static enum parser_error parse_c_dice(struct parser *p) {
+	struct player_class *c = parser_priv(p);
+	class_book *book = &c->magic.books[c->magic.num_books - 1];
+	class_spell *spell = &book->spells[book->num_spells - 1];
+	dice_t *dice = NULL;
+	const char *string = NULL;
+
+	if (!c)
+		return PARSE_ERROR_MISSING_RECORD_HEADER;
+
+	dice = dice_new();
+
+	if (dice == NULL)
+		return PARSE_ERROR_INTERNAL;
+
+	string = parser_getstr(p, "dice");
+
+	if (dice_parse_string(dice, string)) {
+		spell->effect->dice = dice;
+	}
+	else {
+		dice_free(dice);
+		return PARSE_ERROR_GENERIC;
+	}
+
+	return PARSE_ERROR_NONE;
+}
+
+static enum parser_error parse_c_expr(struct parser *p) {
+	struct player_class *c = parser_priv(p);
+	class_book *book = &c->magic.books[c->magic.num_books - 1];
+	class_spell *spell = &book->spells[book->num_spells - 1];
+	expression_t *expression = NULL;
+	expression_base_value_f function = NULL;
+	const char *name;
+	const char *base;
+	const char *expr;
+
+	if (!c)
+		return PARSE_ERROR_MISSING_RECORD_HEADER;
+
+	/* If there are no dice, assume that this is human and not parser error. */
+	if (spell->effect->dice == NULL)
+		return PARSE_ERROR_NONE;
+
+	name = parser_getsym(p, "name");
+	base = parser_getsym(p, "base");
+	expr = parser_getstr(p, "expr");
+	expression = expression_new();
+
+	if (expression == NULL)
+		return PARSE_ERROR_INTERNAL;
+
+	function = spell_value_base_by_name(base);
+	expression_set_base_value(expression, function);
+
+	if (expression_add_operations_string(expression, expr) < 0)
+		return PARSE_ERROR_GENERIC;
+
+	if (dice_bind_expression(spell->effect->dice, name, expression) < 0)
+		return PARSE_ERROR_GENERIC;
+
+	/* The dice object makes a deep copy of the expression, so we can free it */
+	expression_free(expression);
+
+	return PARSE_ERROR_NONE;
+}
+
+static enum parser_error parse_c_desc(struct parser *p) {
+	struct player_class *c = parser_priv(p);
+	class_book *book = &c->magic.books[c->magic.num_books - 1];
+	class_spell *spell = &book->spells[book->num_spells - 1];
+
+	if (!c)
+		return PARSE_ERROR_MISSING_RECORD_HEADER;
+
+	spell->text = string_append(spell->text, parser_getstr(p, "desc"));
+	return PARSE_ERROR_NONE;
+}
+
 struct parser *init_parse_c(void) {
 	struct parser *p = parser_new();
 	parser_setpriv(p, NULL);
-	parser_reg(p, "V sym version", ignored);
 	parser_reg(p, "N uint index str name", parse_c_n);
 	parser_reg(p, "S int str int int int wis int dex int con", parse_c_s);
 	parser_reg(p, "C int dis int dev int sav int stl int srh int fos int thm int thb int throw int dig", parse_c_c);
 	parser_reg(p, "X int dis int dev int sav int stl int srh int fos int thm int thb int throw int dig", parse_c_x);
 	parser_reg(p, "I int mhp int exp int sense-base int sense-div", parse_c_i);
 	parser_reg(p, "A int max-attacks int min-weight int att-multiply", parse_c_a);
-	parser_reg(p, "M uint book uint stat uint first uint weight", parse_c_m);
-	parser_reg(p, "B uint spell int level int mana int fail int exp", parse_c_b);
 	parser_reg(p, "T str title", parse_c_t);
 	parser_reg(p, "E sym tval sym sval uint min uint max", parse_c_e);
 	parser_reg(p, "F ?str flags", parse_c_f);
+	parser_reg(p, "magic uint first uint weight uint realm uint books", parse_c_magic);
+	parser_reg(p, "book sym tval sym sval uint spells uint realm", parse_c_book);
+	parser_reg(p, "spell sym name int level int mana int fail int exp", parse_c_spell);
+	parser_reg(p, "effect sym eff ?sym type ?int xtra", parse_c_effect);
+	parser_reg(p, "dice str dice", parse_c_dice);
+	parser_reg(p, "expr sym name sym base str expr", parse_c_expr);
+	parser_reg(p, "desc str desc", parse_c_desc);
 	return p;
 }
 
@@ -1852,7 +2894,9 @@ static void cleanup_c(void)
 	struct player_class *c = classes;
 	struct player_class *next;
 	struct start_item *item, *item_next;
-	int i;
+	class_spell *spell;
+	class_book *book;
+	int i, j;
 
 	while (c) {
 		next = c->next;
@@ -1862,6 +2906,17 @@ static void cleanup_c(void)
 			mem_free(item);
 			item = item_next;
 		}
+		for (i = 0; i < c->magic.num_books; i++) {
+			book = &c->magic.books[i];
+			for (j = 0; j < book->num_spells; j++) {
+				spell = &book->spells[j];
+				string_free(spell->name);
+				string_free(spell->text);
+				free_effect(spell->effect);
+			}
+			mem_free(book->spells);
+		}
+		mem_free(c->magic.books);
 		for (i = 0; i < PY_MAX_LEVEL / 5; i++) {
 			string_free((char *)c->title[i]);
 		}
@@ -1877,85 +2932,6 @@ static struct file_parser c_parser = {
 	run_parse_c,
 	finish_parse_c,
 	cleanup_c
-};
-
-/* Parsing functions for vault.txt */
-static enum parser_error parse_v_n(struct parser *p) {
-	struct vault *h = parser_priv(p);
-	struct vault *v = mem_zalloc(sizeof *v);
-
-	v->vidx = parser_getuint(p, "index");
-	v->name = string_make(parser_getstr(p, "name"));
-	v->next = h;
-	parser_setpriv(p, v);
-	return PARSE_ERROR_NONE;
-}
-
-static enum parser_error parse_v_x(struct parser *p) {
-	struct vault *v = parser_priv(p);
-
-	if (!v)
-		return PARSE_ERROR_MISSING_RECORD_HEADER;
-	v->typ = parser_getuint(p, "type");
-	v->rat = parser_getint(p, "rating");
-	v->hgt = parser_getuint(p, "height");
-	v->wid = parser_getuint(p, "width");
-
-	/* XXX: huh? These checks were in the original code and I have no idea
-	 * why. */
-	if (v->typ == 6 && (v->wid > 33 || v->hgt > 22))
-		return PARSE_ERROR_VAULT_TOO_BIG;
-	if (v->typ == 7 && (v->wid > 66 || v->hgt > 44))
-		return PARSE_ERROR_VAULT_TOO_BIG;
-	return PARSE_ERROR_NONE;
-}
-
-static enum parser_error parse_v_d(struct parser *p) {
-	struct vault *v = parser_priv(p);
-
-	if (!v)
-		return PARSE_ERROR_MISSING_RECORD_HEADER;
-	v->text = string_append(v->text, parser_getstr(p, "text"));
-	return PARSE_ERROR_NONE;
-}
-
-struct parser *init_parse_v(void) {
-	struct parser *p = parser_new();
-	parser_setpriv(p, NULL);
-	parser_reg(p, "V sym version", ignored);
-	parser_reg(p, "N uint index str name", parse_v_n);
-	parser_reg(p, "X uint type int rating uint height uint width", parse_v_x);
-	parser_reg(p, "D str text", parse_v_d);
-	return p;
-}
-
-static errr run_parse_v(struct parser *p) {
-	return parse_file(p, "vault");
-}
-
-static errr finish_parse_v(struct parser *p) {
-	vaults = parser_priv(p);
-	parser_destroy(p);
-	return 0;
-}
-
-static void cleanup_v(void)
-{
-	struct vault *v, *next;
-	for (v = vaults; v; v = next) {
-		next = v->next;
-		mem_free(v->name);
-		mem_free(v->text);
-		mem_free(v);
-	}
-}
-
-static struct file_parser v_parser = {
-	"vault",
-	init_parse_v,
-	run_parse_v,
-	finish_parse_v,
-	cleanup_v
 };
 
 /* Parsing functions for p_hist.txt */
@@ -1993,7 +2969,6 @@ static enum parser_error parse_h_d(struct parser *p) {
 struct parser *init_parse_h(void) {
 	struct parser *p = parser_new();
 	parser_setpriv(p, NULL);
-	parser_reg(p, "V sym version", ignored);
 	parser_reg(p, "N uint chart int next int roll", parse_h_n);
 	parser_reg(p, "D str text", parse_h_d);
 	return p;
@@ -2158,108 +3133,6 @@ static struct file_parser flavor_parser = {
 	cleanup_flavor
 };
 
-/* Parsing functions for spell.txt */
-static enum parser_error parse_s_n(struct parser *p) {
-	struct spell *s = mem_zalloc(sizeof *s);
-	s->next = parser_priv(p);
-	s->sidx = parser_getuint(p, "index");
-	s->name = string_make(parser_getstr(p, "name"));
-	parser_setpriv(p, s);
-	return PARSE_ERROR_NONE;
-}
-
-static enum parser_error parse_s_i(struct parser *p) {
-	struct spell *s = parser_priv(p);
-
-	if (!s)
-		return PARSE_ERROR_MISSING_RECORD_HEADER;
-
-	s->tval = parser_getuint(p, "tval");
-	s->sval = parser_getuint(p, "sval");
-	s->snum = parser_getuint(p, "snum");
-
-	/* XXX elly: postprocess instead? */
-	s->realm = s->tval - TV_MAGIC_BOOK;
-	s->spell_index = s->sidx - (s->realm * PY_MAX_SPELLS);
-	return PARSE_ERROR_NONE;
-}
-
-static enum parser_error parse_s_d(struct parser *p) {
-	struct spell *s = parser_priv(p);
-
-	if (!s)
-		return PARSE_ERROR_MISSING_RECORD_HEADER;
-
-	s->text = string_append(s->text, parser_getstr(p, "desc"));
-	return PARSE_ERROR_NONE;
-}
-
-struct parser *init_parse_s(void) {
-	struct parser *p = parser_new();
-	parser_setpriv(p, NULL);
-	parser_reg(p, "V sym version", ignored);
-	parser_reg(p, "N uint index str name", parse_s_n);
-	parser_reg(p, "I uint tval uint sval uint snum", parse_s_i);
-	parser_reg(p, "D str desc", parse_s_d);
-	return p;
-}
-
-static errr run_parse_s(struct parser *p) {
-	return parse_file(p, "spell");
-}
-
-static errr finish_parse_s(struct parser *p) {
-	struct spell *s, *n, *ss;
-	struct object_kind *k;
-
-	/* scan the list for the max id */
-	z_info->s_max = 0;
-	s = parser_priv(p);
-	while (s) {
-		if (s->sidx > z_info->s_max)
-			z_info->s_max = s->sidx;
-		s = s->next;
-	}
-
-	/* allocate the direct access list and copy the data to it */
-	s_info = mem_zalloc((z_info->s_max+1) * sizeof(*s));
-	for (s = parser_priv(p); s; s = n) {
-		n = s->next;
-
-		ss = &s_info[s->sidx];
-		memcpy(ss, s, sizeof(*s));
-		k = objkind_get(s->tval, s->sval);
-		if (k) {
-			ss->next = k->spells;
-			k->spells = ss;
-		} else {
-			ss->next = NULL;
-		}
-		mem_free(s);
-	}
-	z_info->s_max += 1;
-
-	parser_destroy(p);
-	return 0;
-}
-
-static void cleanup_s(void)
-{
-	int idx;
-	for (idx = 0; idx < z_info->s_max; idx++) {
-		string_free(s_info[idx].name);
-		mem_free(s_info[idx].text);
-	}
-	mem_free(s_info);
-}
-
-static struct file_parser s_parser = {
-	"spell",
-	init_parse_s,
-	run_parse_s,
-	finish_parse_s,
-	cleanup_s
-};
 
 /* Initialise hints */
 static enum parser_error parse_hint(struct parser *p) {
@@ -2445,18 +3318,19 @@ static enum parser_error parse_pit_o(struct parser *p) {
 
 static enum parser_error parse_pit_t(struct parser *p) {
 	struct pit_profile *pit = parser_priv(p);
+	struct pit_monster_profile *bases;
 	monster_base *base = lookup_monster_base(parser_getsym(p, "base"));
 
 	if (!pit)
 		return PARSE_ERROR_MISSING_RECORD_HEADER;
-	else if (pit->n_bases == MAX_RVALS)
-		return PARSE_ERROR_TOO_MANY_ENTRIES;
 	else if (!base)
 		return PARSE_ERROR_UNRECOGNISED_TVAL;
-	else {
-		pit->base[pit->n_bases++] = base;
-		return PARSE_ERROR_NONE;		
-	}
+
+	bases = mem_zalloc(sizeof *bases);
+	bases->base = base;
+	bases->next = pit->bases;
+	pit->bases = bases;
+	return PARSE_ERROR_NONE;
 }
 
 static enum parser_error parse_pit_c(struct parser *p) {
@@ -2649,6 +3523,7 @@ static void cleanup_pits(void)
 		struct pit_profile *pit = &pit_info[idx];
 		struct pit_color_profile *c, *cn;
 		struct pit_forbidden_monster *m, *mn;
+		struct pit_monster_profile *b, *bn;
 		
 		c = pit->colors;
 		while (c) {
@@ -2661,6 +3536,12 @@ static void cleanup_pits(void)
 			mn = m->next;
 			mem_free(m);
 			m = mn;
+		}
+		b = pit->bases;
+		while (b) {
+			bn = b->next;
+			mem_free(b);
+			b = bn;
 		}
 		string_free((char *)pit_info[idx].name);
 		
@@ -2678,7 +3559,7 @@ static struct file_parser pit_parser = {
 
 
 
-/*
+/**
  * Initialize some other arrays
  */
 static errr init_other(void)
@@ -2691,25 +3572,22 @@ static errr init_other(void)
 	/* Initialize the "quark" package */
 	(void)quarks_init();
 
-	/* Initialize squelch things */
-	squelch_init();
+	/* Initialize knowledge things */
 	textui_knowledge_init();
 
 	/* Initialize the "message" package */
 	(void)messages_init();
 
+	monster_list_init();
+	object_list_init();
+
 	/*** Prepare grid arrays ***/
 
-	cave = cave_new();
+	cave = cave_new(DUNGEON_HGT, DUNGEON_WID);
 
 	/* Array of stacked monster messages */
 	mon_msg = C_ZNEW(MAX_STORED_MON_MSG, monster_race_message);
 	mon_message_hist = C_ZNEW(MAX_STORED_MON_CODES, monster_message_history);
-
-	/*** Prepare entity arrays ***/
-
-	/* Objects */
-	objects_init();
 
 	/*** Prepare lore array ***/
 
@@ -2717,31 +3595,25 @@ static errr init_other(void)
 	l_list = C_ZNEW(z_info->r_max, monster_lore);
 
 
-	/*** Prepare mouse buttons ***/
-
-	button_init(button_add_text, button_kill_text);
-
-
 	/*** Prepare quest array ***/
 
 	quest_init();
 
 
-	/*** Prepare the inventory ***/
-
-	/* Allocate it */
-	p_ptr->inventory = C_ZNEW(ALL_INVEN_TOTAL, object_type);
-
+	/* Allocate player sub-structs */
+	player->gear = mem_zalloc(MAX_GEAR * sizeof(object_type));
+	player->upkeep = mem_zalloc(sizeof(player_upkeep));
+	player->timed = mem_zalloc(TMD_MAX * sizeof(s16b));
 
 
 	/*** Prepare the options ***/
-	option_set_defaults();
+	init_options();
 
 	/* Initialize the window flags */
 	for (i = 0; i < ANGBAND_TERM_MAX; i++)
 	{
 		/* Assume no flags */
-		op_ptr->window_flag[i] = 0L;
+		window_flag[i] = 0L;
 	}
 
 
@@ -2756,19 +3628,7 @@ static errr init_other(void)
 
 
 
-/*
- * Initialize some other arrays
- */
-static errr init_alloc(void)
-{
-	/*** Initialize object allocation info ***/
-	init_obj_alloc();
-
-	/* Success */
-	return (0);
-}
-
-/*
+/**
  * Initialise just the internal arrays.
  * This should be callable by the test suite, without relying on input, or
  * anything to do with a user or savefiles.
@@ -2780,6 +3640,10 @@ void init_arrays(void)
 	/* Initialize size info */
 	event_signal_string(EVENT_INITSTATUS, "Initializing array sizes...");
 	if (run_parser(&z_parser)) quit("Cannot initialize sizes");
+
+	/* Initialize trap info */
+	event_signal_string(EVENT_INITSTATUS, "Initializing arrays... (traps)");
+	if (run_parser(&trap_parser)) quit("Cannot initialize traps");
 
 	/* Initialize feature info */
 	event_signal_string(EVENT_INITSTATUS, "Initializing arrays... (features)");
@@ -2817,13 +3681,13 @@ void init_arrays(void)
 	event_signal_string(EVENT_INITSTATUS, "Initializing arrays... (monster pits)");
 	if (run_parser(&pit_parser)) quit("Cannot initialize monster pits");
 	
-	/* Initialize vault info */
-	event_signal_string(EVENT_INITSTATUS, "Initializing arrays... (vaults)");
-	if (run_parser(&v_parser)) quit("Cannot initialize vaults");
-
 	/* Initialize history info */
 	event_signal_string(EVENT_INITSTATUS, "Initializing arrays... (histories)");
 	if (run_parser(&h_parser)) quit("Cannot initialize histories");
+
+	/* Initialize body info */
+	event_signal_string(EVENT_INITSTATUS, "Initializing arrays... (bodies)");
+	if (run_parser(&body_parser)) quit("Cannot initialize bodies");
 
 	/* Initialize race info */
 	event_signal_string(EVENT_INITSTATUS, "Initializing arrays... (races)");
@@ -2836,10 +3700,6 @@ void init_arrays(void)
 	/* Initialize flavor info */
 	event_signal_string(EVENT_INITSTATUS, "Initializing arrays... (flavors)");
 	if (run_parser(&flavor_parser)) quit("Cannot initialize flavors");
-
-	/* Initialize spell info */
-	event_signal_string(EVENT_INITSTATUS, "Initializing arrays... (spells)");
-	if (run_parser(&s_parser)) quit("Cannot initialize spells");
 
 	/* Initialize hint text */
 	event_signal_string(EVENT_INITSTATUS, "Initializing arrays... (hints)");
@@ -2856,24 +3716,22 @@ void init_arrays(void)
 	/* Initialize some other arrays */
 	event_signal_string(EVENT_INITSTATUS, "Initializing arrays... (other)");
 	if (init_other()) quit("Cannot initialize other stuff");
-
-	/* Initialize some other arrays */
-	event_signal_string(EVENT_INITSTATUS, "Initializing arrays... (alloc)");
-	if (init_alloc()) quit("Cannot initialize alloc stuff");
 }
 
 extern struct init_module generate_module;
 extern struct init_module obj_make_module;
+extern struct init_module ignore_module;
 extern struct init_module mon_make_module;
 
 static struct init_module* modules[] = {
 	&generate_module,
 	&obj_make_module,
+	&ignore_module,
 	&mon_make_module,
 	NULL
 };
 
-/*
+/**
  * Hack -- main Angband initialization entry point
  *
  * Verify some files, display the "news.txt" file, create
@@ -2946,20 +3804,11 @@ bool init_angband(void)
 	/* Sneakily init command list */
 	cmd_init();
 
-#ifdef ALLOW_BORG /* apw */
-	/* Allow the screensaver to do its work  */
-	if (screensaver)
-	{
-		event_signal(EVENT_LEAVE_INIT);
-		return !file_exists(savefile);
-	}
-#endif /* ALLOW_BORG */
-
 	/* Ask for a "command" until we get one we like. */
 	while (1)
 	{
-		game_command *command_req;
-		int failed = cmd_get(CMD_INIT, &command_req, TRUE);
+		struct command *command_req;
+		int failed = cmdq_pop(CMD_INIT, &command_req, TRUE);
 
 		if (failed)
 			continue;
@@ -2985,11 +3834,10 @@ void cleanup_angband(void)
 		if (modules[i]->cleanup)
 			modules[i]->cleanup();
 
+	player_spells_free(player);
+
 	/* Free the macros */
 	keymap_free();
-
-	/* Free the allocation tables */
-	free_obj_alloc();
 
 	event_remove_all_handlers();
 
@@ -2997,14 +3845,19 @@ void cleanup_angband(void)
 	if (stores) free_stores();
 
 	quest_free();
-	button_free();
 
-	FREE(p_ptr->inventory);
+	mem_free(player->timed);
+	mem_free(player->upkeep);
+	for (i = 0; i < player->max_gear; i++)
+		object_wipe(&player->gear[i]);
+	mem_free(player->gear);
 
-	/* Free the lore, monster, and object lists */
+	/* Free the lore list */
 	FREE(l_list);
-	objects_destroy();
 
+	/* The main cave is always allocated with max height and width */
+	cave->height = DUNGEON_HGT;
+	cave->width = DUNGEON_WID;
 	cave_free(cave);
 
 	/* Free the stacked monster messages */
@@ -3020,6 +3873,9 @@ void cleanup_angband(void)
 	/* Free the "quarks" */
 	quarks_free();
 
+	monster_list_finalize();
+	object_list_finalize();
+
 	cleanup_parser(&k_parser);
 	cleanup_parser(&kb_parser);
 	cleanup_parser(&a_parser);
@@ -3030,10 +3886,8 @@ void cleanup_angband(void)
 	cleanup_parser(&e_parser);
 	cleanup_parser(&p_parser);
 	cleanup_parser(&c_parser);
-	cleanup_parser(&v_parser);
 	cleanup_parser(&h_parser);
 	cleanup_parser(&flavor_parser);
-	cleanup_parser(&s_parser);
 	cleanup_parser(&hints_parser);
 	cleanup_parser(&mp_parser);
 	cleanup_parser(&pit_parser);

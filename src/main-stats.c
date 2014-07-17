@@ -22,12 +22,22 @@
 
 #include "birth.h"
 #include "buildid.h"
+#include "dungeon.h"
 #include "init.h"
-#include "monster/mon-make.h"
-#include "object/pval.h"
-#include "object/tvalsval.h"
+#include "mon-make.h"
+#include "monster.h"
+#include "obj-gear.h"
+#include "obj-identify.h"
+#include "obj-power.h"
+#include "obj-randart.h"
+#include "obj-tval.h"
+#include "obj-util.h"
+#include "object.h"
+#include "player.h"
+#include "project.h"
 #include "stats/db.h"
 #include "stats/structs.h"
+#include "store.h"
 #include <stddef.h>
 #include <time.h>
 
@@ -39,13 +49,17 @@
 #define TOP_AC			146
 #define TOP_PLUS		 56
 #define TOP_POWER		999
-#define TOP_PVAL		 25
+#define TOP_MOD 		 25
 #define RUNS_PER_CHECKPOINT	10000
 
 /* For ref, e_max is 128, a_max is 136, r_max is ~650,
 	ORIGIN_STATS is 14, OF_MAX is ~120 */
 
-/* There are 416 kinds, of which about 150-200 are wearable */
+/**
+ * There are (at last count) 416 kinds, of which about 150-200 are wearable
+ * - here wearable includes ammo, which behaves similarly in having
+ * variable power between individual items
+ */
 
 static int randarts = 0;
 static int no_selling = 0;
@@ -57,10 +71,8 @@ static char *ANGBAND_DIR_STATS;
 
 static int *consumables_index;
 static int *wearables_index;
-static int *pval_flags_index;
 static int wearable_count = 0;
 static int consumable_count = 0;
-static int pval_flags_count = 0;
 
 struct wearables_data {
 	u32b count;
@@ -71,7 +83,7 @@ struct wearables_data {
 /*	u32b power[TOP_POWER]; not enough memory - add it later in bands */
 	u32b *egos;
 	u32b flags[OF_MAX];
-	u32b *pval_flags[TOP_PVAL];
+	u32b *modifiers[TOP_MOD];
 };
 
 static struct level_data {
@@ -92,7 +104,6 @@ static void create_indices()
 
 	consumables_index = C_ZNEW(z_info->k_max, int);
 	wearables_index = C_ZNEW(z_info->k_max, int);
-	pval_flags_index = C_ZNEW(OF_MAX, int);
 
 	for (i = 0; i < z_info->k_max; i++) {
 
@@ -103,15 +114,11 @@ static void create_indices()
 
 		if (! kind->name) continue;
 
-		if (wearable_p(o_ptr))
+		if (tval_has_variable_power(o_ptr))
 			wearables_index[i] = ++wearable_count;
 		else
 			consumables_index[i] = ++consumable_count;
 	}
-
-	for (i = 0; i < OF_MAX; i++)
-		if (flag_uses_pval(i))
-			pval_flags_index[i] = ++pval_flags_count;
 }
 
 static void alloc_memory()
@@ -132,9 +139,9 @@ static void alloc_memory()
 			for (k = 0; k < wearable_count + 1; k++) {
 				level_data[i].wearables[j][k].egos
 					= C_ZNEW(z_info->e_max, u32b);
-				for (l = 0; l < TOP_PVAL; l++)
-					level_data[i].wearables[j][k].pval_flags[l]
-						= C_ZNEW(pval_flags_count + 1, u32b);
+				for (l = 0; l < TOP_MOD; l++)
+					level_data[i].wearables[j][k].modifiers[l]
+						= C_ZNEW(OBJ_MOD_MAX + 1, u32b);
 			}
 		}
 	}
@@ -151,8 +158,8 @@ static void free_stats_memory(void)
 			mem_free(level_data[i].artifacts[j]);
 			mem_free(level_data[i].consumables[j]);
 			for (k = 0; k < wearable_count + 1; k++) {
-				for (l = 0; l < TOP_PVAL; l++) {
-					mem_free(level_data[i].wearables[j][k].pval_flags[l]);
+				for (l = 0; l < TOP_MOD; l++) {
+					mem_free(level_data[i].wearables[j][k].modifiers[l]);
 				}
 				mem_free(level_data[i].wearables[j][k].egos);
 			}
@@ -161,7 +168,6 @@ static void free_stats_memory(void)
 	}
 	mem_free(consumables_index);
 	mem_free(wearables_index);
-	mem_free(pval_flags_index);
 	string_free(ANGBAND_DIR_STATS);
 }
 
@@ -173,34 +179,34 @@ static void generate_player_for_stats()
 	OPT(birth_no_stacking) = FALSE;
 	OPT(auto_more) = TRUE;
 
-	p_ptr->wizard = 1; /* Set wizard mode on */
+	player->wizard = 1; /* Set wizard mode on */
 
-	p_ptr->psex = 0;   /* Female  */
-	p_ptr->race = races;  /* Human   */
-	p_ptr->class = classes; /* Warrior */
+	player->psex = 0;   /* Female  */
+	player->race = races;  /* Human   */
+	player->class = classes; /* Warrior */
 
 	/* Level 1 */
-	p_ptr->max_lev = p_ptr->lev = 1;
+	player->max_lev = player->lev = 1;
 
 	/* Experience factor */
-	p_ptr->expfact = p_ptr->race->r_exp + p_ptr->class->c_exp;
+	player->expfact = player->race->r_exp + player->class->c_exp;
 
 	/* Hitdice */
-	p_ptr->hitdie = p_ptr->race->r_mhp + p_ptr->class->c_mhp;
+	player->hitdie = player->race->r_mhp + player->class->c_mhp;
 
 	/* Initial hitpoints -- high just to be safe */
-	p_ptr->mhp = p_ptr->chp = 2000;
+	player->mhp = player->chp = 2000;
 
 	/* Pre-calculate level 1 hitdice */
-	p_ptr->player_hp[0] = p_ptr->hitdie;
+	player->player_hp[0] = player->hitdie;
 
 	/* Set age/height/weight */
-	p_ptr->ht = p_ptr->ht_birth = 66;
-	p_ptr->wt = p_ptr->wt_birth = 150;
-	p_ptr->age = 14;
+	player->ht = player->ht_birth = 66;
+	player->wt = player->wt_birth = 150;
+	player->age = 14;
 
 	/* Set social class and (null) history */
-	p_ptr->history = get_history(p_ptr->race->history);
+	player->history = get_history(player->race->history);
 }
 
 static void initialize_character(void)
@@ -216,11 +222,10 @@ static void initialize_character(void)
 	Rand_quick = FALSE;
 	Rand_state_init(seed);
 
-	player_init(p_ptr);
+	player_init(player);
 	generate_player_for_stats();
 
 	seed_flavor = randint0(0x10000000);
-	seed_town = randint0(0x10000000);
 	seed_randart = randint0(0x10000000);
 
 	if (randarts)
@@ -230,9 +235,9 @@ static void initialize_character(void)
 
 	store_reset();
 	flavor_init();
-	p_ptr->playing = TRUE;
-	p_ptr->autosave = FALSE;
-	cave_generate(cave, p_ptr);
+	player->upkeep->playing = TRUE;
+	player->upkeep->autosave = FALSE;
+	cave_generate(cave, player);
 }
 
 static void kill_all_monsters(int level)
@@ -299,15 +304,15 @@ static void log_all_objects(int level)
 /*				o_power = object_power(o_ptr, FALSE, NULL, TRUE); */
 
 				/* Capture gold amounts */
-				if (o_ptr->tval == TV_GOLD)
-					level_data[level].gold[o_ptr->origin] += o_ptr->pval[DEFAULT_PVAL];
+				if (tval_is_money(o_ptr))
+					level_data[level].gold[o_ptr->origin] += o_ptr->pval;
 
 				/* Capture artifact drops */
 				if (o_ptr->artifact)
 					level_data[level].artifacts[o_ptr->origin][o_ptr->artifact->aidx]++;
 
 				/* Capture kind details */
-				if (wearable_p(o_ptr)) {
+				if (tval_has_variable_power(o_ptr)) {
 					struct wearables_data *w
 						= &level_data[level].wearables[o_ptr->origin][wearables_index[o_ptr->kind->kidx]];
 
@@ -322,12 +327,12 @@ static void log_all_objects(int level)
 						w->egos[o_ptr->ego->eidx]++;
 					/* Capture object flags */
 					for (i = of_next(o_ptr->flags, FLAG_START); i != FLAG_END;
-							i = of_next(o_ptr->flags, i + 1)) {
+							i = of_next(o_ptr->flags, i + 1))
 						w->flags[i]++;
-						if (flag_uses_pval(i)) {
-							int p = o_ptr->pval[which_pval(o_ptr, i)];
-							w->pval_flags[MIN(MAX(p, 0), TOP_PVAL - 1)][pval_flags_index[i]]++;
-						}
+					/* Capture object modifiers */
+					for (i = 0; i < OBJ_MOD_MAX; i++) {
+						int p = o_ptr->modifiers[i];
+						w->modifiers[MIN(MAX(p, 0), TOP_MOD - 1)][i]++;
 					}
 				} else
 					level_data[level].consumables[o_ptr->origin][consumables_index[o_ptr->kind->kidx]]++;
@@ -358,7 +363,7 @@ static void descend_dungeon(void)
 		}
 
 		dungeon_change_level(level);
-		cave_generate(cave, p_ptr);
+		cave_generate(cave, player);
 
 		/* Store level feelings */
 		obj_f = cave->feeling / 10;
@@ -413,9 +418,9 @@ static int stats_dump_oflags(sqlite3_stmt *flags_stmt, int idx,
 
 static int stats_dump_artifacts(void)
 {
-	int err, idx, i, flag;
+	int err, idx, i;
 	char sql_buf[256];
-	sqlite3_stmt *info_stmt, *flags_stmt, *pval_flags_stmt;
+	sqlite3_stmt *info_stmt, *flags_stmt, *mods_stmt;
 
 	strnfmt(sql_buf, 256, "INSERT INTO artifact_info VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?);");
 	err = stats_db_stmt_prep(&info_stmt, sql_buf);
@@ -425,8 +430,8 @@ static int stats_dump_artifacts(void)
 	err = stats_db_stmt_prep(&flags_stmt, sql_buf);
 	if (err) return err;
 
-	strnfmt(sql_buf, 256, "INSERT INTO artifact_pval_flags_map VALUES (?,?,?);");
-	err = stats_db_stmt_prep(&pval_flags_stmt, sql_buf);
+	strnfmt(sql_buf, 256, "INSERT INTO artifact_mods_map VALUES (?,?,?);");
+	err = stats_db_stmt_prep(&mods_stmt, sql_buf);
 	if (err) return err;
 
 	for (idx = 0; idx < z_info->a_max; idx++)
@@ -445,40 +450,35 @@ static int stats_dump_artifacts(void)
 			a_ptr->cost, a_ptr->alloc_prob, a_ptr->alloc_min,
 			a_ptr->alloc_max, a_ptr->ac, a_ptr->dd,
 			a_ptr->ds, a_ptr->to_h, a_ptr->to_d,
-			a_ptr->to_a, a_ptr->effect);
+			a_ptr->to_a, a_ptr->effect->index);
 		STATS_DB_STEP_RESET(info_stmt)
 
 		err = stats_dump_oflags(flags_stmt, idx, a_ptr->flags);
 		if (err) return err;
 
-		for (i = 0; i < a_ptr->num_pvals; i++)
+		for (i = 0; i < OBJ_MOD_MAX; i++)
 		{
-			for (flag = of_next(a_ptr->pval_flags[i], FLAG_START);
-				flag != FLAG_END;
-				flag = of_next(a_ptr->pval_flags[i], flag + 1))
-			{
-				err = stats_db_bind_ints(pval_flags_stmt, 3, 0, 
-					idx, flag, a_ptr->pval[i]);
+			err = stats_db_bind_ints(mods_stmt, 3, 0, idx, i, 
+									 a_ptr->modifiers[i]);
 				if (err) return err;
-				STATS_DB_STEP_RESET(pval_flags_stmt)
-			}
+				STATS_DB_STEP_RESET(mods_stmt)
 		}
 	}
 
 	STATS_DB_FINALIZE(info_stmt)
 	STATS_DB_FINALIZE(flags_stmt)
-	STATS_DB_FINALIZE(pval_flags_stmt)
+	STATS_DB_FINALIZE(mods_stmt)
 
 	return SQLITE_OK;
 }
 
 static int stats_dump_egos(void)
 {
-	int err, idx, flag, i;
+	int err, idx, i;
 	char sql_buf[256];
-	sqlite3_stmt *info_stmt, *flags_stmt, *pval_flags_stmt, *type_stmt;
+	sqlite3_stmt *info_stmt, *flags_stmt, *mods_stmt; //*type_stmt;
 
-	strnfmt(sql_buf, 256, "INSERT INTO ego_info VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?);");
+	strnfmt(sql_buf, 256, "INSERT INTO ego_info VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?);");
 	err = stats_db_stmt_prep(&info_stmt, sql_buf);
 	if (err) return err;
 
@@ -486,13 +486,13 @@ static int stats_dump_egos(void)
 	err = stats_db_stmt_prep(&flags_stmt, sql_buf);
 	if (err) return err;
 
-	strnfmt(sql_buf, 256, "INSERT INTO ego_pval_flags_map VALUES (?,?,?,?);");
-	err = stats_db_stmt_prep(&pval_flags_stmt, sql_buf);
+	strnfmt(sql_buf, 256, "INSERT INTO ego_mods_map VALUES (?,?,?);");
+	err = stats_db_stmt_prep(&mods_stmt, sql_buf);
 	if (err) return err;
 
-	strnfmt(sql_buf, 256, "INSERT INTO ego_type_map VALUES (?,?,?,?);");
-	err = stats_db_stmt_prep(&type_stmt, sql_buf);
-	if (err) return err;
+	//strnfmt(sql_buf, 256, "INSERT INTO ego_type_map VALUES (?,?,?,?);");
+	//err = stats_db_stmt_prep(&type_stmt, sql_buf);
+	//if (err) return err;
 
 	for (idx = 0; idx < z_info->e_max; idx++)
 	{
@@ -511,47 +511,39 @@ static int stats_dump_egos(void)
 		if (err) return err;
 		err = stats_db_bind_rv(info_stmt, 5, e_ptr->to_a); 
 		if (err) return err;
-		err = stats_db_bind_ints(info_stmt, 9, 5, 
+		err = stats_db_bind_ints(info_stmt, 8, 5, 
 			e_ptr->cost, e_ptr->level, e_ptr->rarity,
-			e_ptr->rating, e_ptr->num_pvals, e_ptr->min_to_h, 
-			e_ptr->min_to_d, e_ptr->min_to_a, e_ptr->xtra);
+			e_ptr->rating, e_ptr->min_to_h, 
+			e_ptr->min_to_d, e_ptr->min_to_a);
 		if (err) return err;
 		STATS_DB_STEP_RESET(info_stmt)
 
 		err = stats_dump_oflags(flags_stmt, idx, e_ptr->flags);
 		if (err) return err;
 
-		for (i = 0; i < e_ptr->num_pvals; i++)
+		for (i = 0; i < OBJ_MOD_MAX; i++)
 		{
-			for (flag = of_next(e_ptr->pval_flags[i], FLAG_START);
-				flag != FLAG_END;
-				flag = of_next(e_ptr->pval_flags[i], flag + 1))
-			{
-				err = stats_db_bind_ints(pval_flags_stmt, 3, 0, 
-					idx, flag, e_ptr->min_pval[i]);
+			err = stats_db_bind_ints(mods_stmt, 3, 0, idx, i, 
+									 e_ptr->min_modifiers[i]);
 				if (err) return err;
-				err = stats_db_bind_rv(pval_flags_stmt, 4,
-					e_ptr->pval[i]);
-				if (err) return err;
-				STATS_DB_STEP_RESET(pval_flags_stmt)
-			}
+				STATS_DB_STEP_RESET(mods_stmt)
 		}
 
-		for (i = 0; i < EGO_TVALS_MAX; i++)
-		{
-			err = stats_db_bind_ints(type_stmt, 4, 0,
-				idx, e_ptr->tval[i], e_ptr->min_sval[i], 
-				e_ptr->max_sval[i]);
-			if (err) return err;
-			STATS_DB_STEP_RESET(type_stmt)
-		}
+		//for (i = 0; i < EGO_TVALS_MAX; i++)
+		//{
+		//	err = stats_db_bind_ints(type_stmt, 4, 0,
+		//		idx, e_ptr->tval[i], e_ptr->min_sval[i], 
+		//		e_ptr->max_sval[i]);
+		//	if (err) return err;
+		//	STATS_DB_STEP_RESET(type_stmt)
+		//}
 
 	}
 
 	STATS_DB_FINALIZE(info_stmt)
 	STATS_DB_FINALIZE(flags_stmt)
-	STATS_DB_FINALIZE(pval_flags_stmt)
-	STATS_DB_FINALIZE(type_stmt)
+	STATS_DB_FINALIZE(mods_stmt)
+		//STATS_DB_FINALIZE(type_stmt)
 
 	return SQLITE_OK;
 }
@@ -560,7 +552,7 @@ static int stats_dump_objects(void)
 {
 	int err, idx, i, flag;
 	char sql_buf[256];
-	sqlite3_stmt *info_stmt, *flags_stmt, *pval_flags_stmt;
+	sqlite3_stmt *info_stmt, *flags_stmt, *mods_stmt;
 
 	strnfmt(sql_buf, 256, "INSERT INTO object_info VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?);");
 	err = stats_db_stmt_prep(&info_stmt, sql_buf);
@@ -570,8 +562,8 @@ static int stats_dump_objects(void)
 	err = stats_db_stmt_prep(&flags_stmt, sql_buf);
 	if (err) return err;
 
-	strnfmt(sql_buf, 256, "INSERT INTO object_pval_flags_map VALUES (?,?,?);");
-	err = stats_db_stmt_prep(&pval_flags_stmt, sql_buf);
+	strnfmt(sql_buf, 256, "INSERT INTO object_mods_map VALUES (?,?,?);");
+	err = stats_db_stmt_prep(&mods_stmt, sql_buf);
 	if (err) return err;
 
 	for (idx = 0; idx < z_info->k_max; idx++)
@@ -589,7 +581,7 @@ static int stats_dump_objects(void)
 			k_ptr->tval, k_ptr->sval, k_ptr->level, k_ptr->weight,
 			k_ptr->cost, k_ptr->ac, k_ptr->dd, k_ptr->ds,
 			k_ptr->alloc_prob, k_ptr->alloc_min,
-			k_ptr->alloc_max, k_ptr->effect,
+			k_ptr->alloc_max, k_ptr->effect->index,
 			k_ptr->gen_mult_prob, k_ptr->stack_size);
 		if (err) return err;
 		err = stats_db_bind_rv(info_stmt, 17, k_ptr->to_h);
@@ -607,26 +599,19 @@ static int stats_dump_objects(void)
 		err = stats_dump_oflags(flags_stmt, idx, k_ptr->flags);
 		if (err) return err;
 
-		for (i = 0; i < k_ptr->num_pvals; i++)
+		for (i = 0; i < OBJ_MOD_MAX; i++)
 		{
-			for (flag = of_next(k_ptr->pval_flags[i], FLAG_START);
-				flag != FLAG_END;
-				flag = of_next(k_ptr->pval_flags[i], flag + 1))
-			{
-				err = stats_db_bind_ints(pval_flags_stmt, 2, 0, 
-					idx, flag);
+			err = stats_db_bind_ints(mods_stmt, 2, 0, idx, i);
 				if (err) return err;
-				err = stats_db_bind_rv(pval_flags_stmt, 3,
-					k_ptr->pval[i]);
+				err = stats_db_bind_rv(mods_stmt, 3, k_ptr->modifiers[i]);
 				if (err) return err;
-				STATS_DB_STEP_RESET(pval_flags_stmt)
-			}
+				STATS_DB_STEP_RESET(mods_stmt)
 		}
 	}
 
 	STATS_DB_FINALIZE(info_stmt)
 	STATS_DB_FINALIZE(flags_stmt)
-	STATS_DB_FINALIZE(pval_flags_stmt)
+	STATS_DB_FINALIZE(mods_stmt)
 
 	/* Handle object_base */
 	strnfmt(sql_buf, 256, "INSERT INTO object_base_info VALUES (?,?);");
@@ -786,15 +771,21 @@ static int stats_dump_lists(void)
 	 * description field. */
 	info_entry effects[] =
 	{
-		#define EFFECT(x, y, r, z)    { EF_##x, y, r, #x },
+		#define RV(b, x, y, m) {b, x, y, m}
+		#define EP(p1, p2) {p1, p2}
+		#define F(x) effect_handler_##x
+		#define EFFECT(x, a, r, h, v, c, d)	{ EF_##x, a, r, #x },
 		#include "list-effects.h"
 		#undef EFFECT
+		#undef F
+		#undef EP
+		#undef RV
 	};
 
 	char *r_info_flags[] =
 	{
-		#define RF(a, b) #a,
-		#include "monster/list-mon-flags.h"
+		#define RF(a, b, c) #a,
+		#include "list-mon-flags.h"
 		#undef RF
 		NULL
 	};
@@ -804,25 +795,31 @@ static int stats_dump_lists(void)
 		#define RSF(a, b, c, d, e, f, g, h, i, j, k, l, m, n) \
 			{ RSF_##a, b, #a, d, e, f, g, h, i, j, k, l, m, n },
 		#define RV(b, x, y, m) {b, x, y, m}
-		#include "monster/list-mon-spells.h"
+		#include "list-mon-spells.h"
 		#undef RV
 		#undef RSF
 	};
 
 	struct object_flag object_flag_table[] =
 	{
-		#define OF(a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s) \
-			{ OF_##a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, #a },
-		#include "object/list-object-flags.h"
+		{ OF_NONE, OFID_NONE, OFT_NONE, 0, "NONE" },
+        #define STAT(a, b, c, d, e, f, g, h)  \
+			{ OF_##c, OFID_NORMAL, OFT_SUST, d, #c },
+        #include "list-stats.h"
+        #undef STAT
+		#define OF(a, b, c, d, e) { OF_##a, b, c, d, #a },
+		#include "list-object-flags.h"
 		#undef OF
 	};
 
-	struct slay slay_table[] =
+	struct object_mod object_mod_table[] =
 	{
-		#define SLAY(a, b, c, d, e, f, g, h, i, j) \
-			{ SL_##a, b, c, d, e, f, g, h, #a, j},
-		#include "object/list-slays.h"
-		#undef SLAY
+        #define STAT(a, b, c, d, e, f, g, h)  { OBJ_MOD_##a, b, e, #a },
+        #include "list-stats.h"
+        #undef STAT
+        #define OBJ_MOD(a, b, c, d)  { OBJ_MOD_##a, b, c, #a },
+        #include "list-object-modifiers.h"
+        #undef OBJ_MOD
 	};
 
 	err = stats_db_stmt_prep(&sql_stmt, 
@@ -880,20 +877,19 @@ static int stats_dump_lists(void)
 	STATS_DB_FINALIZE(sql_stmt)
 
 	err = stats_db_stmt_prep(&sql_stmt, 
-		"INSERT INTO object_flags_list VALUES(?,?,?,?,?,?);");
+		"INSERT INTO object_flags_list VALUES(?,?,?,?);");
 	if (err) return err;
 
 	for (idx = 1; idx < OF_MAX; idx++)
 	{
-		struct object_flag *of_ptr = &object_flag_table[idx];
-		if (! of_ptr->message) continue;
+		struct object_flag *of = &object_flag_table[idx];
+		if (! of->message) continue;
 
-		err = stats_db_bind_ints(sql_stmt, 5, 0, idx, 
-			of_ptr->pval, of_ptr->type, of_ptr->power,
-			of_ptr->pval_mult);
+		err = stats_db_bind_ints(sql_stmt, 3, 0, idx, 
+			of->type, of->power);
 		if (err) return err;
-		err = sqlite3_bind_text(sql_stmt, 6, of_ptr->message,
-			strlen(of_ptr->message), SQLITE_STATIC);
+		err = sqlite3_bind_text(sql_stmt, 4, of->message,
+			strlen(of->message), SQLITE_STATIC);
 		if (err) return err;
 		STATS_DB_STEP_RESET(sql_stmt)
 	}
@@ -901,20 +897,18 @@ static int stats_dump_lists(void)
 	STATS_DB_FINALIZE(sql_stmt)
 
 	err = stats_db_stmt_prep(&sql_stmt, 
-		"INSERT INTO object_slays_list VALUES(?,?,?,?,?,?);");
+		"INSERT INTO object_mods_list VALUES(?,?,?,?);");
 	if (err) return err;
 
-	for (idx = 1; idx < SL_MAX; idx++)
+	for (idx = 0; idx < OBJ_MOD_MAX; idx++)
 	{
-		struct slay *s_ptr = &slay_table[idx];
-		if (! s_ptr->desc) continue;
+		struct object_mod *om = &object_mod_table[idx];
+		if (!om->name) continue;
 
-		err = stats_db_bind_ints(sql_stmt, 5, 0, idx, 
-			s_ptr->object_flag, s_ptr->monster_flag, 
-			s_ptr->resist_flag, s_ptr->mult);
+		err = stats_db_bind_ints(sql_stmt, 3, 0, idx, om->power, om->mod_mult);
 		if (err) return err;
-		err = sqlite3_bind_text(sql_stmt, 6, s_ptr->desc,
-			strlen(s_ptr->desc), SQLITE_STATIC);
+		err = sqlite3_bind_text(sql_stmt, 4, om->name,
+			strlen(om->name), SQLITE_STATIC);
 		if (err) return err;
 		STATS_DB_STEP_RESET(sql_stmt)
 	}
@@ -1000,10 +994,10 @@ static int stats_dump_info(void)
  *     metadata -- key-value pairs describing the stats run
  *     artifact_info -- dump of artifact.txt
  *     artifact_flags_map -- map between artifacts and object flags
- *     artifact_pval_flags_map -- map between artifacts and pval flags, with pvals
+ *     artifact_mods_map -- map between artifacts and modifiers
  *     ego_info -- dump of ego_item.txt
  *     ego_flags_map -- map between egos and object flags
- *     ego_pval_flags_map -- map between egos and pval flags, with pvals and minima
+ *     ego_mods_map -- map between egos and modifiers, with minima
  *     ego_type_map -- map between egos and tvals/svals
  *     monster_base_flags_map -- map between monster bases and monster flags
  *     monster_base_spell_flags_map -- map between monster bases and monster spell flags
@@ -1013,13 +1007,13 @@ static int stats_dump_info(void)
  *     object_base_info -- dump of object_base.txt
  *     object_base_flags_map -- map between object templates and object flags
  *     object_info -- dump of objects.txt
- *     object_flags_map -- map between artifacts and object flags
- *     object_pval_flags_map -- map between artifacts and pval flags, with pvals
+ *     object_flags_map -- map between objects and object flags
+ *     object_mods_map -- map between objects and modifiers
  *     effects_list -- dump of list-effects.h
  *     monster_flags_list -- dump of list-mon-flags.h
  *     monster_spell_flags_list -- dump of list-mon-spells.h
  *     object_flags_list -- dump of list-object-flags.h
- *     object_slays_list -- dump of list-object-slays.h
+ *     object_mods_list -- dump of list-object-modifiers.h
  *     origin_flags_list -- dump of origin enum
  * Count tables:
  *     monsters
@@ -1035,7 +1029,7 @@ static int stats_dump_info(void)
  *     wearables_dam
  *     wearables_egos
  *     wearables_flags
- *     wearables_pval_flags
+ *     wearables_mods
  */
 static bool stats_prep_db(void)
 {
@@ -1056,16 +1050,16 @@ static bool stats_prep_db(void)
 	err = stats_db_exec("CREATE TABLE artifact_flags_map(a_idx INT, o_flag INT);");
 	if (err) return false;
 
-	err = stats_db_exec("CREATE TABLE artifact_pval_flags_map(a_idx INT, pval_flag INT, pval INT);");
+	err = stats_db_exec("CREATE TABLE artifact_mods_map(a_idx INT, modifier_index INT, modifier INT);");
 	if (err) return false;
 
-	err = stats_db_exec("CREATE TABLE ego_info(idx INT PRIMARY KEY, name TEXT, to_h TEXT, to_d TEXT, to_a TEXT, cost INT, level INT, rarity INT, rating INT, num_pvals INT, min_to_h INT, min_to_d INT, min_to_a INT, xtra INT);");
+	err = stats_db_exec("CREATE TABLE ego_info(idx INT PRIMARY KEY, name TEXT, to_h TEXT, to_d TEXT, to_a TEXT, cost INT, level INT, rarity INT, rating INT, min_to_h INT, min_to_d INT, min_to_a INT, xtra INT);");
 	if (err) return false;
 
 	err = stats_db_exec("CREATE TABLE ego_flags_map(e_idx INT, o_flag INT);");
 	if (err) return false;
 
-	err = stats_db_exec("CREATE TABLE ego_pval_flags_map(e_idx INT, pval_flag INT, min_pval INT, pval TEXT);");
+	err = stats_db_exec("CREATE TABLE ego_mods_map(e_idx INT, modifier_index INT, min_modifier INT);");
 	if (err) return false;
 
 	err = stats_db_exec("CREATE TABLE ego_type_map(e_idx INT, tval INT, min_sval INT, max_sval INT);");
@@ -1098,7 +1092,7 @@ static bool stats_prep_db(void)
 	err = stats_db_exec("CREATE TABLE object_flags_map(k_idx INT, o_flag INT);");
 	if (err) return false;
 
-	err = stats_db_exec("CREATE TABLE object_pval_flags_map(k_idx INT, pval_flag INT, pval TEXT);");
+	err = stats_db_exec("CREATE TABLE object_mods_map(k_idx INT, modifier_index INT, modifier TEXT);");
 	if (err) return false;
 
 	err = stats_db_exec("CREATE TABLE effects_list(idx INT PRIMARY KEY, aim INT, rating INT, name TEXT);");
@@ -1110,10 +1104,10 @@ static bool stats_prep_db(void)
 	err = stats_db_exec("CREATE TABLE monster_spell_flags_list(idx INT PRIMARY KEY, cap INT, div INT, name TEXT);");
 	if (err) return false;
 
-	err = stats_db_exec("CREATE TABLE object_flags_list(idx INT PRIMARY KEY, pval INT, type INT, power INT, pval_mult INT, name TEXT);");
+	err = stats_db_exec("CREATE TABLE object_flags_list(idx INT PRIMARY KEY, type INT, power INT, name TEXT);");
 	if (err) return false;
 
-	err = stats_db_exec("CREATE TABLE object_slays_list(idx INT PRIMARY KEY, object_flag INT, monster_flag INT, resist_flag INT, mult INT, name TEXT);");
+	err = stats_db_exec("CREATE TABLE object_mods_list(idx INT PRIMARY KEY, type INT, power INT, mod_mult INT, name TEXT);");
 	if (err) return false;
 
 	err = stats_db_exec("CREATE TABLE origin_flags_list(idx INT PRIMARY KEY, name TEXT);");
@@ -1158,7 +1152,7 @@ static bool stats_prep_db(void)
 	err = stats_db_exec("CREATE TABLE wearables_flags(level INT, count INT, k_idx INT, origin INT, of_idx INT, UNIQUE (level, k_idx, origin, of_idx) ON CONFLICT REPLACE);");
 	if (err) return false;
 
-	err = stats_db_exec("CREATE TABLE wearables_pval_flags(level INT, count INT, k_idx INT, origin INT, pval INT, of_idx INT, UNIQUE (level, k_idx, origin, pval, of_idx) ON CONFLICT REPLACE);");
+	err = stats_db_exec("CREATE TABLE wearables_mods(level INT, count INT, k_idx INT, origin INT, mod INT, mod_idx INT, UNIQUE (level, k_idx, origin, mod, mod_idx) ON CONFLICT REPLACE);");
 	if (err) return false;
 
 	err = stats_dump_info();
@@ -1211,8 +1205,8 @@ static int stats_wearables_data_offsetof(const char *member)
 		return offsetof(struct wearables_data, egos);
 	else if (streq(member, "flags"))
 		return offsetof(struct wearables_data, flags);
-	else if (streq(member, "pval_flags"))
-		return offsetof(struct wearables_data, pval_flags);
+	else if (streq(member, "mods"))
+		return offsetof(struct wearables_data, modifiers);
 		
 	/* We should not get to this point. */
 	assert(0);
@@ -1414,7 +1408,7 @@ static int stats_write_db_wearables_array(const char *field, int max_val, bool a
  * false if the member is a pointer.
  */
 static int stats_write_db_wearables_2d_array(const char *field, 
-	int max_val1, int max_val2, bool array_p, bool translate_pval_flags)
+	int max_val1, int max_val2, bool array_p)
 {
 	char sql_buf[256];
 	sqlite3_stmt *sql_stmt;
@@ -1445,9 +1439,8 @@ static int stats_write_db_wearables_2d_array(const char *field,
 						/* This arcane expression finds the value of
 				 		* level_data[level].wearables[origin][idx].<field>[i][j] */
 						u32b count;
-						int real_j = translate_pval_flags ? stats_lookup_index(pval_flags_index, OF_MAX, j) : j; 
 
-						if (i == 0 && real_j == 0) continue;
+						if (i == 0 && j == 0) continue;
 
 						if (array_p)
 						{
@@ -1461,7 +1454,7 @@ static int stats_write_db_wearables_2d_array(const char *field,
 
 						err = stats_db_bind_ints(sql_stmt, 6, 0,
 							level, count, k_idx, origin, 
-							i, real_j);
+							i, j);
 						if (err) return err;
 
 						STATS_DB_STEP_RESET(sql_stmt)
@@ -1511,7 +1504,7 @@ static int stats_write_db(u32b run)
 	err = stats_write_db_wearables_count();
 	if (err) return err;
 
-	err = stats_write_db_wearables_2d_array("dice", TOP_DICE, TOP_SIDES, true, false);
+	err = stats_write_db_wearables_2d_array("dice", TOP_DICE, TOP_SIDES, true);
 	if (err) return err;
 
 	err = stats_write_db_wearables_array("ac", TOP_AC, true);
@@ -1529,7 +1522,7 @@ static int stats_write_db(u32b run)
 	err = stats_write_db_wearables_array("flags", OF_MAX, true);
 	if (err) return err;
 
-	err = stats_write_db_wearables_2d_array("pval_flags", TOP_PVAL, pval_flags_count + 1, false, true);
+	err = stats_write_db_wearables_2d_array("mods", TOP_MOD, OBJ_MOD_MAX + 1, false);
 	if (err) return err;
 
 	/* Commit transaction */
@@ -1574,7 +1567,7 @@ void progress_bar(u32b run, time_t start) {
 
 static void stats_cleanup_angband_run(void)
 {
-	if (p_ptr->history) FREE(p_ptr->history);
+	if (player->history) FREE(player->history);
 }
 
 static errr run_stats(void)
@@ -1655,6 +1648,9 @@ static errr run_stats(void)
 	err = stats_write_db(run);
 	stats_db_close();
 	if (err) quit_fmt("Problems writing to database!  sqlite3 errno %d.", err);
+
+	if (randarts)
+		mem_free(a_info_save);
 	free_stats_memory();
 	cleanup_angband();
 	if (!quiet) printf("Done!\n");

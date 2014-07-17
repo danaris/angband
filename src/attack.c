@@ -17,18 +17,24 @@
  */
 
 #include "angband.h"
-
 #include "attack.h"
 #include "cave.h"
 #include "cmds.h"
-#include "monster/mon-make.h"
-#include "monster/mon-msg.h"
-#include "monster/mon-timed.h"
-#include "monster/mon-util.h"
-#include "monster/monster.h"
-#include "object/slays.h"
-#include "object/tvalsval.h"
+#include "mon-make.h"
+#include "mon-msg.h"
+#include "mon-timed.h"
+#include "mon-util.h"
+#include "monster.h"
+#include "obj-desc.h"
+#include "obj-gear.h"
+#include "obj-identify.h"
+#include "obj-slays.h"
+#include "obj-ui.h"
+#include "obj-util.h"
+#include "player-util.h"
+#include "project.h"
 #include "spells.h"
+#include "tables.h"
 #include "target.h"
 
 /**
@@ -82,7 +88,7 @@ bool test_hit(int chance, int ac, int vis) {
  * Factor in item weight, total plusses, and player level.
  */
 static int critical_shot(int weight, int plus, int dam, u32b *msg_type) {
-	int chance = weight + (p_ptr->state.to_h + plus) * 4 + p_ptr->lev * 2;
+	int chance = weight + (player->state.to_h + plus) * 4 + player->lev * 2;
 	int power = weight + randint1(500);
 
 	if (randint1(5000) > chance) {
@@ -138,7 +144,7 @@ static int critical_shot_sneak(int weight, int plus, int dam, u32b *msg_type) {
  * Factor in weapon weight, total plusses, player level.
  */
 static int critical_norm(int weight, int plus, int dam, u32b *msg_type) {
-	int chance = weight + (p_ptr->state.to_h + plus) * 5 + p_ptr->lev * 3;
+	int chance = weight + (player->state.to_h + plus) * 5 + player->lev * 3;
 	int power = weight + randint1(650);
 
 	if (randint1(5000) > chance) {
@@ -217,44 +223,57 @@ static const struct {
 };
 
 /**
+ * Return the player's chance to hit with a particular weapon.
+ */
+int py_attack_hit_chance(const object_type *weapon)
+{
+	int bonus = player->state.to_h + weapon->to_h;
+	int chance = player->state.skills[SKILL_TO_HIT_MELEE] + bonus * BTH_PLUS_ADJ;
+	return chance;
+}
+
+/**
  * Attack the monster at the given location with a single blow.
  */
 static bool py_attack_real(int y, int x, bool *fear) {
 	size_t i;
 
 	/* Information about the target of the attack */
-	monster_type *m_ptr = cave_monster_at(cave, y, x);
+	monster_type *m_ptr = square_monster(cave, y, x);
 	char m_name[80];
 	bool stop = FALSE;
 
 	/* The weapon used */
-	object_type *o_ptr = &p_ptr->inventory[INVEN_WIELD];
+	object_type *o_ptr = equipped_item_by_slot_name(player, "weapon");
 
 	/* Information about the attack */
-	int bonus = p_ptr->state.to_h + o_ptr->to_h;
-	int chance = p_ptr->state.skills[SKILL_TO_HIT_MELEE] + bonus * BTH_PLUS_ADJ;
+	int chance = py_attack_hit_chance(o_ptr);
 	bool do_quake = FALSE;
 	bool success = FALSE;
 
 	/* Default to punching for one damage */
-	const char *hit_verb = "punch";
+	char hit_verb[20];
 	int dmg = 1;
 	u32b msg_type = MSG_HIT;
 	
 	/* Sneak attack */
 	bool sneak_attack = FALSE;
 
+	/* Default to punching for one damage */
+	my_strcpy(hit_verb, "punch", sizeof(hit_verb));
+
 	/* Extract monster name (or "it") */
-	monster_desc(m_name, sizeof(m_name), m_ptr, 0);
+	monster_desc(m_name, sizeof(m_name), m_ptr, 
+				 MDESC_OBJE | MDESC_IND_HID | MDESC_PRO_HID);
 
 	/* Auto-Recall if possible and visible */
-	if (m_ptr->ml) monster_race_track(m_ptr->race);
+	if (m_ptr->ml) monster_race_track(player->upkeep, m_ptr->race);
 
 	/* Track a new monster */
-	if (m_ptr->ml) health_track(p_ptr, m_ptr);
+	if (m_ptr->ml) health_track(player->upkeep, m_ptr);
 
 	/* Handle player fear (only for invisible monsters) */
-	if (check_state(p_ptr, OF_AFRAID, p_ptr->state.flags)) {
+	if (player_of_has(player, OF_AFRAID)) {
 		msgt(MSG_AFRAID, "You are too afraid to attack %s!", m_name);
 		return FALSE;
 	}
@@ -280,24 +299,29 @@ static bool py_attack_real(int y, int x, bool *fear) {
 
 	/* Handle normal weapon */
 	if (o_ptr->kind) {
-		const struct slay *best_s_ptr = NULL;
+		int j;
+		const struct brand *b = NULL;
+		const struct slay *s = NULL;
 
-		hit_verb = "hit";
+		my_strcpy(hit_verb, "hit", sizeof(hit_verb));
 
 		/* Get the best attack from all slays or
 		 * brands on all non-launcher equipment */
-		for (i = INVEN_LEFT; i < INVEN_TOTAL; i++) {
-			struct object *obj = &p_ptr->inventory[i];
+		for (j = 2; j < player->body.count; j++) { //Equip iteration - NRM
+			struct object *obj = equipped_item_by_slot(player, j);
 			if (obj->kind)
-				improve_attack_modifier(obj, m_ptr, &best_s_ptr, TRUE, FALSE);
+				improve_attack_modifier(obj, m_ptr, &b, &s, hit_verb,
+										TRUE, FALSE);
 		}
 
-		improve_attack_modifier(o_ptr, m_ptr, &best_s_ptr, TRUE, FALSE);
-		if (best_s_ptr != NULL)
-			hit_verb = best_s_ptr->melee_verb;
+		improve_attack_modifier(o_ptr, m_ptr, &b, &s, hit_verb, 
+								TRUE, FALSE);
 
 		dmg = damroll(o_ptr->dd, o_ptr->ds);
-		dmg *= (best_s_ptr == NULL) ? 1 : best_s_ptr->mult;
+		if (s)
+			dmg *= s->multiplier;
+		else if (b)
+			dmg *= b->multiplier;
 
 		dmg += o_ptr->to_d;
 		if (sneak_attack) {
@@ -310,9 +334,9 @@ static bool py_attack_real(int y, int x, bool *fear) {
 		/* Learn by use for the weapon */
 		object_notice_attack_plusses(o_ptr);
 
-		if (check_state(p_ptr, OF_IMPACT, p_ptr->state.flags) && dmg > 50) {
+		if (player_of_has(player, OF_IMPACT) && dmg > 50) {
 			do_quake = TRUE;
-			wieldeds_notice_flag(p_ptr, OF_IMPACT);
+			wieldeds_notice_flag(player, OF_IMPACT);
 		}
 	}
 
@@ -320,13 +344,13 @@ static bool py_attack_real(int y, int x, bool *fear) {
 	wieldeds_notice_on_attack();
 
 	/* Apply the player damage bonuses */
-	dmg += p_ptr->state.to_d;
+	dmg += player->state.to_d;
 
 	/* No negative damage; change verb if no damage done */
 	if (dmg <= 0) {
 		dmg = 0;
 		msg_type = MSG_MISS;
-		hit_verb = "fail to harm";
+		my_strcpy(hit_verb, "fail to harm", sizeof(hit_verb));
 	}
 
 	for (i = 0; i < N_ELEMENTS(melee_hit_types); i++) {
@@ -346,12 +370,12 @@ static bool py_attack_real(int y, int x, bool *fear) {
 	}
 
 	/* Confusion attack */
-	if (p_ptr->confusing) {
-		p_ptr->confusing = FALSE;
+	if (player->confusing) {
+		player->confusing = FALSE;
 		msg("Your hands stop glowing.");
 
 		mon_inc_timed(m_ptr, MON_TMD_CONF,
-				(10 + randint0(p_ptr->lev) / 10), MON_TMD_FLG_NOTIFY, FALSE);
+				(10 + randint0(player->lev) / 10), MON_TMD_FLG_NOTIFY, FALSE);
 	}
 
 	/* Damage, check for fear and death */
@@ -362,7 +386,7 @@ static bool py_attack_real(int y, int x, bool *fear) {
 
 	/* Apply earthquake brand */
 	if (do_quake) {
-		earthquake(p_ptr->py, p_ptr->px, 10);
+		earthquake(player->py, player->px, 10);
 		if (cave->m_idx[y][x] == 0) stop = TRUE;
 	}
 
@@ -379,30 +403,31 @@ static bool py_attack_real(int y, int x, bool *fear) {
  * monsters getting double moves.
  */
 void py_attack(int y, int x) {
-	int blow_energy = 10000 / p_ptr->state.num_blows;
+	int blow_energy = 10000 / player->state.num_blows;
 	int blows = 0;
 	bool fear = FALSE;
-	monster_type *m_ptr = cave_monster_at(cave, y, x);
+	monster_type *m_ptr = square_monster(cave, y, x);
 	
 	/* disturb the player */
-	disturb(p_ptr, 0,0);
+	disturb(player, 0);
 
 	/* Initialize the energy used */
-	p_ptr->energy_use = 0;
+	player->upkeep->energy_use = 0;
 
 	/* Attack until energy runs out or enemy dies. We limit energy use to 100
 	 * to avoid giving monsters a possible double move. */
-	while (p_ptr->energy >= blow_energy * (blows + 1)) {
+	while (player->energy >= blow_energy * (blows + 1)) {
 		bool stop = py_attack_real(y, x, &fear);
-		p_ptr->energy_use += blow_energy;
-		if (stop || p_ptr->energy_use + blow_energy > 100) break;
+		player->upkeep->energy_use += blow_energy;
+		if (stop || player->upkeep->energy_use + blow_energy > 100) break;
 		blows++;
 	}
 	
 	/* Hack - delay fear messages */
 	if (fear && m_ptr->ml) {
 		char m_name[80];
-		monster_desc(m_name, sizeof(m_name), m_ptr, 0);
+		/* XXX Don't set monster_desc flags, since add_monster_message does string processing on m_name */
+		monster_desc(m_name, sizeof(m_name), m_ptr, MDESC_DEFAULT);
 		add_monster_message(m_name, m_ptr, MON_MSG_FLEE_IN_TERROR, TRUE);
 	}
 }
@@ -446,8 +471,8 @@ static void ranged_helper(int item, int dir, int range, int shots, ranged_attack
 	int msec = op_ptr->delay_factor;
 
 	/* Start at the player */
-	int x = p_ptr->px;
-	int y = p_ptr->py;
+	int x = player->px;
+	int y = player->py;
 
 	/* Predict the "target" location */
 	s16b ty = y + 99 * ddy[dir];
@@ -460,11 +485,12 @@ static void ranged_helper(int item, int dir, int range, int shots, ranged_attack
 	/* Check for target validity */
 	if ((dir == 5) && target_okay()) {
 		int taim;
-		char msg[80];
 		target_get(&tx, &ty);
 		taim = distance(y, x, ty, tx);
 		if (taim > range) {
-			strnfmt(msg, sizeof(msg), "Target out of range by %d squares. Fire anyway? ",
+			char msg[80];
+			strnfmt(msg, sizeof(msg),
+					"Target out of range by %d squares. Fire anyway? ",
 				taim - range);
 			if (!get_check(msg)) return;
 		}
@@ -473,31 +499,31 @@ static void ranged_helper(int item, int dir, int range, int shots, ranged_attack
 	/* Sound */
 	sound(MSG_SHOOT);
 
-	object_notice_on_firing(o_ptr);
-
 	/* Describe the object */
 	object_desc(o_name, sizeof(o_name), o_ptr, ODESC_FULL | ODESC_SINGULAR);
 
 	/* Actually "fire" the object -- Take a partial turn */
-	p_ptr->energy_use = (100 / shots);
+	player->upkeep->energy_use = (100 / shots);
 
 	/* Calculate the path */
 	path_n = project_path(path_g, range, y, x, ty, tx, 0);
 
 	/* Hack -- Handle stuff */
-	handle_stuff(p_ptr);
+	handle_stuff(player->upkeep);
 
 	/* Start at the player */
-	x = p_ptr->px;
-	y = p_ptr->py;
+	x = player->px;
+	y = player->py;
 
 	/* Project along the path */
 	for (i = 0; i < path_n; ++i) {
 		int ny = GRID_Y(path_g[i]);
 		int nx = GRID_X(path_g[i]);
 
-		/* Hack -- Stop before hitting walls */
-		if (!cave_ispassable(cave, ny, nx)) break;
+		/* Stop before hitting walls */
+		if (!(square_ispassable(cave, ny, nx)) &&
+			!(square_isprojectable(cave, ny, nx)))
+			break;
 
 		/* Advance */
 		x = nx;
@@ -509,87 +535,96 @@ static void ranged_helper(int item, int dir, int range, int shots, ranged_attack
 			move_cursor_relative(y, x);
 
 			Term_fresh();
-			if (p_ptr->redraw) redraw_stuff(p_ptr);
+			if (player->upkeep->redraw) redraw_stuff(player->upkeep);
 
 			Term_xtra(TERM_XTRA_DELAY, msec);
-			cave_light_spot(cave, y, x);
+			square_light_spot(cave, y, x);
 
 			Term_fresh();
-			if (p_ptr->redraw) redraw_stuff(p_ptr);
+			if (player->upkeep->redraw) redraw_stuff(player->upkeep);
 		} else {
 			/* Delay anyway for consistency */
 			Term_xtra(TERM_XTRA_DELAY, msec);
 		}
 
-		/* Handle monster */
-		if (cave->m_idx[y][x] > 0) break;
-	}
+		/* Try the attack on the monster at (x, y) if any */
+		if (cave->m_idx[y][x] > 0) {
+			monster_type *m_ptr = square_monster(cave, y, x);
+			int visible = m_ptr->ml;
 
-	/* Try the attack on the monster at (x, y) if any */
-	if (cave->m_idx[y][x] > 0) {
-		monster_type *m_ptr = cave_monster_at(cave, y, x);
-		int visible = m_ptr->ml;
+			bool fear = FALSE;
+			const char *note_dies = monster_is_unusual(m_ptr->race) ? 
+				" is destroyed." : " dies.";
 
-		bool fear = FALSE;
-		char m_name[80];
-		const char *note_dies = monster_is_unusual(m_ptr->race) ? " is destroyed." : " dies.";
+			struct attack_result result = attack(o_ptr, y, x);
+			int dmg = result.dmg;
+			u32b msg_type = result.msg_type;
+			char hit_verb[20];
+			my_strcpy(hit_verb, result.hit_verb, sizeof(hit_verb));
 
-		struct attack_result result = attack(o_ptr, y, x);
-		int dmg = result.dmg;
-		u32b msg_type = result.msg_type;
-		const char *hit_verb = result.hit_verb;
+			if (result.success) {
+				hit_target = TRUE;
 
-		if (result.success) {
-			hit_target = TRUE;
+				object_notice_attack_plusses(o_ptr);
 
-			/* Get "the monster" or "it" */
-			monster_desc(m_name, sizeof(m_name), m_ptr, 0);
-		
-			object_notice_attack_plusses(o_ptr);
+				/* Learn by use for other equipped items */
+				wieldeds_notice_to_hit_on_attack();
 
-			/* Learn by use for other equipped items */
-			wieldeds_notice_to_hit_on_attack();
-		
-			/* No negative damage; change verb if no damage done */
-			if (dmg <= 0) {
-				dmg = 0;
-				msg_type = MSG_MISS;
-				hit_verb = "fails to harm";
-			}
-		
-			if (!visible) {
-				/* Invisible monster */
-				msgt(MSG_SHOOT_HIT, "The %s finds a mark.", o_name);
-			} else {
-				for (i = 0; i < (int)N_ELEMENTS(ranged_hit_types); i++) {
-					const char *dmg_text = "";
-
-					if (msg_type != ranged_hit_types[i].msg)
-						continue;
-
-					if (OPT(show_damage))
-						dmg_text = format(" (%d)", dmg);
-
-					if (ranged_hit_types[i].text)
-						msgt(msg_type, "Your %s %s %s%s. %s", o_name, hit_verb,
-								m_name, dmg_text, ranged_hit_types[i].text);
-					else
-						msgt(msg_type, "Your %s %s %s%s.", o_name, hit_verb,
-								m_name, dmg_text);
+				/* No negative damage; change verb if no damage done */
+				if (dmg <= 0) {
+					dmg = 0;
+					msg_type = MSG_MISS;
+					my_strcpy(hit_verb, "fails to harm", sizeof(hit_verb));
 				}
 
-				/* Track this monster */
-				if (m_ptr->ml) monster_race_track(m_ptr->race);
-				if (m_ptr->ml) health_track(p_ptr, m_ptr);
-			}
-		
-			/* Hit the monster, check for death */
-			if (!mon_take_hit(m_ptr, dmg, &fear, note_dies)) {
-				message_pain(m_ptr, dmg);
-				if (fear && m_ptr->ml)
-					add_monster_message(m_name, m_ptr, MON_MSG_FLEE_IN_TERROR, TRUE);
+				if (!visible) {
+					/* Invisible monster */
+					msgt(MSG_SHOOT_HIT, "The %s finds a mark.", o_name);
+				} else {
+					for (i = 0; i < (int)N_ELEMENTS(ranged_hit_types); i++) {
+						char m_name[80];
+						const char *dmg_text = "";
+
+						if (msg_type != ranged_hit_types[i].msg)
+							continue;
+
+						if (OPT(show_damage))
+							dmg_text = format(" (%d)", dmg);
+
+						monster_desc(m_name, sizeof(m_name), m_ptr, MDESC_OBJE);
+
+						if (ranged_hit_types[i].text)
+							msgt(msg_type, "Your %s %s %s%s. %s", o_name, 
+								 hit_verb, m_name, dmg_text, 
+								 ranged_hit_types[i].text);
+						else
+							msgt(msg_type, "Your %s %s %s%s.", o_name, hit_verb,
+								 m_name, dmg_text);
+					}
+					
+					/* Track this monster */
+					if (m_ptr->ml) 
+						monster_race_track(player->upkeep, m_ptr->race);
+					if (m_ptr->ml) health_track(player->upkeep, m_ptr);
+				}
+
+				/* Hit the monster, check for death */
+				if (!mon_take_hit(m_ptr, dmg, &fear, note_dies)) {
+					message_pain(m_ptr, dmg);
+					if (fear && m_ptr->ml) {
+						char m_name[80];
+						monster_desc(m_name, sizeof(m_name), m_ptr, 
+									 MDESC_DEFAULT);
+						add_monster_message(m_name, m_ptr, 
+											MON_MSG_FLEE_IN_TERROR, TRUE);
+					}
+				}
 			}
 		}
+
+		/* Stop if non-projectable but passable */
+		if (!(square_isprojectable(cave, ny, nx))) 
+			break;
 	}
 
 	/* Obtain a local object */
@@ -621,17 +656,17 @@ static void ranged_helper(int item, int dir, int range, int shots, ranged_attack
 static struct attack_result make_ranged_shot(object_type *o_ptr, int y, int x) {
 	struct attack_result result = {FALSE, 0, 0, "hits"};
 
-	object_type *j_ptr = &p_ptr->inventory[INVEN_BOW];
+	object_type *j_ptr = equipped_item_by_slot_name(player, "shooting");
 
-	monster_type *m_ptr = cave_monster_at(cave, y, x);
+	monster_type *m_ptr = square_monster(cave, y, x);
 	
-	int bonus = p_ptr->state.to_h + o_ptr->to_h + j_ptr->to_h;
-	int chance = p_ptr->state.skills[SKILL_TO_HIT_BOW] + bonus * BTH_PLUS_ADJ;
-	int chance2 = chance - distance(p_ptr->py, p_ptr->px, y, x);
+	int bonus = player->state.to_h + o_ptr->to_h + j_ptr->to_h;
+	int chance = player->state.skills[SKILL_TO_HIT_BOW] + bonus * BTH_PLUS_ADJ;
+	int chance2 = chance - distance(player->py, player->px, y, x);
 
-	int multiplier = p_ptr->state.ammo_mult;
-	const struct slay *best_s_ptr = NULL;
-    
+	int multiplier = player->state.ammo_mult;
+	const struct brand *b = NULL;
+	const struct slay *s = NULL;
     bool sneak_attack = FALSE;
 
 	/* Did we hit it (penalize distance travelled) */
@@ -639,22 +674,25 @@ static struct attack_result make_ranged_shot(object_type *o_ptr, int y, int x) {
 
 	result.success = TRUE;
 
-	improve_attack_modifier(o_ptr, m_ptr, &best_s_ptr, TRUE, FALSE);
-	improve_attack_modifier(j_ptr, m_ptr, &best_s_ptr, TRUE, FALSE);
+	improve_attack_modifier(o_ptr, m_ptr, &b, &s, result.hit_verb,
+							TRUE, FALSE);
+	improve_attack_modifier(j_ptr, m_ptr, &b, &s, result.hit_verb,
+							TRUE, FALSE);
 
 	/* If we have a slay, modify the multiplier appropriately */
-	if (best_s_ptr != NULL) {
-		result.hit_verb = best_s_ptr->range_verb;
-		multiplier += best_s_ptr->mult;
-	}
 	
 	if (m_ptr->m_timed[MON_TMD_SLEEP]) {
-		chance += p_ptr->state.skills[SKILL_STEALTH] * p_ptr->lev;
+		chance += player->state.skills[SKILL_STEALTH] * player->lev;
 		if (player_has(PF_SNEAK_ATTACK)) {
 			sneak_attack = TRUE;
             result.hit_verb = "strikes";
 		}
-	}
+	} 
+	
+	if (b)
+		multiplier += b->multiplier;
+	else if (s)
+		multiplier += s->multiplier;
 
 	/* Apply damage: multiplier, slays, criticals, bonuses */
 	result.dmg = damroll(o_ptr->dd, o_ptr->ds);
@@ -666,7 +704,7 @@ static struct attack_result make_ranged_shot(object_type *o_ptr, int y, int x) {
         result.dmg = critical_shot(o_ptr->weight, o_ptr->to_h, result.dmg, &result.msg_type);
     }
 
-	object_notice_attack_plusses(&p_ptr->inventory[INVEN_BOW]);
+	object_notice_attack_plusses(j_ptr);
 
 	return result;
 }
@@ -678,27 +716,29 @@ static struct attack_result make_ranged_shot(object_type *o_ptr, int y, int x) {
 static struct attack_result make_ranged_throw(object_type *o_ptr, int y, int x) {
 	struct attack_result result = {FALSE, 0, 0, "hits"};
 
-	monster_type *m_ptr = cave_monster_at(cave, y, x);
+	monster_type *m_ptr = square_monster(cave, y, x);
 	
-	int bonus = p_ptr->state.to_h + o_ptr->to_h;
-	int chance = p_ptr->state.skills[SKILL_TO_HIT_THROW] + bonus * BTH_PLUS_ADJ;
-	int chance2 = chance - distance(p_ptr->py, p_ptr->px, y, x);
+	int bonus = player->state.to_h + o_ptr->to_h;
+	int chance = player->state.skills[SKILL_TO_HIT_THROW] + bonus * BTH_PLUS_ADJ;
+	int chance2 = chance - distance(player->py, player->px, y, x);
 
 	int multiplier = 1;
-	const struct slay *best_s_ptr = NULL;
+	const struct brand *b = NULL;
+	const struct slay *s = NULL;
 
 	/* If we missed then we're done */
 	if (!test_hit(chance2, m_ptr->race->ac, m_ptr->ml)) return result;
 
 	result.success = TRUE;
 
-	improve_attack_modifier(o_ptr, m_ptr, &best_s_ptr, TRUE, FALSE);
+	improve_attack_modifier(o_ptr, m_ptr, &b, &s, result.hit_verb,
+							TRUE, FALSE);
 
 	/* If we have a slay, modify the multiplier appropriately */
-	if (best_s_ptr != NULL) {
-		result.hit_verb = best_s_ptr->range_verb;
-		multiplier += best_s_ptr->mult;
-	}
+	if (b)
+		multiplier += b->multiplier;
+	else if (s)
+		multiplier += s->multiplier;
 
 	/* Apply damage: multiplier, slays, criticals, bonuses */
 	result.dmg = damroll(o_ptr->dd, o_ptr->ds);
@@ -713,31 +753,46 @@ static struct attack_result make_ranged_throw(object_type *o_ptr, int y, int x) 
 /**
  * Fire an object from the quiver, pack or floor at a target.
  */
-void do_cmd_fire(cmd_code code, cmd_arg args[]) {
-	int item = args[0].item;
-	int dir = args[1].direction;
-	int range = MIN(6 + 2 * p_ptr->state.ammo_mult, MAX_RANGE);
-	int shots = p_ptr->state.num_shots;
+void do_cmd_fire(struct command *cmd) {
+	int item, dir;
+	int range = MIN(6 + 2 * player->state.ammo_mult, MAX_RANGE);
+	int shots = player->state.num_shots;
 
 	ranged_attack attack = make_ranged_shot;
 
-	object_type *j_ptr = &p_ptr->inventory[INVEN_BOW];
-	object_type *o_ptr = object_from_item_idx(item);
+	object_type *j_ptr = equipped_item_by_slot_name(player, "shooting");
+	object_type *o_ptr;
+
+	/* Get arguments */
+	if (cmd_get_item(cmd, "item", &item,
+			/* Prompt */ "Fire which ammunition?",
+			/* Error  */ "You have no ammunition to fire.",
+			/* Filter */ obj_can_fire,
+			/* Choice */ USE_INVEN | USE_QUIVER | USE_FLOOR | QUIVER_TAGS) == CMD_OK) {
+		o_ptr = object_from_item_idx(item);
+	} else {
+		return;
+	}
+
+	if (cmd_get_target(cmd, "target", &dir) == CMD_OK)
+		player_confuse_dir(player, &dir, FALSE);
+	else
+		return;
 
 	/* Require a usable launcher */
-	if (!j_ptr->tval || !p_ptr->state.ammo_tval) {
+	if (!j_ptr->tval || !player->state.ammo_tval) {
 		msg("You have nothing to fire with.");
 		return;
 	}
 
 	/* Check the item being fired is usable by the player. */
-	if (!item_is_available(item, NULL, USE_EQUIP | USE_INVEN | USE_FLOOR)) {
+	if (!item_is_available(item, NULL, USE_QUIVER | USE_INVEN | USE_FLOOR)) {
 		msg("That item is not within your reach.");
 		return;
 	}
 
 	/* Check the ammo can be used with the launcher */
-	if (o_ptr->tval != p_ptr->state.ammo_tval) {
+	if (o_ptr->tval != player->state.ammo_tval) {
 		msg("That ammo cannot be fired by your current weapon.");
 		return;
 	}
@@ -749,77 +804,64 @@ void do_cmd_fire(cmd_code code, cmd_arg args[]) {
 /**
  * Throw an object from the quiver, pack or floor.
  */
-void do_cmd_throw(cmd_code code, cmd_arg args[]) {
-	int item = args[0].item;
-	int dir = args[1].direction;
+void do_cmd_throw(struct command *cmd) {
+	int item, dir;
 	int shots = 1;
-
-	object_type *o_ptr = object_from_item_idx(item);
-	int weight = MAX(o_ptr->weight, 10);
-	int str = adj_str_blow[p_ptr->state.stat_ind[A_STR]];
-	int range = MIN(((str + 20) * 10) / weight, 10);
-
+	int str = adj_str_blow[player->state.stat_ind[STAT_STR]];
 	ranged_attack attack = make_ranged_throw;
 
-	/* Make sure the player isn't throwing wielded items */
-	if (item >= INVEN_WIELD && item < QUIVER_START) {
-		msg("You have cannot throw wielded items.");
+	int weight;
+	int range;
+	object_type *o_ptr;
+
+	/* Get arguments */
+	if (cmd_get_item(cmd, "item", &item,
+			/* Prompt */ "Throw which item?",
+			/* Error  */ "You have nothing to throw.",
+			/* Filter */ NULL,
+			/* Choice */ USE_QUIVER | USE_INVEN | USE_FLOOR) == CMD_OK) {
+		o_ptr = object_from_item_idx(item);
+	} else {
 		return;
 	}
 
-	/* Check the item being thrown is usable by the player. */
-	if (!item_is_available(item, NULL, (USE_EQUIP | USE_INVEN | USE_FLOOR))) {
-		msg("That item is not within your reach.");
+	if (cmd_get_target(cmd, "target", &dir) == CMD_OK)
+		player_confuse_dir(player, &dir, FALSE);
+	else
+		return;
+
+
+	weight = MAX(o_ptr->weight, 10);
+	range = MIN(((str + 20) * 10) / weight, 10);
+
+	/* Make sure the player isn't throwing wielded items */
+	if (item_is_equipped(player, item)) {
+		msg("You have cannot throw wielded items.");
 		return;
 	}
 
 	ranged_helper(item, dir, range, shots, attack);
 }
 
-
-/**
- * Front-end 'throw' command.
- */
-void textui_cmd_throw(void) {
-	int item, dir;
-	const char *q, *s;
-
-	/* Get an item */
-	q = "Throw which item? ";
-	s = "You have nothing to throw.";
-	if (!get_item(&item, q, s, CMD_THROW, (USE_EQUIP | USE_INVEN | USE_FLOOR))) return;
-
-	if (item >= INVEN_WIELD && item < QUIVER_START) {
-		msg("You cannot throw wielded items.");
-		return;
-	}
-
-	/* Get a direction (or cancel) */
-	if (!get_aim_dir(&dir)) return;
-
-	cmd_insert(CMD_THROW);
-	cmd_set_arg_item(cmd_get_top(), 0, item);
-	cmd_set_arg_target(cmd_get_top(), 1, dir);
-}
-
-
 /**
  * Front-end command which fires at the nearest target with default ammo.
  */
-void textui_cmd_fire_at_nearest(void) {
-	/* the direction '5' means 'use the target' */
-	int i, dir = 5, item = -1;
+void do_cmd_fire_at_nearest(void) {
+	int i, dir = DIR_TARGET, item = -1;
+	object_type *bow = equipped_item_by_slot_name(player, "shooting");
 
 	/* Require a usable launcher */
-	if (!p_ptr->inventory[INVEN_BOW].tval || !p_ptr->state.ammo_tval) {
+	if (!bow->tval || !player->state.ammo_tval) {
 		msg("You have nothing to fire with.");
 		return;
 	}
 
 	/* Find first eligible ammo in the quiver */
-	for (i = QUIVER_START; i < QUIVER_END; i++) {
-		if (p_ptr->inventory[i].tval != p_ptr->state.ammo_tval) continue;
-		item = i;
+	for (i = 0; i < QUIVER_SIZE; i++) {
+		if (player->gear[player->upkeep->quiver[i]].tval !=
+			player->state.ammo_tval)
+			continue;
+		item = player->upkeep->quiver[i];
 		break;
 	}
 
@@ -833,7 +875,7 @@ void textui_cmd_fire_at_nearest(void) {
 	if (!target_set_closest(TARGET_KILL | TARGET_QUIET)) return;
 
 	/* Fire! */
-	cmd_insert(CMD_FIRE);
-	cmd_set_arg_item(cmd_get_top(), 0, item);
-	cmd_set_arg_target(cmd_get_top(), 1, dir);
+	cmdq_push(CMD_FIRE);
+	cmd_set_arg_item(cmdq_peek(), "item", item);
+	cmd_set_arg_target(cmdq_peek(), "target", dir);
 }

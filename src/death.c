@@ -21,9 +21,17 @@
 #include "death.h"
 #include "files.h"
 #include "history.h"
+#include "init.h"
 #include "savefile.h"
 #include "ui-menu.h"
 #include "wizard.h"
+#include "obj-desc.h"
+#include "obj-identify.h"
+#include "obj-info.h"
+#include "obj-ui.h"
+#include "savefile.h"
+#include "score.h"
+#include "store.h"
 
 /*
  * Hack - save the time of death
@@ -83,19 +91,19 @@ static void print_tomb(void)
 
 	put_str_centred(line++, 8, 8+31, "%s", op_ptr->full_name);
 	put_str_centred(line++, 8, 8+31, "the");
-	if (p_ptr->total_winner)
+	if (player->total_winner)
 		put_str_centred(line++, 8, 8+31, "Magnificent");
 	else
-		put_str_centred(line++, 8, 8+31, "%s", p_ptr->class->title[(p_ptr->lev - 1) / 5]);
+		put_str_centred(line++, 8, 8+31, "%s", player->class->title[(player->lev - 1) / 5]);
 
 	line++;
 
-	put_str_centred(line++, 8, 8+31, "%s", p_ptr->class->name);
-	put_str_centred(line++, 8, 8+31, "Level: %d", (int)p_ptr->lev);
-	put_str_centred(line++, 8, 8+31, "Exp: %d", (int)p_ptr->exp);
-	put_str_centred(line++, 8, 8+31, "AU: %d", (int)p_ptr->au);
-	put_str_centred(line++, 8, 8+31, "Killed on Level %d", p_ptr->depth);
-	put_str_centred(line++, 8, 8+31, "by %s.", p_ptr->died_from);
+	put_str_centred(line++, 8, 8+31, "%s", player->class->name);
+	put_str_centred(line++, 8, 8+31, "Level: %d", (int)player->lev);
+	put_str_centred(line++, 8, 8+31, "Exp: %d", (int)player->exp);
+	put_str_centred(line++, 8, 8+31, "AU: %d", (int)player->au);
+	put_str_centred(line++, 8, 8+31, "Killed on Level %d", player->depth);
+	put_str_centred(line++, 8, 8+31, "by %s.", player->died_from);
 
 	line++;
 
@@ -113,9 +121,9 @@ static void death_knowledge(void)
 
 	int i;
 
-	for (i = 0; i < ALL_INVEN_TOTAL; i++)
+	for (i = 0; i < player->max_gear; i++)
 	{
-		o_ptr = &p_ptr->inventory[i];
+		o_ptr = &player->gear[i];
 		if (!o_ptr->kind) continue;
 
 		object_flavor_aware(o_ptr);
@@ -134,8 +142,8 @@ static void death_knowledge(void)
 	history_unmask_unknown();
 
 	/* Hack -- Recalculate bonuses */
-	p_ptr->update |= (PU_BONUS);
-	handle_stuff(p_ptr);
+	player->upkeep->update |= (PU_BONUS);
+	handle_stuff(player->upkeep);
 }
 
 
@@ -174,7 +182,7 @@ static void display_winner(void)
 		file_close(fp);
 	}
 
-	put_str_centred(i, 0, wid, "All Hail the Mighty %s!", p_ptr->sex->winner);
+	put_str_centred(i, 0, wid, "All Hail the Mighty %s!", player->sex->winner);
 
 	flush();
 	pause_line(Term);
@@ -189,7 +197,7 @@ static void death_file(const char *title, int row)
 	char buf[1024];
 	char ftmp[80];
 
-	strnfmt(ftmp, sizeof(ftmp), "%s.txt", player_safe_name(p_ptr));
+	strnfmt(ftmp, sizeof(ftmp), "%s.txt", player_safe_name(player, FALSE));
 
 	if (get_file(ftmp, buf, sizeof buf))
 	{
@@ -236,19 +244,19 @@ static void death_info(const char *title, int row)
 	/* Show equipment and inventory */
 
 	/* Equipment -- if any */
-	if (p_ptr->equip_cnt)
+	if (player->upkeep->equip_cnt)
 	{
 		Term_clear();
-		show_equip(OLIST_WEIGHT | OLIST_SEMPTY);
+		show_equip(OLIST_WEIGHT | OLIST_SEMPTY, NULL);
 		prt("You are using: -more-", 0, 0);
 		(void)anykey();
 	}
 
 	/* Inventory -- if any */
-	if (p_ptr->inven_cnt)
+	if (player->upkeep->inven_cnt)
 	{
 		Term_clear();
-		show_inven(OLIST_WEIGHT, 0);
+		show_inven(OLIST_WEIGHT, NULL);
 		prt("You are carrying: -more-", 0, 0);
 		(void)anykey();
 	}
@@ -284,7 +292,7 @@ static void death_info(const char *title, int row)
 							ODESC_PREFIX | ODESC_FULL);
 
 				/* Get the inventory color */
-				attr = tval_to_attr[o_ptr->tval % N_ELEMENTS(tval_to_attr)];
+				attr = o_ptr->kind->base->attr;
 
 				/* Display the object */
 				c_put_str(attr, o_name, j+2, 7);
@@ -333,16 +341,16 @@ static void death_examine(const char *title, int row)
 	q = "Examine which item? ";
 	s = "You have nothing to examine.";
 
-	while (get_item(&item, q, s, 0, (USE_INVEN | USE_EQUIP | IS_HARMLESS)))
+	while (get_item(&item, q, s, 0, NULL, (USE_INVEN | USE_QUIVER | USE_EQUIP | IS_HARMLESS)))
 	{
 		char header[120];
 
 		textblock *tb;
 		region area = { 0, 0, 0, 0 };
 
-		object_type *o_ptr = &p_ptr->inventory[item];
+		object_type *o_ptr = &player->gear[item];
 
-		tb = object_info(o_ptr, OINFO_FULL);
+		tb = object_info(o_ptr, OINFO_NONE);
 		object_desc(header, sizeof(header), o_ptr,
 				ODESC_PREFIX | ODESC_FULL | ODESC_CAPITAL);
 
@@ -408,13 +416,13 @@ void death_screen(void)
 	const region area = { 51, 2, 0, N_ELEMENTS(death_actions) };
 
 	/* Retire in the town in a good state */
-	if (p_ptr->total_winner)
+	if (player->total_winner)
 	{
-		p_ptr->depth = 0;
-		my_strcpy(p_ptr->died_from, "Ripe Old Age", sizeof(p_ptr->died_from));
-		p_ptr->exp = p_ptr->max_exp;
-		p_ptr->lev = p_ptr->max_lev;
-		p_ptr->au += 10000000L;
+		player->depth = 0;
+		my_strcpy(player->died_from, "Ripe Old Age", sizeof(player->died_from));
+		player->exp = player->max_exp;
+		player->lev = player->max_lev;
+		player->au += 10000000L;
 
 		display_winner();
 	}

@@ -2,7 +2,8 @@
 
 #include "unit-test.h"
 #include "unit-test-data.h"
-#include "object/tvalsval.h"
+#include "obj-tval.h"
+#include "object.h"
 #include "init.h"
 
 
@@ -18,7 +19,7 @@ int teardown_tests(void *state) {
 
 int test_order(void *state) {
 	enum parser_error r = parser_parse(state, "X:3:4");
-	eq(r, PARSE_ERROR_MISSING_RECORD_HEADER);
+	eq(r, PARSE_ERROR_MISSING_FIELD);
 	ok;
 }
 
@@ -34,8 +35,8 @@ int test_n0(void *state) {
 	ok;
 }
 
-int test_w0(void *state) {
-	enum parser_error r = parser_parse(state, "W:2:4:6:8");
+int test_x0(void *state) {
+	enum parser_error r = parser_parse(state, "X:2:4:6:8");
 	struct ego_item *e;
 
 	eq(r, PARSE_ERROR_NONE);
@@ -43,19 +44,8 @@ int test_w0(void *state) {
 	require(e);
 	eq(e->level, 2);
 	eq(e->rarity, 4);
-	eq(e->cost, 8);
-	return PARSE_ERROR_NONE;
-}
-
-int test_x0(void *state) {
-	enum parser_error r = parser_parse(state, "X:5:1");
-	struct ego_item *e;
-
-	eq(r, PARSE_ERROR_NONE);
-	e = parser_priv(state);
-	require(e);
-	eq(e->rating, 5);
-	eq(e->xtra, 1);
+	eq(e->cost, 6);
+	eq(e->rating, 8);
 	ok;
 }
 
@@ -81,8 +71,8 @@ int test_t1(void *state) {
 	e = parser_priv(state);
 	require(e);
 	eq(e->tval[1], TV_SWORD);
-	eq(e->min_sval[1], SV_DAGGER);
-	eq(e->max_sval[1], SV_SCIMITAR);
+	//eq(e->min_sval[1], SV_DAGGER); broken by NRM
+	//eq(e->max_sval[1], SV_SCIMITAR); broken by NRM
 	ok;
 }
 
@@ -109,12 +99,11 @@ int test_l0(void *state) {
 	eq(r, PARSE_ERROR_NONE);
 	e = parser_priv(state);
 	require(e);
-	eq(e->pval[0].base, 1);
-	eq(e->pval[0].dice, 2);
-	eq(e->pval[0].sides, 3);
-	eq(e->pval[0].m_bonus, 4);
-	eq(e->min_pval[0], 5);
-	require(e->pval_flags[0]);
+	eq(e->modifiers[0].base, 1);
+	eq(e->modifiers[0].dice, 2);
+	eq(e->modifiers[0].sides, 3);
+	eq(e->modifiers[0].m_bonus, 4);
+	eq(e->min_modifiers[0], 5);
 	ok;
 }
 
@@ -159,7 +148,6 @@ const char *suite_name = "parse/e-info";
 struct test tests[] = {
 	{ "order", test_order },
 	{ "n0", test_n0 },
-	{ "w0", test_w0 },
 	{ "x0", test_x0 },
 	{ "t0", test_t0 },
 	/* { "t1", test_t1 }, */

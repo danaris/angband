@@ -21,6 +21,9 @@
 #include "cmds.h"
 #include "dungeon.h"
 #include "files.h"
+#include "init.h"
+#include "prefs.h"
+#include "ui-input.h"
 
 /*
  * Comments and suggestions are welcome. The UI probably needs some
@@ -51,8 +54,8 @@
  * Other files used by this port:
  * - The game must have a collection of bitmap .fon files in /lib/xtra/font.
  *
- * - If "USE_GRAPHICS" is defined, then it also needs some bitmapped (.bmp)
- *   graphics files in /lib/xtra/graf, such as "16x16.bmp" and "16x16m.bmp".
+ * - It also needs some bitmapped (.bmp) graphics files in /lib/xtra/graf, 
+ *   such as "16x16.bmp" and "16x16m.bmp".
  *
  * - The "lib/pref/pref-sdl.prf" file contains keymaps, macro definitions,
  *   and/or color redefinitions.
@@ -183,10 +186,8 @@ struct term_window
 	term term_data;
 	
 	SDL_Surface *surface;	/* The surface for this window */
-#ifdef USE_GRAPHICS
 	SDL_Surface *tiles;		/* The appropriately sized tiles for this window */
 	SDL_Surface *onebyone;		/* The appropriately sized tiles for this window */
-#endif	
 	byte Term_idx;			/* Index of term that relates to this */
 	
 	int top;				/* Window Coordinates on the main screen */
@@ -361,7 +362,6 @@ static SDL_Rect SizingSpot;		/* Rect to descibe the sizing area */
 static bool Sizingshow = FALSE;	/* Is the resize thingy displayed? */
 static SDL_Rect SizingRect;		/* Rect to describe the current resize window */
 
-#ifdef USE_GRAPHICS
 #include "grafmode.h"
 
 static SDL_Surface *GfxSurface = NULL;	/* A surface for the graphics */
@@ -372,7 +372,6 @@ static int MoreHeightPlus;	/* Increase tile height */
 static int MoreHeightMinus;	/* Decrease tile height */
 static int *GfxButtons;	/* Graphics mode buttons */
 static int SelectedGfx;				/* Current selected gfx */
-#endif
 
 /*
  * Fill in an SDL_Rect structure.
@@ -496,7 +495,7 @@ static errr sdl_FontCreate(sdl_Font *font, const char *fontname, SDL_Surface *su
 	if (TTF_SizeText(ttf_font, "M", &font->width, &font->height)) return (-1);
 	
 	/* Fill in some of the font struct */
-	my_strcpy(font->name, fontname, 30);
+	if (font->name != fontname) my_strcpy(font->name, fontname, 30);
 	font->pitch = surface->pitch;
 	font->bpp = surface->format->BytesPerPixel;
 	font->sdl_font = ttf_font;
@@ -954,7 +953,7 @@ static void term_windowFree(term_window* win)
 	{
 		SDL_FreeSurface(win->surface);
 		win->surface = NULL;
-#ifdef USE_GRAPHICS
+
 		/* Invalidate the gfx surface */
 		if (win->tiles) {
 			SDL_FreeSurface(win->tiles);
@@ -964,7 +963,6 @@ static void term_windowFree(term_window* win)
 			SDL_FreeSurface(win->onebyone);
 			win->onebyone = NULL;
 		}
-#endif
 		term_nuke(&win->term_data);
 	}
 	
@@ -987,10 +985,8 @@ static void hook_quit(const char *str)
 		string_free(windows[i].req_font);
 	}
 	
-#ifdef USE_GRAPHICS
 	/* Free the graphics surface */
 	if (GfxSurface) SDL_FreeSurface(GfxSurface);
-#endif
 
 	close_graphics_modes();
 	if (GfxButtons) FREE(GfxButtons);
@@ -1354,14 +1350,13 @@ static void SelectFont(sdl_Button *sender)
 	window->req_font = string_make(sender->caption);
 	
 	sdl_CheckFont(window->req_font, &w, &h);
-#ifdef USE_GRAPHICS	
+
 	/* Invalidate the gfx surface */
 	if (window->tiles)
 	{
 		SDL_FreeSurface(window->tiles);
 		window->tiles = NULL;
 	}
-#endif
 	
 	ResizeWin(window, (w * window->cols) + (2 * window->border),
 			  (h * window->rows) + window->border + window->title_height);
@@ -1404,7 +1399,6 @@ static void FontActivate(sdl_Button *sender)
 	popped = TRUE;
 }
 
-#ifdef USE_GRAPHICS
 static errr load_gfx(void);
 static bool do_update = FALSE;
 
@@ -1412,14 +1406,12 @@ static void SelectGfx(sdl_Button *sender)
 {
 	SelectedGfx = sender->tag;
 }
-#endif
 
 static void AcceptChanges(sdl_Button *sender)
 {
 	sdl_Button *button;
 	bool do_video_reset = FALSE;
 	
-#ifdef USE_GRAPHICS
 	if (use_graphics != SelectedGfx)
 	{
 		do_update = TRUE;
@@ -1457,8 +1449,6 @@ static void AcceptChanges(sdl_Button *sender)
 			}
 		}
 	}	
-	
-#endif
 	
 	button = sdl_ButtonBankGet(&PopUp.buttons, MoreFullscreen);
 	
@@ -1518,7 +1508,6 @@ static void SnapChange(sdl_Button *sender)
 	PopUp.need_update = TRUE;
 }
 
-#ifdef USE_GRAPHICS
 static void WidthChange(sdl_Button *sender)
 {
 	tile_width += sender->tag;
@@ -1534,7 +1523,6 @@ static void HeightChange(sdl_Button *sender)
 	if (tile_height > 8) tile_height = 8;
 	do_update = TRUE;
 }
-#endif
 
 static void MoreDraw(sdl_Window *win)
 {
@@ -1551,8 +1539,6 @@ static void MoreDraw(sdl_Window *win)
 	
 	/* Draw a nice box */
 	sdl_DrawBox(win->surface, &rc, colour, 5);
-	
-#ifdef USE_GRAPHICS
 	
 	button = sdl_ButtonBankGet(&win->buttons, MoreWidthMinus);
 	if (SelectedGfx) {
@@ -1611,7 +1597,6 @@ static void MoreDraw(sdl_Window *win)
 		y += 20;
 		mode = mode->pNext;
 	} 
-#endif	
 
 	button = sdl_ButtonBankGet(&win->buttons, MoreFullscreen);
 	sdl_WindowText(win, colour, 20, y, "Fullscreen is:");
@@ -1642,7 +1627,6 @@ static void MoreActivate(sdl_Button *sender)
 	PopUp.top = (AppWin->h / 2) - height / 2;
 	PopUp.draw_extra = MoreDraw;
 	
-#ifdef USE_GRAPHICS
 	MoreWidthPlus = sdl_ButtonBankNew(&PopUp.buttons);
 	button = sdl_ButtonBankGet(&PopUp.buttons, MoreWidthPlus);
 	
@@ -1708,7 +1692,7 @@ static void MoreActivate(sdl_Button *sender)
 
 		mode = mode->pNext;
 	} 
-#endif
+
 	MoreFullscreen = sdl_ButtonBankNew(&PopUp.buttons);
 	button = sdl_ButtonBankGet(&PopUp.buttons, MoreFullscreen);
 	
@@ -2980,7 +2964,6 @@ static errr Term_text_sdl(int col, int row, int n, int a, const wchar_t *s)
 	return (sdl_mapFontDraw(&win->font, win->surface, colour, bg, x, y, n, mbstr));
 }
 
-#ifdef USE_GRAPHICS
 /*
  * Do a 'stretched blit'
  * SDL has no support for stretching... What a bastard!
@@ -3151,7 +3134,6 @@ static errr sdl_BuildTileset(term_window *win)
 
 	return (0);
 }
-#endif
 
 /*
  * Put some gfx on the screen
@@ -3162,7 +3144,6 @@ static errr Term_pict_sdl(int col, int row, int n, const int *ap, const wchar_t 
 						  const int *tap, const wchar_t *tcp)
 {
 	
-#ifdef USE_GRAPHICS
 	/* Get the right window */
 	term_window *win = (term_window*)(Term->data);
 	
@@ -3248,7 +3229,6 @@ static errr Term_pict_sdl(int col, int row, int n, const int *ap, const wchar_t 
 	
 	/* Update area */
 	set_update_rect(win, &rc);
-#endif
 	
 	return (0);
 }
@@ -3422,8 +3402,6 @@ static void init_morewindows(void)
 	TermFocus(0);
 }
 
-#ifdef USE_GRAPHICS
-
 /*
  * The new streamlined graphics loader.
  * Only uses colour keys.
@@ -3472,25 +3450,12 @@ static errr load_gfx(void)
 	/* All good */
 	return (0);
 }
-#endif
 
 /*
  * Initialize the graphics
  */
 static void init_gfx(void)
 {
-#ifndef USE_GRAPHICS
-	/* User requested gfx but USE_GRAPHICS not defined... */
-	if (arg_graphics)
-	{
-		arg_graphics = FALSE;
-	}
-	
-	/* Make sure */
-	use_graphics = GRAPHICS_NONE;
-	tile_width = 1;
-	tile_height = 1;
-#else
 	int i;
 	
 	/* Check for existence of required files */
@@ -3523,7 +3488,6 @@ static void init_gfx(void)
 	
 	/* Load the graphics stuff in */
 	load_gfx();
-#endif
 }
 
 /*
@@ -3543,7 +3507,7 @@ static void init_windows(void)
 		{
 			/* Don't crowd out the status bar... */
 			if (win->top < StatusHeight) win->top = StatusHeight;
-#ifdef USE_GRAPHICS			
+
 			/* Invalidate the gfx surface */
 			if (win->tiles) {
 				SDL_FreeSurface(win->tiles);
@@ -3553,7 +3517,7 @@ static void init_windows(void)
 				SDL_FreeSurface(win->onebyone);
 				win->onebyone = NULL;
 			}
-#endif
+
 			/* This will set up the window correctly */
 			ResizeWin(win, win->width, win->height);
 		}

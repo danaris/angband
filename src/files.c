@@ -20,14 +20,28 @@
 #include "cave.h"
 #include "cmds.h"
 #include "death.h"
+#include "dungeon.h"
 #include "files.h"
-#include "game-cmd.h"
+#include "cmd-core.h"
 #include "history.h"
-#include "object/tvalsval.h"
-#include "object/pval.h"
+#include "init.h"
+#include "obj-desc.h"
+#include "obj-gear.h"
+#include "obj-identify.h"
+#include "obj-info.h"
+#include "obj-ui.h"
+#include "obj-util.h"
 #include "option.h"
+#include "player.h"
+#include "player-timed.h"
+#include "player-util.h"
 #include "savefile.h"
+#include "score.h"
+#include "store.h"
+#include "signals.h"
+#include "ui-game.h"
 #include "ui-menu.h"
+#include "ui.h"
 
 
 /** Panel utilities **/
@@ -178,11 +192,11 @@ static const char *likert(int x, int y, byte *attr)
 void player_flags(bitflag f[OF_SIZE])
 {
 	/* Add racial flags */
-	memcpy(f, p_ptr->race->flags, sizeof(p_ptr->race->flags));
+	memcpy(f, player->race->flags, sizeof(player->race->flags));
 
 	/* Some classes become immune to fear at a certain plevel */
-	if (player_has(PF_BRAVERY_30) && p_ptr->lev >= 30)
-		of_on(f, OF_RES_FEAR);
+	if (player_has(PF_BRAVERY_30) && player->lev >= 30)
+		of_on(f, OF_PROT_FEAR);
 }
 
 
@@ -200,10 +214,10 @@ static void display_player_equippy(int y, int x)
 
 
 	/* Dump equippy chars */
-	for (i = INVEN_WIELD; i < INVEN_TOTAL; ++i)
+	for (i = 0; i < player->body.count; ++i)
 	{
 		/* Object */
-		o_ptr = &p_ptr->inventory[i];
+		o_ptr = equipped_item_by_slot(player, i);
 
 		/* Skip empty objects */
 		if (!o_ptr->kind) continue;
@@ -215,7 +229,7 @@ static void display_player_equippy(int y, int x)
 		/* Dump */
 		if ((tile_width == 1) && (tile_height == 1))
 		{
-		        Term_putch(x+i-INVEN_WIELD, y, a, c);
+		        Term_putch(x + i, y, a, c);
 		}
 	}
 }
@@ -226,56 +240,57 @@ static void display_player_equippy(int y, int x)
 #define RES_ROWS 9
 struct player_flag_record
 {
-	const char name[7];		/* Name of resistance/ability */
-	int res_flag;			/* resistance flag bit */
-	int im_flag;			/* corresponding immunity bit, if any */
-	int vuln_flag;			/* corresponding vulnerability flag, if any */
+	const char name[7];	/* Name of resistance/ability */
+	int mod;			/* Modifier */
+	int flag;			/* Flag bit */
+	int element;		/* Element */
+	int tmd_flag;		/* corresponding timed flag */
 };
 
 static const struct player_flag_record player_flag_table[RES_ROWS*4] =
 {
-	{ "rAcid",	OF_RES_ACID,    OF_IM_ACID, OF_VULN_ACID },
-	{ "rElec",	OF_RES_ELEC,    OF_IM_ELEC, OF_VULN_ELEC },
-	{ "rFire",	OF_RES_FIRE,    OF_IM_FIRE, OF_VULN_FIRE },
-	{ "rCold",	OF_RES_COLD,    OF_IM_COLD, OF_VULN_COLD },
-	{ "rPois",	OF_RES_POIS,    FLAG_END,   FLAG_END },
-	{ "rLite",	OF_RES_LIGHT,   FLAG_END,   FLAG_END },
-	{ "rDark",	OF_RES_DARK,    FLAG_END,   FLAG_END },
-	{ "Sound",	OF_RES_SOUND,   FLAG_END,   FLAG_END },
-	{ "Shard",	OF_RES_SHARD,   FLAG_END,   FLAG_END },
+	{ "rAcid",	-1,					-1,				ELEM_ACID,	TMD_OPP_ACID },
+	{ "rElec",	-1,					-1,				ELEM_ELEC,	TMD_OPP_ELEC },
+	{ "rFire",	-1,					-1,				ELEM_FIRE,	TMD_OPP_FIRE },
+	{ "rCold",	-1,					-1,				ELEM_COLD,	TMD_OPP_COLD },
+	{ "rPois",	-1,					-1,				ELEM_POIS,	TMD_OPP_POIS },
+	{ "rLite",	-1,					-1,				ELEM_LIGHT,	-1 },
+	{ "rDark",	-1,					-1,				ELEM_DARK,	-1 },	
+	{ "Sound",	-1,					-1,				ELEM_SOUND,	-1 },
+	{ "Shard",	-1,					-1,				ELEM_SHARD,	-1 },
 
-	{ "Nexus",	OF_RES_NEXUS,   FLAG_END,   FLAG_END },
-	{ "Nethr",	OF_RES_NETHR,   FLAG_END,   FLAG_END },
-	{ "Chaos",	OF_RES_CHAOS,   FLAG_END,   FLAG_END },
-	{ "Disen",	OF_RES_DISEN,   FLAG_END,   FLAG_END },
-	{ "Feath",	OF_FEATHER,     FLAG_END,   FLAG_END },
-	{ "pFear",	OF_RES_FEAR,    FLAG_END,   FLAG_END },
-	{ "pBlnd",	OF_RES_BLIND,   FLAG_END,   FLAG_END },
-	{ "pConf",	OF_RES_CONFU,   FLAG_END,   FLAG_END },
-	{ "pStun",	OF_RES_STUN,	FLAG_END,   FLAG_END },
+	{ "Nexus",	-1,					-1,				ELEM_NEXUS,	-1 },
+	{ "Nethr",	-1,					-1,				ELEM_NETHER,-1 },
+	{ "Chaos",	-1,					-1,				ELEM_CHAOS,	-1 },
+	{ "Disen",	-1,					-1,				ELEM_DISEN,	-1 },
+	{ "pFear",	-1,					OF_PROT_FEAR,	-1,			-1 },
+	{ "pBlnd",	-1,					OF_PROT_BLIND,	-1,			-1 },
+	{ "pConf",	-1,					OF_PROT_CONF,	-1,			TMD_OPP_CONF },
+	{ "pStun",	-1,					OF_PROT_STUN,	-1,			-1 },
+	{ "HLife",	-1,					OF_HOLD_LIFE,	-1, 		-1 },
 
-	{ "Light",	OF_LIGHT,       FLAG_END,   FLAG_END },
-	{ "Regen",	OF_REGEN,       FLAG_END,   FLAG_END },
-	{ "  ESP",	OF_TELEPATHY,   FLAG_END,   FLAG_END },
-	{ "Invis",	OF_SEE_INVIS,   FLAG_END,   FLAG_END },
-	{ "FrAct",	OF_FREE_ACT,    FLAG_END,   FLAG_END },
-	{ "HLife",	OF_HOLD_LIFE,   FLAG_END,   FLAG_END },
-	{ "Stea.",	OF_STEALTH,     FLAG_END,   FLAG_END },
-	{ "Sear.",	OF_SEARCH,      FLAG_END,   FLAG_END },
-	{ "Infra",	OF_INFRA,       FLAG_END,   FLAG_END },
+	{ "Regen",	-1,					OF_REGEN,		-1, 		-1 },
+	{ "  ESP",	-1,					OF_TELEPATHY,	-1,			TMD_TELEPATHY },
+	{ "Invis",	-1,					OF_SEE_INVIS,	-1,			TMD_SINVIS },
+	{ "FrAct",	-1,					OF_FREE_ACT,	-1, 		-1 },
+	{ "Feath",	-1,					OF_FEATHER,		-1,			-1 },
+	{ "S.Dig",	-1,					OF_SLOW_DIGEST,	-1, 		-1 },
+	{ "ImpHP",	-1,					OF_IMPAIR_HP,	-1, 		-1 },
+	{ " Fear",	-1,					OF_AFRAID,		-1,			TMD_AFRAID },
+	{ "Aggrv",	-1,					OF_AGGRAVATE,	-1, 		-1 },
 
-	{ "Tunn.",	OF_TUNNEL,      FLAG_END,   FLAG_END },
-	{ "Speed",	OF_SPEED,       FLAG_END,   FLAG_END },
-	{ "Blows",	OF_BLOWS,       FLAG_END,   FLAG_END },
-	{ "Shots",	OF_SHOTS,       FLAG_END,   FLAG_END },
-	{ "Might",	OF_MIGHT,       FLAG_END,   FLAG_END },
-	{ "S.Dig",	OF_SLOW_DIGEST, FLAG_END,   FLAG_END },
-	{ "ImpHP",	OF_IMPAIR_HP,   FLAG_END,   FLAG_END },
-	{ " Fear",	OF_AFRAID,      FLAG_END,   FLAG_END },
-	{ "Aggrv",	OF_AGGRAVATE,   FLAG_END,   FLAG_END },
+	{ "Stea.",	OBJ_MOD_STEALTH,	-1,				-1, 		-1 },
+	{ "Sear.",	OBJ_MOD_SEARCH,		-1,				-1, 		-1 },
+	{ "Infra",	OBJ_MOD_INFRA,		-1,				-1,			TMD_SINFRA },
+	{ "Tunn.",	OBJ_MOD_TUNNEL,		-1,				-1, 		-1 },
+	{ "Speed",	OBJ_MOD_SPEED,		-1,				-1,			 TMD_FAST },
+	{ "Blows",	OBJ_MOD_BLOWS,		-1,				-1, 		-1 },
+	{ "Shots",	OBJ_MOD_SHOTS,		-1,				-1, 		-1 },
+	{ "Might",	OBJ_MOD_MIGHT,		-1,				-1, 		-1 },
+	{ "Light",	OBJ_MOD_LIGHT,		-1,				-1, 		-1 },
 };
 
-#define RES_COLS (5 + 2 + INVEN_TOTAL - INVEN_WIELD)
+#define RES_COLS (5 + 2 + EQUIP_MAX_SLOTS)
 static const region resist_region[] =
 {
 	{  0*(RES_COLS+1), 10, RES_COLS, RES_ROWS+2 },
@@ -284,10 +299,11 @@ static const region resist_region[] =
 	{  3*(RES_COLS+1), 10, RES_COLS, RES_ROWS+2 },
 };
 
-static void display_resistance_panel(const struct player_flag_record *resists,
+static void display_resistance_panel(const struct player_flag_record *rec,
 									size_t size, const region *bounds) 
 {
-	size_t i, j;
+	size_t i;
+	int j;
 	int col = bounds->col;
 	int row = bounds->row;
 	Term_putstr(col, row++, RES_COLS, TERM_WHITE, "      abcdefghijkl@");
@@ -296,51 +312,76 @@ static void display_resistance_panel(const struct player_flag_record *resists,
 		byte name_attr = TERM_WHITE;
 		Term_gotoxy(col+6, row);
 		/* repeated extraction of flags is inefficient but more natural */
-		for (j = INVEN_WIELD; j <= INVEN_TOTAL; j++)
+		for (j = 0; j <= player->body.count; j++)
 		{
-			object_type *o_ptr = &p_ptr->inventory[j];
+			object_type *o_ptr = equipped_item_by_slot(player, j);
 			bitflag f[OF_SIZE];
 
 			byte attr = TERM_WHITE | (j % 2) * 8; /* alternating columns */
 			char sym = '.';
 
-			bool res, imm, vuln;
+			bool res = FALSE, imm = FALSE, vul = FALSE;
+			bool timed = FALSE;
+			bool known;
 
 			/* Wipe flagset */
 			of_wipe(f);
 
-			if (j < INVEN_TOTAL && o_ptr->kind)
+			/* Get the object or player info */
+			if (j < player->body.count && o_ptr->kind)
 			{
+				/* Get known properties */
 				object_flags_known(o_ptr, f);
+				if (rec[i].element != -1)
+					known = object_element_is_known(o_ptr, rec[i].element);
+				else if (rec[i].flag != -1)
+					known = object_flag_is_known(o_ptr, rec[i].flag);
+				else
+					known = TRUE;
 			}
-			else if (j == INVEN_TOTAL)
+			else if (j == player->body.count)
 			{
 				player_flags(f);
+				known = TRUE;
 
-				/* If the race has innate infravision/digging, force the corresponding flag
-				   here.  If we set it in player_flags(), then all callers of that
-				   function will think the infravision is caused by equipment. */
-				if (p_ptr->race->infra > 0)
-					of_on(f, OF_INFRA);
-				if (p_ptr->race->r_skills[SKILL_DIGGING] > 0)
-					of_on(f, OF_TUNNEL);
+				/* Timed flags only in the player column */
+				if (rec[i].tmd_flag >= 0)
+	 				timed = player->timed[rec[i].tmd_flag] ? TRUE : FALSE;
 			}
 
-			res = of_has(f, resists[i].res_flag);
-			imm = of_has(f, resists[i].im_flag);
-			vuln = of_has(f, resists[i].vuln_flag);
+			/* Set which (if any) symbol and color are used */
+			if (rec[i].mod != -1) {
+				if (j != player->body.count)
+					res = (o_ptr->modifiers[rec[i].mod] != 0);
+				else {
+					/* Messy special cases */
+					if (rec[i].mod == OBJ_MOD_INFRA)
+						res = (player->race->infra > 0);
+					if (rec[i].mod == OBJ_MOD_TUNNEL)
+						res = (player->race->r_skills[SKILL_DIGGING] > 0);
+				}
+			} else if (rec[i].flag != -1) {
+				res = of_has(f, rec[i].flag);
+			} else if (rec[i].element != -1) {
+				imm = known && (o_ptr->el_info[rec[i].element].res_level == 3);
+				res = known && (o_ptr->el_info[rec[i].element].res_level == 1);
+				vul = known && (o_ptr->el_info[rec[i].element].res_level == -1);
+			}
 
+			/* Set the symbols and print them */
 			if (imm) name_attr = TERM_GREEN;
-			else if (res && name_attr == TERM_WHITE) name_attr = TERM_L_BLUE;
+			else if (res) name_attr = TERM_L_BLUE;
 
-			if (vuln) sym = '-';
+			if (vul) sym = '-';
 			else if (imm) sym = '*';
 			else if (res) sym = '+';
-			else if ((j < INVEN_TOTAL) && o_ptr->kind && 
-				!object_flag_is_known(o_ptr, resists[i].res_flag)) sym = '?';
+			else if (timed) { sym = '!'; attr = TERM_L_GREEN; }
+			else if ((j < player->body.count) && o_ptr->kind && !known)
+				sym = '?';
+
 			Term_addch(attr, sym);
 		}
-		Term_putstr(col, row, 6, name_attr, format("%5s:", resists[i].name));
+		Term_putstr(col, row, 6, name_attr, format("%5s:", rec[i].name));
 	}
 	Term_putstr(col, row++, RES_COLS, TERM_WHITE, "      abcdefghijkl@");
 	/* Equippy */
@@ -382,10 +423,10 @@ void display_player_stat_info(void)
 	c_put_str(TERM_WHITE, "  Best", row-1, col+24);
 
 	/* Display the stats */
-	for (i = 0; i < A_MAX; i++)
+	for (i = 0; i < STAT_MAX; i++)
 	{
 		/* Reduced */
-		if (p_ptr->stat_cur[i] < p_ptr->stat_max[i])
+		if (player->stat_cur[i] < player->stat_max[i])
 		{
 			/* Use lowercase stat name */
 			put_str(stat_names_reduced[i], row+i, col);
@@ -399,35 +440,35 @@ void display_player_stat_info(void)
 		}
 
 		/* Indicate natural maximum */
-		if (p_ptr->stat_max[i] == 18+100)
+		if (player->stat_max[i] == 18+100)
 		{
 			put_str("!", row+i, col+3);
 		}
 
 		/* Internal "natural" maximum value */
-		cnv_stat(p_ptr->stat_max[i], buf, sizeof(buf));
+		cnv_stat(player->stat_max[i], buf, sizeof(buf));
 		c_put_str(TERM_L_GREEN, buf, row+i, col+5);
 
 		/* Race Bonus */
-		strnfmt(buf, sizeof(buf), "%+3d", p_ptr->race->r_adj[i]);
+		strnfmt(buf, sizeof(buf), "%+3d", player->race->r_adj[i]);
 		c_put_str(TERM_L_BLUE, buf, row+i, col+12);
 
 		/* Class Bonus */
-		strnfmt(buf, sizeof(buf), "%+3d", p_ptr->class->c_adj[i]);
+		strnfmt(buf, sizeof(buf), "%+3d", player->class->c_adj[i]);
 		c_put_str(TERM_L_BLUE, buf, row+i, col+16);
 
 		/* Equipment Bonus */
-		strnfmt(buf, sizeof(buf), "%+3d", p_ptr->state.stat_add[i]);
+		strnfmt(buf, sizeof(buf), "%+3d", player->state.stat_add[i]);
 		c_put_str(TERM_L_BLUE, buf, row+i, col+20);
 
 		/* Resulting "modified" maximum value */
-		cnv_stat(p_ptr->state.stat_top[i], buf, sizeof(buf));
+		cnv_stat(player->state.stat_top[i], buf, sizeof(buf));
 		c_put_str(TERM_L_GREEN, buf, row+i, col+24);
 
 		/* Only display stat_use if there has been draining */
-		if (p_ptr->stat_cur[i] < p_ptr->stat_max[i])
+		if (player->stat_cur[i] < player->stat_max[i])
 		{
-			cnv_stat(p_ptr->state.stat_use[i], buf, sizeof(buf));
+			cnv_stat(player->state.stat_use[i], buf, sizeof(buf));
 			c_put_str(TERM_YELLOW, buf, row+i, col+31);
 		}
 	}
@@ -447,13 +488,10 @@ void display_player_stat_info(void)
  */
 static void display_player_sust_info(void)
 {
-	int i, j, row, col, stat;
+	int i, row, col, stat;
 
 	object_type *o_ptr;
 	bitflag f[OF_SIZE];
-
-	int stat_flags[A_MAX];
-	int sustain_flags[A_MAX];
 
 	byte a;
 	char c;
@@ -465,26 +503,14 @@ static void display_player_sust_info(void)
 	/* Column */
 	col = 26;
 
-	/* Build the stat flags tables */
-	stat_flags[A_STR] = OF_STR;
-	stat_flags[A_INT] = OF_INT;
-	stat_flags[A_WIS] = OF_WIS;
-	stat_flags[A_DEX] = OF_DEX;
-	stat_flags[A_CON] = OF_CON;
-	sustain_flags[A_STR] = OF_SUST_STR;
-	sustain_flags[A_INT] = OF_SUST_INT;
-	sustain_flags[A_WIS] = OF_SUST_WIS;
-	sustain_flags[A_DEX] = OF_SUST_DEX;
-	sustain_flags[A_CON] = OF_SUST_CON;
-
 	/* Header */
 	c_put_str(TERM_WHITE, "abcdefghijkl@", row-1, col);
 
 	/* Process equipment */
-	for (i = INVEN_WIELD; i < INVEN_TOTAL; ++i)
+	for (i = 0; i < player->body.count; ++i)
 	{
 		/* Get the object */
-		o_ptr = &p_ptr->inventory[i];
+		o_ptr = equipped_item_by_slot(player, i);
 
 		if (!o_ptr->kind) {
 			col++;
@@ -494,47 +520,34 @@ static void display_player_sust_info(void)
 		/* Get the "known" flags */
 		object_flags_known(o_ptr, f);
 
-		/* Initialize color based of sign of pval. */
-		for (stat = 0; stat < A_MAX; stat++)
+		/* Initialize color based on sign of modifier. */
+		for (stat = 0; stat < STAT_MAX; stat++)
 		{
 			/* Default */
 			a = TERM_SLATE;
 			c = '.';
 
 			/* Boost */
-			if (of_has(f, stat_flags[stat]))
-			{
-				/* Default */
-				c = '*';
-
-				/* Work out which pval we're talking about */
-				j = which_pval(o_ptr, stat_flags[stat]);
-
+			/* Assumption is that stats appear first in list-object-modifiers.h
+			 * This assumption should be removed asap NRM */
+			if (o_ptr->modifiers[stat] > 0) {
 				/* Good */
-				if (o_ptr->pval[j] > 0)
-				{
-					/* Good */
-					a = TERM_L_GREEN;
+				a = TERM_L_GREEN;
 
-					/* Label boost */
-					if (o_ptr->pval[j] < 10)
-						c = I2D(o_ptr->pval[j]);
-				}
-
+				/* Label boost */
+				if (o_ptr->modifiers[stat] < 10)
+						c = I2D(o_ptr->modifiers[stat]);
+			} else if (o_ptr->modifiers[stat] > 0) {
 				/* Bad */
-				if (o_ptr->pval[j] < 0)
-				{
-					/* Bad */
-					a = TERM_RED;
+				a = TERM_RED;
 
-					/* Label boost */
-					if (o_ptr->pval[j] > -10)
-						c = I2D(-(o_ptr->pval[j]));
-				}
+				/* Label boost */
+				if (o_ptr->modifiers[stat] > -10)
+					c = I2D(-(o_ptr->modifiers[stat]));
 			}
 
 			/* Sustain */
-			if (of_has(f, sustain_flags[stat]))
+			if (of_has(f, sustain_flag(stat)))
 			{
 				/* Dark green */
 				a = TERM_GREEN;
@@ -543,7 +556,8 @@ static void display_player_sust_info(void)
 				if (c == '.') c = 's';
 			}
 
-			if ((c == '.') && o_ptr->kind && !object_flag_is_known(o_ptr, sustain_flags[stat]))
+			if ((c == '.') && o_ptr->kind && 
+				!object_flag_is_known(o_ptr, sustain_flag(stat)))
 				c = '?';
 
 			/* Dump proper character */
@@ -558,14 +572,14 @@ static void display_player_sust_info(void)
 	player_flags(f);
 
 	/* Check stats */
-	for (stat = 0; stat < A_MAX; ++stat)
+	for (stat = 0; stat < STAT_MAX; ++stat)
 	{
 		/* Default */
 		a = TERM_SLATE;
 		c = '.';
 
 		/* Sustain */
-		if (of_has(f, sustain_flags[stat]))
+		if (of_has(f, sustain_flag(stat)))
 		{
 			/* Dark green "s" */
 			a = TERM_GREEN;
@@ -630,20 +644,20 @@ static void display_panel(const struct panel *p, bool left_adj,
 
 static const char *show_title(void)
 {
-	if (p_ptr->wizard)
+	if (player->wizard)
 		return "[=-WIZARD-=]";
-	else if (p_ptr->total_winner || p_ptr->lev > PY_MAX_LEVEL)
+	else if (player->total_winner || player->lev > PY_MAX_LEVEL)
 		return "***WINNER***";
 	else
-		return p_ptr->class->title[(p_ptr->lev - 1) / 5];
+		return player->class->title[(player->lev - 1) / 5];
 }
 
 static const char *show_adv_exp(void)
 {
-	if (p_ptr->lev < PY_MAX_LEVEL)
+	if (player->lev < PY_MAX_LEVEL)
 	{
 		static char buffer[30];
-		s32b advance = (player_exp[p_ptr->lev - 1] * p_ptr->expfact / 100L);
+		s32b advance = (player_exp[player->lev - 1] * player->expfact / 100L);
 		strnfmt(buffer, sizeof(buffer), "%d", advance);
 		return buffer;
 	}
@@ -656,20 +670,20 @@ static const char *show_depth(void)
 {
 	static char buffer[13];
 
-	if (p_ptr->max_depth == 0) return "Town";
+	if (player->max_depth == 0) return "Town";
 
 	strnfmt(buffer, sizeof(buffer), "%d' (L%d)",
-	        p_ptr->max_depth * 50, p_ptr->max_depth);
+	        player->max_depth * 50, player->max_depth);
 	return buffer;
 }
 
 static const char *show_speed(void)
 {
 	static char buffer[10];
-	int tmp = p_ptr->state.speed;
-	if (p_ptr->timed[TMD_FAST]) tmp -= 10;
-	if (p_ptr->timed[TMD_SLOW]) tmp += 10;
-	if (p_ptr->searching) tmp += 10;
+	int tmp = player->state.speed;
+	if (player->timed[TMD_FAST]) tmp -= 10;
+	if (player->timed[TMD_SLOW]) tmp += 10;
+	if (player->searching) tmp += 10;
 	if (tmp == 110) return "Normal";
 	strnfmt(buffer, sizeof(buffer), "%d", tmp - 110);
 	return buffer;
@@ -693,12 +707,12 @@ static struct panel *get_panel_topleft(void) {
 	struct panel *p = panel_allocate(7);
 
 	panel_line(p, TERM_L_BLUE, "Name", "%s", op_ptr->full_name);
-	panel_line(p, TERM_L_BLUE, "Sex", "%s", p_ptr->sex->title);
-	panel_line(p, TERM_L_BLUE, "Race",	"%s", p_ptr->race->name);
-	panel_line(p, TERM_L_BLUE, "Class", "%s", p_ptr->class->name);
+	panel_line(p, TERM_L_BLUE, "Sex", "%s", player->sex->title);
+	panel_line(p, TERM_L_BLUE, "Race",	"%s", player->race->name);
+	panel_line(p, TERM_L_BLUE, "Class", "%s", player->class->name);
 	panel_line(p, TERM_L_BLUE, "Title", "%s", show_title());
-	panel_line(p, TERM_L_BLUE, "HP", "%d/%d", p_ptr->chp, p_ptr->mhp);
-	panel_line(p, TERM_L_BLUE, "SP", "%d/%d", p_ptr->csp, p_ptr->msp);
+	panel_line(p, TERM_L_BLUE, "HP", "%d/%d", player->chp, player->mhp);
+	panel_line(p, TERM_L_BLUE, "SP", "%d/%d", player->csp, player->msp);
 
 	return p;
 }
@@ -706,16 +720,16 @@ static struct panel *get_panel_topleft(void) {
 static struct panel *get_panel_midleft(void) {
 	struct panel *p = panel_allocate(9);
 
-	panel_line(p, max_color(p_ptr->lev, p_ptr->max_lev),
-			"Level", "%d", p_ptr->lev);
-	panel_line(p, max_color(p_ptr->exp, p_ptr->max_exp),
-			"Cur Exp", "%d", p_ptr->exp);
-	panel_line(p, TERM_L_GREEN, "Max Exp", "%d", p_ptr->max_exp);
+	panel_line(p, max_color(player->lev, player->max_lev),
+			"Level", "%d", player->lev);
+	panel_line(p, max_color(player->exp, player->max_exp),
+			"Cur Exp", "%d", player->exp);
+	panel_line(p, TERM_L_GREEN, "Max Exp", "%d", player->max_exp);
 	panel_line(p, TERM_L_GREEN, "Adv Exp", "%s", show_adv_exp());
 	panel_space(p);
-	panel_line(p, TERM_L_GREEN, "Gold", "%d", p_ptr->au);
+	panel_line(p, TERM_L_GREEN, "Gold", "%d", player->au);
 	panel_line(p, TERM_L_GREEN, "Burden", "%.1f lbs",
-			p_ptr->total_weight / 10.0F);
+			player->upkeep->total_weight / 10.0F);
 	panel_line(p, TERM_L_GREEN, "Speed", "%s", show_speed());
 	panel_line(p, TERM_L_GREEN, "Max Depth", "%s", show_depth());
 
@@ -726,33 +740,40 @@ static struct panel *get_panel_combat(void) {
 	struct panel *p = panel_allocate(9);
 	struct object *obj;
 	int bth, dam, hit;
+	int melee_dice = 1, melee_sides = 1;
 
 	/* AC */
 	panel_line(p, TERM_L_BLUE, "Armor", "[%d,%+d]",
-			p_ptr->state.dis_ac, p_ptr->state.dis_to_a);
+			player->known_state.ac, player->known_state.to_a);
 
 	/* Melee */
-	obj = &p_ptr->inventory[INVEN_WIELD];
-	bth = (p_ptr->state.skills[SKILL_TO_HIT_MELEE] * 10) / BTH_PLUS_ADJ;
-	dam = p_ptr->state.dis_to_d + (object_attack_plusses_are_visible(obj) ? obj->to_d : 0);
-	hit = p_ptr->state.dis_to_h + (object_attack_plusses_are_visible(obj) ? obj->to_h : 0);
+	obj = equipped_item_by_slot_name(player, "weapon");
+	bth = (player->state.skills[SKILL_TO_HIT_MELEE] * 10) / BTH_PLUS_ADJ;
+	dam = player->known_state.to_d + (object_attack_plusses_are_visible(obj) ? obj->to_d : 0);
+	hit = player->known_state.to_h + (object_attack_plusses_are_visible(obj) ? obj->to_h : 0);
 
 	panel_space(p);
-	panel_line(p, TERM_L_BLUE, "Melee", "%dd%d,%+d", obj->dd, obj->ds, dam);
+
+	if (obj->kind) {
+		melee_dice = obj->dd;
+		melee_sides = obj->ds;
+	}
+
+	panel_line(p, TERM_L_BLUE, "Melee", "%dd%d,%+d", melee_dice, melee_sides, dam);
 	panel_line(p, TERM_L_BLUE, "To-hit", "%d,%+d", bth / 10, hit);
 	panel_line(p, TERM_L_BLUE, "Blows", "%d.%d/turn",
-			p_ptr->state.num_blows / 100, (p_ptr->state.num_blows / 10 % 10));
+			player->state.num_blows / 100, (player->state.num_blows / 10 % 10));
 
 	/* Ranged */
-	obj = &p_ptr->inventory[INVEN_BOW];
-	bth = (p_ptr->state.skills[SKILL_TO_HIT_BOW] * 10) / BTH_PLUS_ADJ;
-	hit = p_ptr->state.dis_to_h + (object_attack_plusses_are_visible(obj) ? obj->to_h : 0);
+	obj = equipped_item_by_slot_name(player, "shooting");
+	bth = (player->state.skills[SKILL_TO_HIT_BOW] * 10) / BTH_PLUS_ADJ;
+	hit = player->known_state.to_h + (object_attack_plusses_are_visible(obj) ? obj->to_h : 0);
 	dam = object_attack_plusses_are_visible(obj) ? obj->to_d : 0;
 
 	panel_space(p);
 	panel_line(p, TERM_L_BLUE, "Shoot to-dam", "%+d", dam);
 	panel_line(p, TERM_L_BLUE, "To-hit", "%d,%+d", bth / 10, hit);
-	panel_line(p, TERM_L_BLUE, "Shots", "%d/turn", p_ptr->state.num_shots);
+	panel_line(p, TERM_L_BLUE, "Shots", "%d/turn", player->state.num_shots);
 
 	return p;
 }
@@ -767,23 +788,23 @@ static struct panel *get_panel_skills(void) {
 #define BOUND(x, min, max)		MIN(max, MAX(min, x))
 
 	/* Saving throw */
-	skill = BOUND(p_ptr->state.skills[SKILL_SAVE], 0, 100);
+	skill = BOUND(player->state.skills[SKILL_SAVE], 0, 100);
 	panel_line(p, colour_table[skill / 10], "Saving Throw", "%d%%", skill);
 
 	/* Stealth */
-	desc = likert(p_ptr->state.skills[SKILL_STEALTH], 1, &attr);
+	desc = likert(player->state.skills[SKILL_STEALTH], 1, &attr);
 	panel_line(p, attr, "Stealth", "%s", desc);
 
 	/* Disarming: -5 because we assume we're disarming a dungeon trap */
-	skill = BOUND(p_ptr->state.skills[SKILL_DISARM] - 5, 2, 100);
+	skill = BOUND(player->state.skills[SKILL_DISARM] - 5, 2, 100);
 	panel_line(p, colour_table[skill / 10], "Disarming", "%d%%", skill);
 
 	/* Magic devices */
-	skill = p_ptr->state.skills[SKILL_DEVICE];
+	skill = player->state.skills[SKILL_DEVICE];
 	panel_line(p, colour_table[skill / 13], "Magic Devices", "%d", skill);
 
 	/* Search frequency */
-	skill = MAX(p_ptr->state.skills[SKILL_SEARCH_FREQUENCY], 1);
+	skill = MAX(player->state.skills[SKILL_SEARCH_FREQUENCY], 1);
 	if (skill >= 50) {
 		panel_line(p, colour_table[10], "Perception", "1 in 1");
 	} else {
@@ -794,12 +815,12 @@ static struct panel *get_panel_skills(void) {
 	}
 
 	/* Searching ability */
-	skill = BOUND(p_ptr->state.skills[SKILL_SEARCH], 0, 100);
+	skill = BOUND(player->state.skills[SKILL_SEARCH], 0, 100);
 	panel_line(p, colour_table[skill / 10], "Searching", "%d%%", skill);
 
 	/* Infravision */
 	panel_line(p, TERM_L_GREEN, "Infravision", "%d ft",
-			p_ptr->state.see_infra * 10);
+			player->state.see_infra * 10);
 
 	return p;
 }
@@ -808,13 +829,13 @@ static struct panel *get_panel_misc(void) {
 	struct panel *p = panel_allocate(7);
 	byte attr = TERM_L_BLUE;
 
-	panel_line(p, attr, "Age", "%d", p_ptr->age);
-	panel_line(p, attr, "Height", "%d'%d\"", p_ptr->ht / 12, p_ptr->ht % 12);
-	panel_line(p, attr, "Weight", "%dst %dlb", p_ptr->wt / 14, p_ptr->wt % 14);
+	panel_line(p, attr, "Age", "%d", player->age);
+	panel_line(p, attr, "Height", "%d'%d\"", player->ht / 12, player->ht % 12);
+	panel_line(p, attr, "Weight", "%dst %dlb", player->wt / 14, player->wt % 14);
 	panel_line(p, attr, "Turns used:", "");
 	panel_line(p, attr, "Game", "%d", turn);
-	panel_line(p, attr, "Standard", "%d", p_ptr->total_energy / 100);
-	panel_line(p, attr, "Resting", "%d", p_ptr->resting_turn);
+	panel_line(p, attr, "Standard", "%d", player->total_energy / 100);
+	panel_line(p, attr, "Resting", "%d", player->resting_turn);
 
 	return p;
 }
@@ -849,7 +870,7 @@ void display_player_xtra_info(void)
 
 	/* History */
 	Term_gotoxy(text_out_indent, 19);
-	text_out_to_screen(TERM_WHITE, p_ptr->history);
+	text_out_to_screen(TERM_WHITE, player->history);
 
 	/* Reset text_out() vars */
 	text_out_wrap = 0;
@@ -872,7 +893,7 @@ void display_player(int mode)
 	clear_from(0);
 
 	/* When not playing, do not display in subwindows */
-	if (Term != angband_term[0] && !p_ptr->playing) return;
+	if (Term != angband_term[0] && !player->upkeep->playing) return;
 
 	/* Stat info */
 	display_player_stat_info();
@@ -1022,7 +1043,7 @@ errr file_character(const char *path, bool full)
 
 
 	/* If dead, dump last messages -- Prfnoff */
-	if (p_ptr->is_dead)
+	if (player->is_dead)
 	{
 		i = messages_num();
 		if (i > 15) i = 15;
@@ -1031,42 +1052,48 @@ errr file_character(const char *path, bool full)
 		{
 			file_putf(fp, "> %s\n", message_str((s16b)i));
 		}
-		file_putf(fp, "\nKilled by %s.\n\n", p_ptr->died_from);
+		file_putf(fp, "\nKilled by %s.\n\n", player->died_from);
 	}
 
 
 	/* Dump the equipment */
 	file_putf(fp, "  [Character Equipment]\n\n");
-	for (i = INVEN_WIELD; i < ALL_INVEN_TOTAL; i++)
+	for (i = 0; i < player->body.count; i++)
 	{
-		if (i == INVEN_TOTAL)
-		{
-			file_putf(fp, "\n\n  [Character Quiver]\n\n");
-			continue;
-		}
-		object_desc(o_name, sizeof(o_name), &p_ptr->inventory[i],
-				ODESC_PREFIX | ODESC_FULL);
+		struct object *obj = equipped_item_by_slot(player, i);
+		if (!obj->kind) continue;
 
-		if (p_ptr->inventory[i].kind) {
-			file_putf(fp, "%c) %s\n", index_to_label(i), o_name);
-			object_info_chardump(fp, &p_ptr->inventory[i], 5, 72);
-		}
+		object_desc(o_name, sizeof(o_name), obj, ODESC_PREFIX | ODESC_FULL);
+		file_putf(fp, "%c) %s\n", equip_to_label(i), o_name);
+		object_info_chardump(fp, obj, 5, 72);
 	}
+	file_putf(fp, "\n\n");
 
 	/* Dump the inventory */
 	file_putf(fp, "\n\n  [Character Inventory]\n\n");
 	for (i = 0; i < INVEN_PACK; i++)
 	{
-		if (!p_ptr->inventory[i].kind) break;
+		struct object *obj = &player->gear[player->upkeep->inven[i]];
+		if (!obj->kind) break;
 
-		object_desc(o_name, sizeof(o_name), &p_ptr->inventory[i],
-					ODESC_PREFIX | ODESC_FULL);
-
-		file_putf(fp, "%c) %s\n", index_to_label(i), o_name);
-		object_info_chardump(fp, &p_ptr->inventory[i], 5, 72);
+		object_desc(o_name, sizeof(o_name), obj, ODESC_PREFIX | ODESC_FULL);
+		file_putf(fp, "%c) %s\n", inven_to_label(i), o_name);
+		object_info_chardump(fp, obj, 5, 72);
 	}
 	file_putf(fp, "\n\n");
 
+	/* Dump the quiver */
+	file_putf(fp, "\n\n  [Character Quiver]\n\n");
+	for (i = 0; i < QUIVER_SIZE; i++)
+	{
+		struct object *obj = &player->gear[player->upkeep->quiver[i]];
+		if (!obj->kind) break;
+
+		object_desc(o_name, sizeof(o_name), obj, ODESC_PREFIX | ODESC_FULL);
+		file_putf(fp, "%c) %s\n", quiver_to_label(i), o_name);
+		object_info_chardump(fp, obj, 5, 72);
+	}
+	file_putf(fp, "\n\n");
 
 	/* Dump the Home -- if anything there */
 	if (st_ptr->stock_num)
@@ -1096,18 +1123,18 @@ errr file_character(const char *path, bool full)
 	file_putf(fp, "  [Options]\n\n");
 
 	/* Dump options */
-	for (i = 0; i < OPT_PAGE_MAX - 1; i++) {
-		int j;
+	for (i = 0; i < OP_MAX; i++) {
+		int opt;
 		const char *title = "";
 		switch (i) {
-			case 0: title = "User interface"; break;
-			case 1: title = "Birth"; break;
+			case OP_INTERFACE: title = "User interface"; break;
+			case OP_BIRTH: title = "Birth"; break;
+		    default: continue;
 		}
 
 		file_putf(fp, "  [%s]\n\n", title);
-		for (j = 0; j < OPT_PAGE_PER; j++) {
-			int opt = option_page[i][j];
-			if (!option_name(opt)) continue;
+		for (opt = 0; opt < OPT_MAX; opt++) {
+			if (option_type(opt) != i) continue;
 
 			file_putf(fp, "%-45s: %s (%s)\n",
 			        option_desc(opt),
@@ -1634,13 +1661,13 @@ void do_cmd_help(void)
 void save_game(void)
 {
 	/* Disturb the player */
-	disturb(p_ptr, 1, 0);
+	disturb(player, 1);
 
 	/* Clear messages */
 	message_flush();
 
 	/* Handle stuff */
-	handle_stuff(p_ptr);
+	handle_stuff(player->upkeep);
 
 	/* Message */
 	prt("Saving game...", 0, 0);
@@ -1649,7 +1676,7 @@ void save_game(void)
 	Term_fresh();
 
 	/* The player is not dead */
-	my_strcpy(p_ptr->died_from, "(saved)", sizeof(p_ptr->died_from));
+	my_strcpy(player->died_from, "(saved)", sizeof(player->died_from));
 
 	/* Forbid suspend */
 	signals_ignore_tstp();
@@ -1667,7 +1694,7 @@ void save_game(void)
 	Term_fresh();
 
 	/* Note that the player is not dead */
-	my_strcpy(p_ptr->died_from, "(alive and well)", sizeof(p_ptr->died_from));
+	my_strcpy(player->died_from, "(alive and well)", sizeof(player->died_from));
 }
 
 
@@ -1683,7 +1710,7 @@ void save_game(void)
 void close_game(void)
 {
 	/* Handle stuff */
-	handle_stuff(p_ptr);
+	handle_stuff(player->upkeep);
 
 	/* Flush the messages */
 	message_flush();
@@ -1701,7 +1728,7 @@ void close_game(void)
 
 
 	/* Handle death */
-	if (p_ptr->is_dead)
+	if (player->is_dead)
 	{
 		death_screen();
 	}

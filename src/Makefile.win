@@ -19,9 +19,11 @@ all: ../$(EXE)
 ifneq (,$(findstring \system32,$(PATH)))
   CP = copy
   RM = del
+  BAR = "\"
 else
   CP = -cp
   RM = -rm
+  BAR = "/"
 endif
 
 
@@ -46,7 +48,7 @@ else
   CFLAGS += -Iwin/include -Lwin/lib
   LDFLAGS += -Lwin/lib
 
-  IOBJS = $(BASEOBJS) win/angband.res main-win.o win/readdib.o win/readpng.o win/scrnshot.o win/win-layout.o
+  IOBJS = $(BASEOBJS) win/$(PROGNAME).res main-win.o win/readdib.o win/readpng.o win/scrnshot.o win/win-layout.o
   LIBS = -mwindows -lwinmm -lzlib -llibpng -lmsimg32
 endif
 
@@ -102,8 +104,8 @@ endif
 
 ../$(EXE): $(EXE)
 	$(CP) $(EXE) ..
-	$(CP) win/dll/libpng12.dll ..
-	$(CP) win/dll/zlib1.dll ..
+	$(CP) win$(BAR)dll$(BAR)libpng12.dll ..
+	$(CP) win$(BAR)dll$(BAR)zlib1.dll ..
 
 $(EXE): $(OBJS)
 	$(CC) $(CFLAGS) -o $(EXE) $(OBJS) $(LIBS)
@@ -118,7 +120,7 @@ clean:
 # Rules
 #
 
-win/angband.res: win/angband.rc
+win/$(PROGNAME).res: win/$(PROGNAME).rc
 	$(WRES) $< -O coff -o $@
 
 $(OBJDIR)%.o: %.c $(INCS)

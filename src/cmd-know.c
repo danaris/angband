@@ -19,17 +19,24 @@
  */
 
 #include "angband.h"
-#include "button.h"
 #include "cave.h"
 #include "cmds.h"
+#include "dungeon.h"
 #include "files.h"
 #include "history.h"
-#include "object/tvalsval.h"
-#include "monster/mon-lore.h"
-#include "monster/mon-util.h"
+#include "init.h"
+#include "mon-lore.h"
+#include "mon-list.h"
+#include "mon-util.h"
+#include "monster.h"
+#include "obj-ignore.h"
+#include "obj-list.h"
+#include "obj-tval.h"
+#include "obj-ui.h"
+#include "obj-util.h"
+#include "object.h"
 #include "option.h"
 #include "prefs.h"
-#include "squelch.h"
 #include "target.h"
 #include "ui-menu.h"
 #include "ui.h"
@@ -73,33 +80,32 @@ void do_cmd_redraw(void)
 	Term_xtra(TERM_XTRA_REACT, 0);
 
 
-	/* Combine and Reorder the pack (later) */
-	p_ptr->notice |= (PN_COMBINE | PN_REORDER);
+	/* Combine the pack (later) */
+	player->upkeep->notice |= (PN_COMBINE);
 
-
-	/* Update torch */
-	p_ptr->update |= (PU_TORCH);
+	/* Update torch, gear */
+	player->upkeep->update |= (PU_TORCH | PU_INVEN);
 
 	/* Update stuff */
-	p_ptr->update |= (PU_BONUS | PU_HP | PU_MANA | PU_SPELLS);
+	player->upkeep->update |= (PU_BONUS | PU_HP | PU_MANA | PU_SPELLS);
 
 	/* Fully update the visuals */
-	p_ptr->update |= (PU_FORGET_VIEW | PU_UPDATE_VIEW | PU_MONSTERS);
+	player->upkeep->update |= (PU_FORGET_VIEW | PU_UPDATE_VIEW | PU_MONSTERS);
 
 	/* Redraw everything */
-	p_ptr->redraw |= (PR_BASIC | PR_EXTRA | PR_MAP | PR_INVEN | PR_EQUIP |
-	                  PR_MESSAGE | PR_MONSTER | PR_OBJECT |
-					  PR_MONLIST | PR_ITEMLIST);
+	player->upkeep->redraw |= (PR_BASIC | PR_EXTRA | PR_MAP | PR_INVEN |
+							   PR_EQUIP | PR_MESSAGE | PR_MONSTER |
+							   PR_OBJECT | PR_MONLIST | PR_ITEMLIST);
 
 	/* Clear screen */
 	Term_clear();
 
 	/* Hack -- update */
-	handle_stuff(p_ptr);
+	handle_stuff(player->upkeep);
 
 	/* Place the cursor on the player */
 	if (0 != character_dungeon)
-		move_cursor_relative(p_ptr->px, p_ptr->py);
+		move_cursor_relative(player->px, player->py);
 
 
 	/* Redraw every window */
@@ -126,40 +132,12 @@ void do_cmd_change_name(void)
 	const char *p;
 
 	bool more = TRUE;
-	bool button_state;
-
-	if (OPT(mouse_movement)) {
-		/**
-		 * show some buttons on the last line regardless of whether
-		 * mouse buttons are usually shown
-		 */
-		button_state = OPT(mouse_buttons);
-		if (!button_state) {
-			option_set("mouse_buttons", TRUE);
-		}
-	} else {
-		/* make sure we do not change the state of the mouse_buttons option below */
-		button_state = TRUE;
-	}
 
 	/* Prompt */
 	p = "['c' to change name, 'f' to file, 'h' to change mode, or ESC]";
 
 	/* Save screen */
 	screen_save();
-
-	/* backup the previous buttons and clear them */
-	button_backup_all();
-	button_kill_all();
-
-	/* add some 1d buttons for if we are using them */
-	button_add("[c]", 'c');
-	button_add("[f]", 'f');
-	button_add("[->]", 'h');
-	button_add("[<-]", 'l');
-
-	button_add("[Ret]",'\n');
-	button_add("[ESC]",ESCAPE);
 
 	/* Forever */
 	while (more)
@@ -169,14 +147,6 @@ void do_cmd_change_name(void)
 
 		/* Prompt */
 		Term_putstr(2, 23, -1, TERM_WHITE, p);
-		/* display the mouse buttons */
-		if (OPT(mouse_buttons)) {
-			if (Term->hgt == 24) {
-				button_print(23, 2+62);
-			} else {
-				button_print(Term->hgt - 1, COL_MAP);
-			}
-		}
 
 		/* Query */
 		ke = inkey_ex();
@@ -199,7 +169,7 @@ void do_cmd_change_name(void)
 					char buf[1024];
 					char fname[80];
 
-					strnfmt(fname, sizeof fname, "%s.txt", player_safe_name(p_ptr));
+					strnfmt(fname, sizeof fname, "%s.txt", player_safe_name(player, FALSE));
 
 					if (get_file(fname, buf, sizeof buf))
 					{
@@ -239,11 +209,6 @@ void do_cmd_change_name(void)
 
 		/* Flush messages */
 		message_flush();
-	}
-	/* Remove the 1d buttons that we added earlier */
-	button_restore();
-	if (!button_state) {
-		option_set("mouse_buttons", FALSE);
 	}
 
 	/* Load screen */
@@ -456,7 +421,7 @@ void do_cmd_messages(void)
 
 
 #define GET_ITEM_PARAMS \
- 	(USE_EQUIP | USE_INVEN | USE_FLOOR | SHOW_QUIVER | SHOW_EMPTY | IS_HARMLESS)
+ 	(USE_EQUIP | USE_INVEN | USE_QUIVER | USE_FLOOR | SHOW_QUIVER | SHOW_EMPTY | IS_HARMLESS)
  
 /*
  * Display inventory
@@ -467,13 +432,13 @@ void do_cmd_inven(void)
 	int ret = 3;
 	int diff = weight_remaining();
 
-	if (!p_ptr->inventory[0].kind) {
+	if (player->upkeep->inven[0] == NO_OBJECT) {
 		msg("You have nothing in your inventory.");
 		return;
 	}
 
 	/* Hack -- Start in "inventory" mode */
-	p_ptr->command_wrk = (USE_INVEN);
+	player->upkeep->command_wrk = (USE_INVEN);
 
 	/* Loop this menu until an object context menu says differently */
 	while (ret == 3) {
@@ -482,13 +447,13 @@ void do_cmd_inven(void)
 
 		/* Prompt for a command */
 		prt(format("(Inventory) Burden %d.%d lb (%d.%d lb %s). Select Item: ",
-			        p_ptr->total_weight / 10, p_ptr->total_weight % 10,
+			        player->upkeep->total_weight / 10,
+				   player->upkeep->total_weight % 10,
 			        abs(diff) / 10, abs(diff) % 10,
-			        (diff < 0 ? "overweight" : "remaining")),
-				0, 0);
+			        (diff < 0 ? "overweight" : "remaining")), 0, 0);
 
 		/* Get an item to use a context command on (Display the inventory) */
-		if (get_item(&item, NULL, NULL, CMD_NULL, GET_ITEM_PARAMS)) {
+		if (get_item(&item, NULL, NULL, CMD_NULL, NULL, GET_ITEM_PARAMS)) {
 			object_type *o_ptr;
 
 			/* Load screen */
@@ -498,7 +463,7 @@ void do_cmd_inven(void)
 
 			if (o_ptr && o_ptr->kind) {
 				/* Track the object kind */
-				track_object(item);
+				track_object(player->upkeep, item);
 
 				while ((ret = context_menu_object(o_ptr, item)) == 2);
 			}
@@ -520,8 +485,13 @@ void do_cmd_equip(void)
 	int item;
 	int ret = 3;
 
+	if (!player->upkeep->equip_cnt) {
+		msg("You are not wielding or wearing anything.");
+		return;
+	}
+
 	/* Hack -- Start in "inventory" mode */
-	p_ptr->command_wrk = (USE_EQUIP);
+	player->upkeep->command_wrk = (USE_EQUIP);
 
 	/* Loop this menu until an object context menu says differently */
 	while (ret == 3) {
@@ -529,7 +499,7 @@ void do_cmd_equip(void)
 		screen_save();
 
 		/* Get an item to use a context command on (Display the inventory) */
-		if (get_item(&item, "Select Item:", NULL, CMD_NULL, GET_ITEM_PARAMS)) {
+		if (get_item(&item, "Select Item:", NULL, CMD_NULL, NULL, GET_ITEM_PARAMS)) {
 			object_type *o_ptr;
 
 			/* Load screen */
@@ -539,7 +509,7 @@ void do_cmd_equip(void)
 
 			if (o_ptr && o_ptr->kind) {
 				/* Track the object kind */
-				track_object(item);
+				track_object(player->upkeep, item);
 
 				while ((ret = context_menu_object(o_ptr, item)) == 2);
 			}
@@ -569,9 +539,14 @@ void do_cmd_look(void)
 
 void do_cmd_monmem(void) {
 	//if (p_ptr->monster_memory[0] != 0) {
-    monmem_rotate(p_ptr);
+    monmem_rotate(player);
 	//}
 }
+
+/**
+ * Number of basic grids per panel, vertically and horizontally
+ */
+#define PANEL_SIZE	11
 
 /*
  * Allow the player to examine other sectors on the map
@@ -583,6 +558,10 @@ void do_cmd_locate(void)
 	char tmp_val[80];
 
 	char out_val[160];
+
+	/* Adjust for tiles */
+	int panel_hgt = (int)(PANEL_SIZE / tile_height);
+	int panel_wid = (int)(PANEL_SIZE / tile_width);
 
 
 	/* Start at current panel */
@@ -611,15 +590,15 @@ void do_cmd_locate(void)
 		/* Prepare to ask which way to look */
 		strnfmt(out_val, sizeof(out_val),
 		        "Map sector [%d,%d], which is%s your sector.  Direction?",
-		        (y2 / PANEL_HGT), (x2 / PANEL_WID), tmp_val);
+		        (y2 / panel_hgt), (x2 / panel_wid), tmp_val);
 
 		/* More detail */
 		if (OPT(center_player))
 		{
 			strnfmt(out_val, sizeof(out_val),
 		        	"Map sector [%d(%02d),%d(%02d)], which is%s your sector.  Direction?",
-		        	(y2 / PANEL_HGT), (y2 % PANEL_HGT),
-		        	(x2 / PANEL_WID), (x2 % PANEL_WID), tmp_val);
+					(y2 / panel_hgt), (y2 % panel_hgt),
+					(x2 / panel_wid), (x2 % panel_wid), tmp_val);
 		}
 
 		/* Assume no direction */
@@ -647,7 +626,7 @@ void do_cmd_locate(void)
 		change_panel(dir);
 
 		/* Handle stuff */
-		handle_stuff(p_ptr);
+		handle_stuff(player->upkeep);
 	}
 
 	/* Verify panel */
@@ -849,13 +828,6 @@ void do_cmd_query_symbol(void)
 		return;
 	}
 
-	/* Buttons */
-	button_add("[y]", 'y');
-	button_add("[k]", 'k');
-	/* Don't collide with the repeat button */
-	button_add("[n]", 'q'); 
-	redraw_stuff(p_ptr);
-
 	/* Prompt */
 	put_str("Recall details? (y/k/n): ", 0, 40);
 
@@ -864,12 +836,6 @@ void do_cmd_query_symbol(void)
 
 	/* Restore */
 	prt(buf, 0, 0);
-
-	/* Buttons */
-	button_kill('y');
-	button_kill('k');
-	button_kill('q');
-	redraw_stuff(p_ptr);
 
 	/* Interpret the response */
 	if (query.code == 'k')
@@ -895,12 +861,6 @@ void do_cmd_query_symbol(void)
 	/* Start at the end */
 	i = n - 1;
 
-	/* Button */
-	button_add("[r]", 'r');
-	button_add("[-]", '-');
-	button_add("[+]", '+');
-	redraw_stuff(p_ptr);
-
 	/* Scan the monster memory */
 	while (1)
 	{
@@ -912,10 +872,10 @@ void do_cmd_query_symbol(void)
 		monster_lore *l_ptr = &l_list[r_idx];
 
 		/* Hack -- Auto-recall */
-		monster_race_track(r_ptr);
+		monster_race_track(player->upkeep, r_ptr);
 
 		/* Hack -- Handle stuff */
-		handle_stuff(p_ptr);
+		handle_stuff(player->upkeep);
 
 		tb = textblock_new();
 		lore_title(tb, r_ptr);
@@ -957,12 +917,6 @@ void do_cmd_query_symbol(void)
 		}
 	}
 
-	/* Button */
-	button_kill('r');
-	button_kill('-');
-	button_kill('+');
-	redraw_stuff(p_ptr);
-
 	/* Re-display the identity */
 	prt(buf, 0, 0);
 
@@ -985,10 +939,8 @@ void do_cmd_monlist(void)
 {
 	/* Save the screen and display the list */
 	screen_save();
-	display_monlist();
 
-	/* Wait */
-	anykey();
+    monster_list_show_interactive(Term->hgt, Term->wid);
 
 	/* Return */
 	screen_load();
@@ -1002,10 +954,8 @@ void do_cmd_itemlist(void)
 {
 	/* Save the screen and display the list */
 	screen_save();
-	display_itemlist();
 
-	/* Wait */
-	anykey();
+    object_list_show_interactive(Term->hgt, Term->wid);
 
 	/* Return */
 	screen_load();

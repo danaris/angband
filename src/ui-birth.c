@@ -17,14 +17,17 @@
  */
 
 #include "angband.h"
-#include "button.h"
 #include "cmds.h"
 #include "files.h"
-#include "game-cmd.h"
+#include "cmd-core.h"
 #include "game-event.h"
-#include "object/tvalsval.h"
+#include "obj-tval.h"
+#include "player.h"
+#include "target.h"
 #include "ui-birth.h"
+#include "ui-game.h"
 #include "ui-menu.h"
+#include "ui-options.h"
 
 
 /*
@@ -98,14 +101,7 @@ static enum birth_stage get_quickstart_command(void)
 	/* Prompt for it */
 	prt("New character based on previous one:", 0, 0);
 	prt(prompt, Term->hgt - 1, Term->wid / 2 - strlen(prompt) / 2);
-	
-	/* Buttons */
-	button_kill_all();
-	button_add("[Y]", 'y');
-	button_add("[N]", 'n');
-	button_add("[C]", 'c');
-	redraw_stuff(p_ptr);
-	
+
 	do
 	{
 		/* Get a key */
@@ -113,12 +109,12 @@ static enum birth_stage get_quickstart_command(void)
 		
 		if (ke.code == 'N' || ke.code == 'n')
 		{
-			cmd_insert(CMD_BIRTH_RESET);
+			cmdq_push(CMD_BIRTH_RESET);
 			next = BIRTH_SEX_CHOICE;
 		}
 		else if (ke.code == KTRL('X'))
 		{
-			cmd_insert(CMD_QUIT);
+			cmdq_push(CMD_QUIT);
 			next = BIRTH_COMPLETE;
 		}
 		else if (ke.code == 'C' || ke.code == 'c')
@@ -127,14 +123,10 @@ static enum birth_stage get_quickstart_command(void)
 		}
 		else if (ke.code == 'Y' || ke.code == 'y')
 		{
-			cmd_insert(CMD_ACCEPT_CHARACTER);
+			cmdq_push(CMD_ACCEPT_CHARACTER);
 			next = BIRTH_COMPLETE;
 		}
 	} while (next == BIRTH_QUICKSTART);
-	
-	/* Buttons */
-	button_kill_all();
-	redraw_stuff(p_ptr);
 
 	/* Clear prompt */
 	clear_from(23);
@@ -231,16 +223,25 @@ static const char *get_flag_desc(bitflag flag)
 		case OF_SUST_STR: return "Sustains strength";
 		case OF_SUST_DEX: return "Sustains dexterity";
 		case OF_SUST_CON: return "Sustains constitution";
-		case OF_RES_POIS: return "Resists poison";
-		case OF_RES_LIGHT: return "Resists light damage";
-		case OF_RES_DARK: return "Resists darkness damage";
-		case OF_RES_BLIND: return "Resists blindness";
+		case OF_PROT_BLIND: return "Resists blindness";
 		case OF_HOLD_LIFE: return "Sustains experience";
 		case OF_FREE_ACT: return "Resists paralysis";
 		case OF_REGEN: return "Regenerates quickly";
 		case OF_SEE_INVIS: return "Sees invisible creatures";
 
 		default: return "Undocumented flag";
+	}
+}
+
+static const char *get_resist_desc(int element)
+{
+	switch (element)
+	{
+		case ELEM_POIS: return "Resists poison";
+		case ELEM_LIGHT: return "Resists light damage";
+		case ELEM_DARK: return "Resists darkness damage";
+
+		default: return "Undocumented element";
 	}
 }
 
@@ -269,7 +270,7 @@ static void race_help(int i, void *db, const region *l)
 	int j;
 	size_t k;
 	struct player_race *r = player_id2race(i);
-	int len = (A_MAX + 1) / 2;
+	int len = (STAT_MAX + 1) / 2;
 
 	int n_flags = 0;
 	int flag_space = 3;
@@ -290,7 +291,7 @@ static void race_help(int i, void *db, const region *l)
 
 		text_out_e("%s%+3d", name, adj);
 
-		if (j*2 + 1 < A_MAX) {
+		if (j*2 + 1 < STAT_MAX) {
 			name = stat_names_reduced[j + len];
 			adj = r->r_adj[j + len];
 			text_out_e("  %s%+3d", name, adj);
@@ -308,6 +309,14 @@ static void race_help(int i, void *db, const region *l)
 		if (n_flags >= flag_space) break;
 		if (!of_has(r->flags, k)) continue;
 		text_out_e("\n%s", get_flag_desc(k));
+		n_flags++;
+	}
+
+	for (k = 0; k < ELEM_MAX; k++)
+	{
+		if (n_flags >= flag_space) break;
+		if (r->el_info[k].res_level != 1) continue;
+		text_out_e("\n%s", get_resist_desc(k));
 		n_flags++;
 	}
 
@@ -334,8 +343,8 @@ static void class_help(int i, void *db, const region *l)
 	int j;
 	size_t k;
 	struct player_class *c = player_id2class(i);
-	const struct player_race *r = p_ptr->race;
-	int len = (A_MAX + 1) / 2;
+	const struct player_race *r = player->race;
+	int len = (STAT_MAX + 1) / 2;
 
 	int n_flags = 0;
 	int flag_space = 5;
@@ -356,7 +365,7 @@ static void class_help(int i, void *db, const region *l)
 
 		text_out_e("%s%+3d", name, adj);
 
-		if (j*2 + 1 < A_MAX) {
+		if (j*2 + 1 < STAT_MAX) {
 			name = stat_names_reduced[j + len];
 			adj = c->c_adj[j + len] + r->r_adj[j + len];
 			text_out_e("  %s%+3d", name, adj);
@@ -369,11 +378,8 @@ static void class_help(int i, void *db, const region *l)
 	
 	skill_help(r->r_skills, c->c_skills, r->r_mhp + c->c_mhp, r->r_exp + c->c_exp, -1);
 
-	if (c->spell_book == TV_MAGIC_BOOK) {
-		text_out_e("\nLearns arcane magic");
-	} else if (c->spell_book == TV_PRAYER_BOOK) {
-		text_out_e("\nLearns divine magic");
-	}
+	if (c->magic.spell_realm != REALM_NONE)
+		text_out_e("\nLearns %s magic", c->magic.spell_realm->adjective);
 
 	for (k = 0; k < PF_MAX; k++)
 	{
@@ -447,7 +453,7 @@ static void setup_menus(void)
 	struct birthmenu_data *mdata;
 
 	/* Sex menu fairly straightforward */
-	init_birth_menu(&sex_menu, MAX_SEXES, p_ptr->psex, &gender_region, TRUE, NULL);
+	init_birth_menu(&sex_menu, MAX_SEXES, player->psex, &gender_region, TRUE, NULL);
 	mdata = sex_menu.menu_data;
 	for (i = 0; i < MAX_SEXES; i++)
 		mdata->items[i] = sex_info[i].title;
@@ -456,7 +462,7 @@ static void setup_menus(void)
 	n = 0;
 	for (r = races; r; r = r->next) n++;
 	/* Race menu more complicated. */
-	init_birth_menu(&race_menu, n, p_ptr->race ? p_ptr->race->ridx : 0,
+	init_birth_menu(&race_menu, n, player->race ? player->race->ridx : 0,
 	                &race_region, TRUE, race_help);
 	mdata = race_menu.menu_data;
 
@@ -467,7 +473,7 @@ static void setup_menus(void)
 	n = 0;
 	for (c = classes; c; c = c->next) n++;
 	/* Class menu similar to race. */
-	init_birth_menu(&class_menu, n, p_ptr->class ? p_ptr->class->cidx : 0,
+	init_birth_menu(&class_menu, n, player->class ? player->class->cidx : 0,
 	                &class_region, TRUE, class_help);
 	mdata = class_menu.menu_data;
 
@@ -520,12 +526,12 @@ static void clear_question(void)
 
 
 #define BIRTH_MENU_HELPTEXT \
-	"{lightblue}Please select your character from the menu below:{/}\n\n" \
-	"Use the {lightgreen}movement keys{/} to scroll the menu, " \
-	"{lightgreen}Enter{/} to select the current menu item, '{lightgreen}*{/}' " \
-	"for a random menu item, '{lightgreen}ESC{/}' to step back through the " \
-	"birth process, '{lightgreen}={/}' for the birth options, '{lightgreen}?{/} " \
-	"for help, or '{lightgreen}Ctrl-X{/}' to quit."
+	"{light blue}Please select your character from the menu below:{/}\n\n" \
+	"Use the {light green}movement keys{/} to scroll the menu, " \
+	"{light green}Enter{/} to select the current menu item, '{light green}*{/}' " \
+	"for a random menu item, '{light green}ESC{/}' to step back through the " \
+	"birth process, '{light green}={/}' for the birth options, '{light green}?{/} " \
+	"for help, or '{light green}Ctrl-X{/}' to quit."
 
 /* Show the birth instructions on an otherwise blank screen */	
 static void print_menu_instructions(void)
@@ -579,12 +585,12 @@ static enum birth_stage menu_question(enum birth_stage current, menu_type *curre
 		{
 			if (current == BIRTH_ROLLER_CHOICE)
 			{
-				cmd_insert(CMD_FINALIZE_OPTIONS);
+				cmdq_push(CMD_FINALIZE_OPTIONS);
 
 				if (current_menu->cursor)
 				{
 					/* Do a first roll of the stats */
-					cmd_insert(CMD_ROLL_STATS);
+					cmdq_push(CMD_ROLL_STATS);
 					next = current + 2;
 				}
 				else
@@ -598,15 +604,15 @@ static enum birth_stage menu_question(enum birth_stage current, menu_type *curre
 					 * totals.  This is, it should go without saying, a hack.
 					 */
 					point_based_start();
-					cmd_insert(CMD_RESET_STATS);
-					cmd_set_arg_choice(cmd_get_top(), 0, TRUE);
+					cmdq_push(CMD_RESET_STATS);
+					cmd_set_arg_choice(cmdq_peek(), "choice", TRUE);
 					next = current + 1;
 				}
 			}
 			else
 			{
-				cmd_insert(choice_command);
-				cmd_set_arg_choice(cmd_get_top(), 0, current_menu->cursor);
+				cmdq_push(choice_command);
+				cmd_set_arg_choice(cmdq_peek(), "choice", current_menu->cursor);
 				next = current + 1;
 			}
 		}
@@ -616,8 +622,8 @@ static enum birth_stage menu_question(enum birth_stage current, menu_type *curre
 			if (cx.key.code == '*' && menu_data->allow_random) 
 			{
 				current_menu->cursor = randint0(current_menu->count);
-				cmd_insert(choice_command);
-				cmd_set_arg_choice(cmd_get_top(), 0, current_menu->cursor);
+				cmdq_push(choice_command);
+				cmd_set_arg_choice(cmdq_peek(), "choice", current_menu->cursor);
 
 				menu_refresh(current_menu, FALSE);
 				next = current + 1;
@@ -629,7 +635,7 @@ static enum birth_stage menu_question(enum birth_stage current, menu_type *curre
 			}
 			else if (cx.key.code == KTRL('X')) 
 			{
-				cmd_insert(CMD_QUIT);
+				cmdq_push(CMD_QUIT);
 				next = BIRTH_COMPLETE;
 			}
 			else if (cx.key.code == '?')
@@ -663,14 +669,6 @@ static enum birth_stage roller_command(bool first_call)
 	if (first_call)
 		prev_roll = FALSE;
 
-	/* Add buttons */
-	button_add("[ESC]", ESCAPE);
-	button_add("[Enter]", KC_ENTER);
-	button_add("[r]", 'r');
-	if (prev_roll) button_add("[p]", 'p');
-	clear_from(Term->hgt - 2);
-	redraw_stuff(p_ptr);
-
 	/* Prepare a prompt (must squeeze everything in) */
 	strnfcat(prompt, sizeof (prompt), &promptlen, "['r' to reroll");
 	if (prev_roll) 
@@ -685,9 +683,6 @@ static enum birth_stage roller_command(bool first_call)
 
 	if (ch.code == ESCAPE) 
 	{
-		button_kill('r');
-		button_kill('p');
-
 		next = BIRTH_BACK;
 	}
 
@@ -700,20 +695,20 @@ static enum birth_stage roller_command(bool first_call)
 	/* Reroll this character */
 	else if ((ch.code == ' ') || (ch.code == 'r'))
 	{
-		cmd_insert(CMD_ROLL_STATS);
+		cmdq_push(CMD_ROLL_STATS);
 		prev_roll = TRUE;
 	}
 
 	/* Previous character */
 	else if (prev_roll && (ch.code == 'p'))
 	{
-		cmd_insert(CMD_PREV_STATS);
+		cmdq_push(CMD_PREV_STATS);
 	}
 
 	/* Quit */
 	else if (ch.code == KTRL('X')) 
 	{
-		cmd_insert(CMD_QUIT);
+		cmdq_push(CMD_QUIT);
 		next = BIRTH_COMPLETE;
 	}
 
@@ -728,13 +723,6 @@ static enum birth_stage roller_command(bool first_call)
 	{
 		bell("Illegal roller command!");
 	}
-
-	/* Kill buttons */
-	button_kill(ESCAPE);
-	button_kill(KC_ENTER);
-	button_kill('r');
-	button_kill('p');
-	redraw_stuff(p_ptr);
 
 	return next;
 }
@@ -777,14 +765,14 @@ static void point_based_points(game_event_type type, game_event_data *data, void
 	put_str("Cost", COSTS_ROW - 1, COSTS_COL);
 	
 	/* Display the costs */
-	for (i = 0; i < A_MAX; i++)
+	for (i = 0; i < STAT_MAX; i++)
 	{
 		/* Display cost */
 		put_str(format("%4d", stats[i]), COSTS_ROW + i, COSTS_COL);
 		sum += stats[i];
 	}
 	
-	put_str(format("Total Cost: %2d/%2d", sum, data->birthstats.remaining + sum), COSTS_ROW + A_MAX, TOTAL_COL);
+	put_str(format("Total Cost: %2d/%2d", sum, data->birthstats.remaining + sum), COSTS_ROW + STAT_MAX, TOTAL_COL);
 }
 
 static void point_based_start(void)
@@ -830,7 +818,7 @@ static enum birth_stage point_based_command(void)
 	
 	if (ch.code == KTRL('X')) 
 	{
-		cmd_insert(CMD_QUIT);
+		cmdq_push(CMD_QUIT);
 		next = BIRTH_COMPLETE;
 	}
 	
@@ -842,8 +830,8 @@ static enum birth_stage point_based_command(void)
 
 	else if (ch.code == 'r' || ch.code == 'R') 
 	{
-		cmd_insert(CMD_RESET_STATS);
-		cmd_set_arg_choice(cmd_get_top(), 0, FALSE);
+		cmdq_push(CMD_RESET_STATS);
+		cmd_set_arg_choice(cmdq_peek(), "choice", FALSE);
 	}
 	
 	/* Done */
@@ -857,24 +845,24 @@ static enum birth_stage point_based_command(void)
 
 		/* Prev stat, looping round to the bottom when going off the top */
 		if (dir == 8)
-			stat = (stat + A_MAX - 1) % A_MAX;
+			stat = (stat + STAT_MAX - 1) % STAT_MAX;
 		
 		/* Next stat, looping round to the top when going off the bottom */
 		if (dir == 2)
-			stat = (stat + 1) % A_MAX;
+			stat = (stat + 1) % STAT_MAX;
 		
 		/* Decrease stat (if possible) */
 		if (dir == 4)
 		{
-			cmd_insert(CMD_SELL_STAT);
-			cmd_set_arg_choice(cmd_get_top(), 0, stat);
+			cmdq_push(CMD_SELL_STAT);
+			cmd_set_arg_choice(cmdq_peek(), "choice", stat);
 		}
 		
 		/* Increase stat (if possible) */
 		if (dir == 6)
 		{
-			cmd_insert(CMD_BUY_STAT);
-			cmd_set_arg_choice(cmd_get_top(), 0, stat);
+			cmdq_push(CMD_BUY_STAT);
+			cmd_set_arg_choice(cmdq_peek(), "choice", stat);
 		}
 	}
 
@@ -891,8 +879,8 @@ static enum birth_stage get_name_command(void)
 
 	if (get_name(name, sizeof(name)))
 	{	
-		cmd_insert(CMD_NAME_CHOICE);
-		cmd_set_arg_string(cmd_get_top(), 0, name);
+		cmdq_push(CMD_NAME_CHOICE);
+		cmd_set_arg_string(cmdq_peek(), "name", name);
 		next = BIRTH_FINAL_CONFIRM;
 	}
 	else
@@ -915,14 +903,7 @@ static enum birth_stage get_confirm_command(void)
 
 	/* Prompt for it */
 	prt(prompt, Term->hgt - 1, Term->wid / 2 - strlen(prompt) / 2);
-	
-	/* Buttons */
-	button_kill_all();
-	button_add("[Continue]", 'q');
-	button_add("[ESC]", ESCAPE);
-	button_add("[S]", 'S');
-	redraw_stuff(p_ptr);
-	
+
 	/* Get a key */
 	ke = inkey();
 	
@@ -933,7 +914,7 @@ static enum birth_stage get_confirm_command(void)
 	}
 	else if (ke.code == KTRL('X'))
 	{
-		cmd_insert(CMD_QUIT);
+		cmdq_push(CMD_QUIT);
 		next = BIRTH_COMPLETE;
 	}
 	else if (ke.code == ESCAPE)
@@ -942,13 +923,9 @@ static enum birth_stage get_confirm_command(void)
 	}
 	else
 	{
-		cmd_insert(CMD_ACCEPT_CHARACTER);
+		cmdq_push(CMD_ACCEPT_CHARACTER);
 		next = BIRTH_COMPLETE;
 	}
-	
-	/* Buttons */
-	button_kill_all();
-	redraw_stuff(p_ptr);
 
 	/* Clear prompt */
 	clear_from(23);
@@ -985,7 +962,7 @@ errr get_birth_command(bool wait)
 	{
 		case BIRTH_RESET:
 		{
-			cmd_insert(CMD_BIRTH_RESET);
+			cmdq_push(CMD_BIRTH_RESET);
 
 			roller = BIRTH_RESET;
 			

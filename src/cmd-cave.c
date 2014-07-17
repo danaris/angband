@@ -22,25 +22,30 @@
 #include "cmds.h"
 #include "dungeon.h"
 #include "files.h"
-#include "game-cmd.h"
+#include "cmd-core.h"
 #include "game-event.h"
 #include "generate.h"
-#include "monster/mon-timed.h"
-#include "monster/mon-util.h"
-#include "monster/monster.h"
-#include "object/tvalsval.h"
+#include "mon-timed.h"
+#include "mon-util.h"
+#include "monster.h"
+#include "obj-chest.h"
+#include "obj-identify.h"
+#include "obj-ignore.h"
+#include "obj-util.h"
 #include "pathfind.h"
+#include "player-timed.h"
+#include "player-util.h"
 #include "spells.h"
-#include "squelch.h"
 #include "trap.h"
+#include "tables.h"
 
 /*
  * Go up one level
  */
-void do_cmd_go_up(cmd_code code, cmd_arg args[])
+void do_cmd_go_up(struct command *cmd)
 {
 	/* Verify stairs */
-	if (!cave_isupstairs(cave, p_ptr->py, p_ptr->px)) {
+	if (!square_isupstairs(cave, player->py, player->px)) {
 		msg("I see no up staircase here.");
 		return;
 	}
@@ -52,57 +57,57 @@ void do_cmd_go_up(cmd_code code, cmd_arg args[])
 	}
 
 	/* Hack -- take a turn */
-	p_ptr->energy_use = 100;
+	player->upkeep->energy_use = 100;
 
 	/* Success */
 	msgt(MSG_STAIRS_UP, "You enter a maze of up staircases.");
 
 	/* Create a way back */
-	p_ptr->create_up_stair = FALSE;
-	p_ptr->create_down_stair = TRUE;
+	player->upkeep->create_up_stair = FALSE;
+	player->upkeep->create_down_stair = TRUE;
 
 	/* Change level */
-	dungeon_change_level(p_ptr->depth - 1);
+	dungeon_change_level(player->depth - 1);
 }
 
 
 /*
  * Go down one level
  */
-void do_cmd_go_down(cmd_code code, cmd_arg args[])
+void do_cmd_go_down(struct command *cmd)
 {
-	int descend_to = p_ptr->depth + 1;
+	int descend_to = player->depth + 1;
 
 	/* Verify stairs */
-	if (!cave_isdownstairs(cave, p_ptr->py, p_ptr->px)) {
+	if (!square_isdownstairs(cave, player->py, player->px)) {
 		msg("I see no down staircase here.");
 		return;
 	}
 
 	/* Paranoia, no descent from MAX_DEPTH-1 */
-	if (p_ptr->depth == MAX_DEPTH-1) {
+	if (player->depth == MAX_DEPTH-1) {
 		msg("The dungeon does not appear to extend deeper");
 		return;
 	}
 
 	/* Warn a force_descend player if they're going to a quest level */
 	if (OPT(birth_force_descend)) {
-		if (is_quest(p_ptr->max_depth + 1) && !get_check("Are you sure you want to descend?"))
+		if (is_quest(player->max_depth + 1) && !get_check("Are you sure you want to descend?"))
 			return;
 
 		/* Don't overshoot */
-		descend_to = MIN(p_ptr->max_depth + 1, MAX_DEPTH-1);
+		descend_to = MIN(player->max_depth + 1, MAX_DEPTH-1);
 	}
 
 	/* Hack -- take a turn */
-	p_ptr->energy_use = 100;
+	player->upkeep->energy_use = 100;
 
 	/* Success */
 	msgt(MSG_STAIRS_DOWN, "You enter a maze of down staircases.");
 
 	/* Create a way back */
-	p_ptr->create_up_stair = TRUE;
-	p_ptr->create_down_stair = FALSE;
+	player->upkeep->create_up_stair = TRUE;
+	player->upkeep->create_down_stair = FALSE;
 
 	/* Change level */
 	dungeon_change_level(descend_to);
@@ -118,8 +123,8 @@ void do_cmd_go_down(cmd_code code, cmd_arg args[])
  */
 bool search(bool verbose)
 {
-	int py = p_ptr->py;
-	int px = p_ptr->px;
+	int py = player->py;
+	int px = player->px;
 
 	int y, x, chance;
 
@@ -129,11 +134,11 @@ bool search(bool verbose)
 
 
 	/* Start with base search ability */
-	chance = p_ptr->state.skills[SKILL_SEARCH];
+	chance = player->state.skills[SKILL_SEARCH];
 
 	/* Penalize various conditions */
-	if (p_ptr->timed[TMD_BLIND] || no_light()) chance = chance / 10;
-	if (p_ptr->timed[TMD_CONFUSED] || p_ptr->timed[TMD_IMAGE]) chance = chance / 10;
+	if (player->timed[TMD_BLIND] || no_light()) chance = chance / 10;
+	if (player->timed[TMD_CONFUSED] || player->timed[TMD_IMAGE]) chance = chance / 10;
 
 	/* Prevent fruitless searches */
 	if (chance <= 0)
@@ -143,7 +148,7 @@ bool search(bool verbose)
 			msg("You can't make out your surroundings well enough to search.");
 
 			/* Cancel repeat */
-			disturb(p_ptr, 0, 0);
+			disturb(player, 0);
 		}
 
 		return FALSE;
@@ -157,23 +162,20 @@ bool search(bool verbose)
 			/* Sometimes, notice things */
 			if (randint0(100) < chance)
 			{
-				/* Invisible trap */
-				if (cave_issecrettrap(cave, y, x))
+				if (square_invisible_trap(cave, y, x)) 
 				{
 					found = TRUE;
 
-					/* Pick a trap */
-					pick_trap(y, x);
-
-					/* Message */
-					msg("You have found a trap.");
-
-					/* Disturb */
-					disturb(p_ptr, 0, 0);
+					/* Reveal trap, display a message */
+					if (square_reveal_trap(cave, y, x, chance, TRUE))
+					{
+						/* Disturb */
+						disturb(player, 0);
+					}
 				}
 
 				/* Secret door */
-				if (cave_issecretdoor(cave, y, x))
+				if (square_issecretdoor(cave, y, x))
 				{
 					found = TRUE;
 
@@ -184,7 +186,7 @@ bool search(bool verbose)
 					place_closed_door(cave, y, x);
 
 					/* Disturb */
-					disturb(p_ptr, 0, 0);
+					disturb(player, 0);
 				}
 
 				/* Scan all objects in the grid */
@@ -205,7 +207,7 @@ bool search(bool verbose)
 						object_notice_everything(o_ptr);
 
 						/* Notice it */
-						disturb(p_ptr, 0, 0);
+						disturb(player, 0);
 					}
 				}
 			}
@@ -228,95 +230,44 @@ bool search(bool verbose)
 /*
  * Simple command to "search" for one turn
  */
-void do_cmd_search(cmd_code code, cmd_arg args[])
+void do_cmd_search(struct command *cmd)
 {
 	/* Only take a turn if attempted */
 	if (search(TRUE))
-		p_ptr->energy_use = 100;
+		player->upkeep->energy_use = 100;
 }
 
 
 /*
  * Hack -- toggle search mode
  */
-void do_cmd_toggle_search(cmd_code code, cmd_arg args[])
+void do_cmd_toggle_search(struct command *cmd)
 {
 	/* Stop searching */
-	if (p_ptr->searching)
+	if (player->searching)
 	{
 		/* Clear the searching flag */
-		p_ptr->searching = FALSE;
+		player->searching = FALSE;
 
 		/* Recalculate bonuses */
-		p_ptr->update |= (PU_BONUS);
+		player->upkeep->update |= (PU_BONUS);
 
 		/* Redraw the state */
-		p_ptr->redraw |= (PR_STATE);
+		player->upkeep->redraw |= (PR_STATE);
 	}
 
 	/* Start searching */
 	else
 	{
 		/* Set the searching flag */
-		p_ptr->searching = TRUE;
+		player->searching = TRUE;
 
 		/* Update stuff */
-		p_ptr->update |= (PU_BONUS);
+		player->upkeep->update |= (PU_BONUS);
 
 		/* Redraw stuff */
-		p_ptr->redraw |= (PR_STATE | PR_SPEED);
+		player->upkeep->redraw |= (PR_STATE | PR_SPEED);
 	}
-}
-
-
-/*
- * Return the number of doors/traps around (or under) the character.
- */
-int count_feats(int *y, int *x, bool (*test)(struct cave *cave, int y, int x), bool under)
-{
-	int d;
-	int xx, yy;
-	int count = 0; /* Count how many matches */
-
-	/* Check around (and under) the character */
-	for (d = 0; d < 9; d++)
-	{
-		/* if not searching under player continue */
-		if ((d == 8) && !under) continue;
-
-		/* Extract adjacent (legal) location */
-		yy = p_ptr->py + ddy_ddd[d];
-		xx = p_ptr->px + ddx_ddd[d];
-
-		/* Paranoia */
-		if (!cave_in_bounds_fully(cave, yy, xx)) continue;
-
-		/* Must have knowledge */
-		if (!(cave->info[yy][xx] & (CAVE_MARK))) continue;
-
-		/* Not looking for this feature */
-		if (!((*test)(cave, yy, xx))) continue;
-
-		/* Count it */
-		++count;
-
-		/* Remember the location of the last door found */
-		*y = yy;
-		*x = xx;
-	}
-
-	/* All done */
-	return count;
-}
-
-
-/*
- * Extract a "direction" which will move one step from the player location
- * towards the given "target" location (or "5" if no motion necessary).
- */
-int coords_to_dir(int y, int x)
-{
-	return (motion_dir(p_ptr->py, p_ptr->px, y, x));
 }
 
 
@@ -326,12 +277,12 @@ int coords_to_dir(int y, int x)
 static bool do_cmd_open_test(int y, int x)
 {
 	/* Must have knowledge */
-	if (!(cave->info[y][x] & (CAVE_MARK))) {
+	if (!sqinfo_has(cave->info[y][x], SQUARE_MARK)) {
 		msg("You see nothing there.");
 		return FALSE;
 	}
 
-	if (!cave_iscloseddoor(cave, y, x)) {
+	if (!square_iscloseddoor(cave, y, x)) {
 		msgt(MSG_NOTHING_TO_OPEN, "You see nothing there to open.");
 		return FALSE;
 	}
@@ -360,17 +311,17 @@ static bool do_cmd_open_aux(int y, int x)
 
 
 	/* Locked door */
-	if (cave_islockeddoor(cave, y, x))
+	if (square_islockeddoor(cave, y, x))
 	{
 		/* Disarm factor */
-		i = p_ptr->state.skills[SKILL_DISARM];
+		i = player->state.skills[SKILL_DISARM];
 
 		/* Penalize some conditions */
-		if (p_ptr->timed[TMD_BLIND] || no_light()) i = i / 10;
-		if (p_ptr->timed[TMD_CONFUSED] || p_ptr->timed[TMD_IMAGE]) i = i / 10;
+		if (player->timed[TMD_BLIND] || no_light()) i = i / 10;
+		if (player->timed[TMD_CONFUSED] || player->timed[TMD_IMAGE]) i = i / 10;
 
 		/* Extract the lock power */
-		j = cave_door_power(cave, y, x);
+		j = square_door_power(cave, y, x);
 
 		/* Extract the difficulty XXX XXX XXX */
 		j = i - (j * 4);
@@ -385,14 +336,14 @@ static bool do_cmd_open_aux(int y, int x)
 			msgt(MSG_LOCKPICK, "You have picked the lock.");
 
 			/* Open the door */
-			cave_open_door(cave, y, x);
+			square_open_door(cave, y, x);
 
 			/* Update the visuals */
-			p_ptr->update |= (PU_UPDATE_VIEW | PU_MONSTERS);
+			player->upkeep->update |= (PU_UPDATE_VIEW | PU_MONSTERS);
 
 			/* Experience */
 			/* Removed to avoid exploit by repeatedly locking and unlocking door */
-			/* player_exp_gain(p_ptr, 1); */
+			/* player_exp_gain(player, 1); */
 		}
 
 		/* Failure */
@@ -412,10 +363,10 @@ static bool do_cmd_open_aux(int y, int x)
 	else
 	{
 		/* Open the door */
-		cave_open_door(cave, y, x);
+		square_open_door(cave, y, x);
 
 		/* Update the visuals */
-		p_ptr->update |= (PU_UPDATE_VIEW | PU_MONSTERS);
+		player->upkeep->update |= (PU_UPDATE_VIEW | PU_MONSTERS);
 
 		/* Sound */
 		sound(MSG_OPENDOOR);
@@ -432,59 +383,67 @@ static bool do_cmd_open_aux(int y, int x)
  *
  * Unlocking a locked door/chest is worth one experience point.
  */
-void do_cmd_open(cmd_code code, cmd_arg args[])
+void do_cmd_open(struct command *cmd)
 {
 	int y, x, dir;
-
 	s16b o_idx;
-
 	bool more = FALSE;
+	int err;
+	struct monster *m;
 
-	dir = args[0].direction;
+	/* Get arguments */
+	err = cmd_get_arg_direction(cmd, "direction", &dir);
+	if (err || dir == DIR_UNKNOWN) {
+		int y, x;
+		int n_closed_doors, n_locked_chests;
+
+		n_closed_doors = count_feats(&y, &x, square_iscloseddoor, FALSE);
+		n_locked_chests = count_chests(&y, &x, CHEST_OPENABLE);
+
+		if (n_closed_doors + n_locked_chests == 1) {
+			dir = coords_to_dir(y, x);
+			cmd_set_arg_direction(cmd, "direction", dir);
+		} else if (cmd_get_direction(cmd, "direction", &dir, FALSE)) {
+			return;
+		}
+	}
 
 	/* Get location */
-	y = p_ptr->py + ddy[dir];
-	x = p_ptr->px + ddx[dir];
+	y = player->py + ddy[dir];
+	x = player->px + ddx[dir];
 
-	/* Check for chests */
+	/* Check for chest */
 	o_idx = chest_check(y, x, CHEST_OPENABLE);
 
-
-	/* Verify legality */
-	if (!o_idx && !do_cmd_open_test(y, x))
-	{
+	/* Check for door */
+	if (!o_idx && !do_cmd_open_test(y, x)) {
 		/* Cancel repeat */
-		disturb(p_ptr, 0, 0);
+		disturb(player, 0);
 		return;
 	}
 
 	/* Take a turn */
-	p_ptr->energy_use = 100;
+	player->upkeep->energy_use = 100;
 
 	/* Apply confusion */
-	if (player_confuse_dir(p_ptr, &dir, FALSE))
-	{
+	if (player_confuse_dir(player, &dir, FALSE)) {
 		/* Get location */
-		y = p_ptr->py + ddy[dir];
-		x = p_ptr->px + ddx[dir];
+		y = player->py + ddy[dir];
+		x = player->px + ddx[dir];
 
 		/* Check for chest */
 		o_idx = chest_check(y, x, CHEST_OPENABLE);
 	}
 
-
 	/* Monster */
-	if (cave->m_idx[y][x] > 0)
-	{
-		int m_idx = cave->m_idx[y][x];
-		struct monster *m_ptr = cave_monster(cave, m_idx);
-
+	m = square_monster(cave, y, x);
+	if (m) {
 		/* Mimics surprise the player */
-		if (is_mimicking(m_ptr)) {
-			become_aware(m_ptr);
+		if (is_mimicking(m)) {
+			become_aware(m);
 
 			/* Mimic wakes up */
-			mon_clear_timed(m_ptr, MON_TMD_SLEEP, MON_TMD_FLG_NOMESSAGE, FALSE);
+			mon_clear_timed(m, MON_TMD_SLEEP, MON_TMD_FLG_NOMESSAGE, FALSE);
 		} else {
 			/* Message */
 			msg("There is a monster in the way!");
@@ -496,20 +455,14 @@ void do_cmd_open(cmd_code code, cmd_arg args[])
 
 	/* Chest */
 	else if (o_idx)
-	{
-		/* Open the chest */
 		more = do_cmd_open_chest(y, x, o_idx);
-	}
 
 	/* Door */
 	else
-	{
-		/* Open the door */
 		more = do_cmd_open_aux(y, x);
-	}
 
 	/* Cancel repeat unless we may continue */
-	if (!more) disturb(p_ptr, 0, 0);
+	if (!more) disturb(player, 0);
 }
 
 
@@ -519,7 +472,7 @@ void do_cmd_open(cmd_code code, cmd_arg args[])
 static bool do_cmd_close_test(int y, int x)
 {
 	/* Must have knowledge */
-	if (!(cave->info[y][x] & (CAVE_MARK)))
+	if (!sqinfo_has(cave->info[y][x], SQUARE_MARK))
 	{
 		/* Message */
 		msg("You see nothing there.");
@@ -529,7 +482,7 @@ static bool do_cmd_close_test(int y, int x)
 	}
 
  	/* Require open/broken door */
-	if (!cave_isopendoor(cave, y, x) && !cave_isbrokendoor(cave, y, x))
+	if (!square_isopendoor(cave, y, x) && !square_isbrokendoor(cave, y, x))
 	{
 		/* Message */
 		msg("You see nothing there to close.");
@@ -558,7 +511,7 @@ static bool do_cmd_close_aux(int y, int x)
 	if (!do_cmd_close_test(y, x)) return (FALSE);
 
 	/* Broken door */
-	if (cave_isbrokendoor(cave, y, x))
+	if (square_isbrokendoor(cave, y, x))
 	{
 		/* Message */
 		msg("The door appears to be broken.");
@@ -568,10 +521,10 @@ static bool do_cmd_close_aux(int y, int x)
 	else
 	{
 		/* Close the door */
-		cave_close_door(cave, y, x);
+		square_close_door(cave, y, x);
 
 		/* Update the visuals */
-		p_ptr->update |= (PU_UPDATE_VIEW | PU_MONSTERS);
+		player->upkeep->update |= (PU_UPDATE_VIEW | PU_MONSTERS);
 
 		/* Sound */
 		sound(MSG_SHUTDOOR);
@@ -585,57 +538,61 @@ static bool do_cmd_close_aux(int y, int x)
 /*
  * Close an open door.
  */
-void do_cmd_close(cmd_code code, cmd_arg args[])
+void do_cmd_close(struct command *cmd)
 {
 	int y, x, dir;
+	int err;
 
 	bool more = FALSE;
 
-	dir = args[0].direction;
+	/* Get arguments */
+	err = cmd_get_arg_direction(cmd, "direction", &dir);
+	if (err || dir == DIR_UNKNOWN) {
+		int y, x;
+
+		/* Count open doors */
+		if (count_feats(&y, &x, square_isopendoor, FALSE) == 1) {
+			dir = coords_to_dir(y, x);
+			cmd_set_arg_direction(cmd, "direction", dir);
+		} else if (cmd_get_direction(cmd, "direction", &dir, FALSE)) {
+			return;
+		}
+	}
 
 	/* Get location */
-	y = p_ptr->py + ddy[dir];
-	x = p_ptr->px + ddx[dir];
+	y = player->py + ddy[dir];
+	x = player->px + ddx[dir];
 
 	/* Verify legality */
-	if (!do_cmd_close_test(y, x))
-	{
+	if (!do_cmd_close_test(y, x)) {
 		/* Cancel repeat */
-		disturb(p_ptr, 0, 0);
+		disturb(player, 0);
 		return;
 	}
 
 	/* Take a turn */
-	p_ptr->energy_use = 100;
+	player->upkeep->energy_use = 100;
 
 	/* Apply confusion */
-	if (player_confuse_dir(p_ptr, &dir, FALSE))
-	{
+	if (player_confuse_dir(player, &dir, FALSE)) {
 		/* Get location */
-		y = p_ptr->py + ddy[dir];
-		x = p_ptr->px + ddx[dir];
+		y = player->py + ddy[dir];
+		x = player->px + ddx[dir];
 	}
 
-
-	/* Monster */
-	if (cave->m_idx[y][x] > 0)
-	{
-		/* Message */
+	/* Monster - alert, then attack */
+	if (cave->m_idx[y][x] > 0) {
 		msg("There is a monster in the way!");
-
-		/* Attack */
 		py_attack(y, x);
 	}
 
-	/* Door */
+	/* Door - close it */
 	else
-	{
-		/* Close door */
 		more = do_cmd_close_aux(y, x);
-	}
+
 
 	/* Cancel repeat unless told not to */
-	if (!more) disturb(p_ptr, 0, 0);
+	if (!more) disturb(player, 0);
 }
 
 
@@ -645,7 +602,7 @@ void do_cmd_close(cmd_code code, cmd_arg args[])
 static bool do_cmd_tunnel_test(int y, int x)
 {
 	/* Must have knowledge */
-	if (!(cave->info[y][x] & (CAVE_MARK)))
+	if (!sqinfo_has(cave->info[y][x], SQUARE_MARK))
 	{
 		/* Message */
 		msg("You see nothing there.");
@@ -655,7 +612,7 @@ static bool do_cmd_tunnel_test(int y, int x)
 	}
 
 	/* Must be a wall/door/etc */
-	if (cave_ispassable(cave, y, x))
+	if (!(square_isdiggable(cave, y, x) || square_iscloseddoor(cave, y, x)))
 	{
 		/* Message */
 		msg("You see nothing there to tunnel.");
@@ -682,22 +639,23 @@ static bool do_cmd_tunnel_test(int y, int x)
 static bool twall(int y, int x)
 {
 	/* Paranoia -- Require a wall or door or some such */
-	if (cave_ispassable(cave, y, x)) return (FALSE);
+	if (!(square_isdiggable(cave, y, x) || square_iscloseddoor(cave, y, x)))
+		return (FALSE);
 
 	/* Sound */
 	sound(MSG_DIG);
 
 	/* Forget the wall */
-	cave->info[y][x] &= ~(CAVE_MARK);
+	sqinfo_off(cave->info[y][x], SQUARE_MARK);
 
 	/* Remove the feature */
-	cave_tunnel_wall(cave, y, x);
+	square_tunnel_wall(cave, y, x);
 
 	/* Update the visuals */
-	p_ptr->update |= (PU_UPDATE_VIEW | PU_MONSTERS);
+	player->upkeep->update |= (PU_UPDATE_VIEW | PU_MONSTERS);
 
 	/* Fully update the flow */
-	p_ptr->update |= (PU_FORGET_FLOW | PU_UPDATE_FLOW);
+	player->upkeep->update |= (PU_FORGET_FLOW | PU_UPDATE_FLOW);
 
 	/* Result */
 	return (TRUE);
@@ -716,26 +674,27 @@ static bool twall(int y, int x)
 static bool do_cmd_tunnel_aux(int y, int x)
 {
 	bool more = FALSE;
-
+	int digging_chances[DIGGING_MAX];
 
 	/* Verify legality */
 	if (!do_cmd_tunnel_test(y, x)) return (FALSE);
 
+	calc_digging_chances(&player->state, digging_chances);
 
 	/* Sound XXX XXX XXX */
 	/* sound(MSG_DIG); */
 
 	/* Titanium */
-	if (cave_isperm(cave, y, x))
+	if (square_isperm(cave, y, x))
 	{
 		msg("This seems to be permanent rock.");
 	}
 
 	/* Granite */
-	else if (cave_isrock(cave, y, x))
+	else if (square_isrock(cave, y, x))
 	{
 		/* Tunnel */
-		if ((p_ptr->state.skills[SKILL_DIGGING] > 40 + randint0(1600)) && twall(y, x))
+		if (digging_chances[DIGGING_GRANITE] > randint0(1600) && twall(y, x))
 		{
 			msg("You have finished the tunnel.");
 		}
@@ -750,26 +709,26 @@ static bool do_cmd_tunnel_aux(int y, int x)
 	}
 
 	/* Quartz / Magma */
-	else if (cave_ismagma(cave, y, x) || cave_isquartz(cave, y, x))
+	else if (square_ismagma(cave, y, x) || square_isquartz(cave, y, x))
 	{
 		bool okay = FALSE;
 		bool gold = FALSE;
 		bool hard = FALSE;
 
 		/* Found gold */
-		if (cave_hasgoldvein(cave, y, x))
+		if (square_hasgoldvein(cave, y, x))
 			gold = TRUE;
 
 		/* Extract "quartz" flag XXX XXX XXX */
-		if (cave_isquartz(cave, y, x))
+		if (square_isquartz(cave, y, x))
 			hard = TRUE;
 
 		/* Quartz */
 		if (hard)
-			okay = (p_ptr->state.skills[SKILL_DIGGING] > 20 + randint0(800));
+			okay = (digging_chances[DIGGING_QUARTZ] > randint0(1600));
 		/* Magma */
 		else
-			okay = (p_ptr->state.skills[SKILL_DIGGING] > 10 + randint0(400));
+			okay = (digging_chances[DIGGING_MAGMA] > randint0(1600));
 
 		/* Success */
 		if (okay && twall(y, x))
@@ -778,7 +737,7 @@ static bool do_cmd_tunnel_aux(int y, int x)
 			if (gold)
 			{
 				/* Place some gold */
-				place_gold(cave, y, x, p_ptr->depth, ORIGIN_FLOOR);
+				place_gold(cave, y, x, player->depth, ORIGIN_FLOOR);
 
 				/* Message */
 				msg("You have found something!");
@@ -810,10 +769,10 @@ static bool do_cmd_tunnel_aux(int y, int x)
 	}
 
 	/* Rubble */
-	else if (cave_isrubble(cave, y, x))
+	else if (square_isrubble(cave, y, x))
 	{
 		/* Remove the rubble */
-		if ((p_ptr->state.skills[SKILL_DIGGING] > randint0(200)) && twall(y, x))
+		if ((digging_chances[DIGGING_RUBBLE] > randint0(1600)) && twall(y, x))
 		{
 			/* Message */
 			msg("You have removed the rubble.");
@@ -821,11 +780,11 @@ static bool do_cmd_tunnel_aux(int y, int x)
 			/* Hack -- place an object */
 			if (randint0(100) < 10)	{
 				/* Create a simple object */
-				place_object(cave, y, x, p_ptr->depth, FALSE, FALSE,
+				place_object(cave, y, x, player->depth, FALSE, FALSE,
 					ORIGIN_RUBBLE, 0);
 
 				/* Observe the new object */
-				if (!squelch_item_ok(object_byid(cave->o_idx[y][x])) &&
+				if (!ignore_item_ok(square_object(cave, y, x)) &&
 					    player_can_see_bold(y, x))
 					msg("You have found something!");
 			}
@@ -840,10 +799,10 @@ static bool do_cmd_tunnel_aux(int y, int x)
 	}
 
 	/* Secret doors */
-	else if (cave_issecretdoor(cave, y, x))
+	else if (square_issecretdoor(cave, y, x))
 	{
 		/* Tunnel */
-		if ((p_ptr->state.skills[SKILL_DIGGING] > 30 + randint0(1200)) && twall(y, x))
+		if ((digging_chances[DIGGING_DOORS] > randint0(1600)) && twall(y, x))
 		{
 			msg("You have finished the tunnel.");
 		}
@@ -864,7 +823,7 @@ static bool do_cmd_tunnel_aux(int y, int x)
 	else
 	{
 		/* Tunnel */
-		if ((p_ptr->state.skills[SKILL_DIGGING] > 30 + randint0(1200)) && twall(y, x))
+		if ((digging_chances[DIGGING_DOORS] > randint0(1600)) && twall(y, x))
 		{
 			msg("You have finished the tunnel.");
 		}
@@ -889,35 +848,37 @@ static bool do_cmd_tunnel_aux(int y, int x)
  * Digging is very difficult without a "digger" weapon, but can be
  * accomplished by strong players using heavy weapons.
  */
-void do_cmd_tunnel(cmd_code code, cmd_arg args[])
+void do_cmd_tunnel(struct command *cmd)
 {
 	int y, x, dir;
 	bool more = FALSE;
 
-	dir = args[0].direction;
+	/* Get arguments */
+	if (cmd_get_direction(cmd, "direction", &dir, FALSE))
+		return;
 
 	/* Get location */
-	y = p_ptr->py + ddy[dir];
-	x = p_ptr->px + ddx[dir];
+	y = player->py + ddy[dir];
+	x = player->px + ddx[dir];
 
 
 	/* Oops */
 	if (!do_cmd_tunnel_test(y, x))
 	{
 		/* Cancel repeat */
-		disturb(p_ptr, 0, 0);
+		disturb(player, 0);
 		return;
 	}
 
 	/* Take a turn */
-	p_ptr->energy_use = 100;
+	player->upkeep->energy_use = 100;
 
 	/* Apply confusion */
-	if (player_confuse_dir(p_ptr, &dir, FALSE))
+	if (player_confuse_dir(player, &dir, FALSE))
 	{
 		/* Get location */
-		y = p_ptr->py + ddy[dir];
-		x = p_ptr->px + ddx[dir];
+		y = player->py + ddy[dir];
+		x = player->px + ddx[dir];
 	}
 
 
@@ -939,7 +900,7 @@ void do_cmd_tunnel(cmd_code code, cmd_arg args[])
 	}
 
 	/* Cancel repetition unless we can continue */
-	if (!more) disturb(p_ptr, 0, 0);
+	if (!more) disturb(player, 0);
 }
 
 /*
@@ -948,17 +909,17 @@ void do_cmd_tunnel(cmd_code code, cmd_arg args[])
 static bool do_cmd_disarm_test(int y, int x)
 {
 	/* Must have knowledge */
-	if (!(cave->info[y][x] & (CAVE_MARK))) {
+	if (!sqinfo_has(cave->info[y][x], SQUARE_MARK)) {
 		msg("You see nothing there.");
 		return FALSE;
 	}
 
 	/* Look for a closed, unlocked door to lock */
-	if (cave_iscloseddoor(cave, y, x) && !cave_islockeddoor(cave, y, x))
+	if (square_iscloseddoor(cave, y, x) && !square_islockeddoor(cave, y, x))
 		return TRUE;
 
 	/* Look for a trap */
-	if (!cave_isknowntrap(cave, y, x)) {
+	if (!square_isknowntrap(cave, y, x)) {
 		msg("You see nothing there to disarm.");
 		return FALSE;
 	}
@@ -984,16 +945,16 @@ static bool do_cmd_lock_door(int y, int x)
 	if (!do_cmd_disarm_test(y, x)) return FALSE;
 
 	/* Get the "disarm" factor */
-	i = p_ptr->state.skills[SKILL_DISARM];
+	i = player->state.skills[SKILL_DISARM];
 
 	/* Penalize some conditions */
-	if (p_ptr->timed[TMD_BLIND] || no_light())
+	if (player->timed[TMD_BLIND] || no_light())
 		i = i / 10;
-	if (p_ptr->timed[TMD_CONFUSED] || p_ptr->timed[TMD_IMAGE])
+	if (player->timed[TMD_CONFUSED] || player->timed[TMD_IMAGE])
 		i = i / 10;
 
 	/* Calculate lock "power" */
-	power = m_bonus(7, p_ptr->depth);
+	power = m_bonus(7, player->depth);
 
 	/* Extract the difficulty */
 	j = i - power;
@@ -1004,7 +965,7 @@ static bool do_cmd_lock_door(int y, int x)
 	/* Success */
 	if (randint0(100) < j) {
 		msg("You lock the door.");
-		cave_lock_door(cave, y, x, power);
+		square_lock_door(cave, y, x, power);
 	}
 
 	/* Failure -- Keep trying */
@@ -1035,7 +996,8 @@ static bool do_cmd_disarm_aux(int y, int x)
 {
 	int i, j, power;
 
-	const char *name;
+	int trap;
+    trap_type *t_ptr;
 
 	bool more = FALSE;
 
@@ -1044,15 +1006,17 @@ static bool do_cmd_disarm_aux(int y, int x)
 	if (!do_cmd_disarm_test(y, x)) return (FALSE);
 
 
-	/* Get the trap name */
-	name = f_info[cave->feat[y][x]].name;
+    /* Choose trap */
+    trap = square_visible_trap_idx(cave, y, x);
+    if (trap < 0) return (FALSE);
+    t_ptr = cave_trap(cave, trap);
 
 	/* Get the "disarm" factor */
-	i = p_ptr->state.skills[SKILL_DISARM];
+	i = player->state.skills[SKILL_DISARM];
 
 	/* Penalize some conditions */
-	if (p_ptr->timed[TMD_BLIND] || no_light()) i = i / 10;
-	if (p_ptr->timed[TMD_CONFUSED] || p_ptr->timed[TMD_IMAGE]) i = i / 10;
+	if (player->timed[TMD_BLIND] || no_light()) i = i / 10;
+	if (player->timed[TMD_CONFUSED] || player->timed[TMD_IMAGE]) i = i / 10;
 
 	/* XXX XXX XXX Variable power? */
 
@@ -1069,16 +1033,16 @@ static bool do_cmd_disarm_aux(int y, int x)
 	if (randint0(100) < j)
 	{
 		/* Message */
-		msgt(MSG_DISARM, "You have disarmed the %s.", name);
+		msgt(MSG_DISARM, "You have disarmed the %s.", t_ptr->kind->name);
 
 		/* Reward */
-		player_exp_gain(p_ptr, power);
+		player_exp_gain(player, power);
 
 		/* Forget the trap */
-		cave->info[y][x] &= ~(CAVE_MARK);
+		sqinfo_off(cave->info[y][x], SQUARE_MARK);
 
 		/* Remove the trap */
-		cave_destroy_trap(cave, y, x);
+		square_destroy_trap(cave, y, x);
 	}
 
 	/* Failure -- Keep trying */
@@ -1087,7 +1051,7 @@ static bool do_cmd_disarm_aux(int y, int x)
 		flush();
 
 		/* Message */
-		msg("You failed to disarm the %s.", name);
+		msg("You failed to disarm the %s.", t_ptr->kind->name);
 
 		/* We may keep trying */
 		more = TRUE;
@@ -1097,7 +1061,7 @@ static bool do_cmd_disarm_aux(int y, int x)
 	else
 	{
 		/* Message */
-		msg("You set off the %s!", name);
+		msg("You set off the %s!", t_ptr->kind->name);
 
 		/* Hit the trap */
 		hit_trap(y, x);
@@ -1111,41 +1075,58 @@ static bool do_cmd_disarm_aux(int y, int x)
 /*
  * Disarms a trap, or a chest
  */
-void do_cmd_disarm(cmd_code code, cmd_arg args[])
+void do_cmd_disarm(struct command *cmd)
 {
 	int y, x, dir;
+	int err;
 
 	s16b o_idx;
-
 	bool more = FALSE;
 
-	dir = args[0].direction;
+	/* Get arguments */
+	err = cmd_get_arg_direction(cmd, "direction", &dir);
+	if (err || dir == DIR_UNKNOWN) {
+		int y, x;
+		int n_visible_traps, n_trapped_chests;
+
+		n_visible_traps = count_feats(&y, &x, square_isknowntrap, TRUE);
+		n_trapped_chests = count_chests(&y, &x, CHEST_TRAPPED);
+
+		if (n_visible_traps + n_trapped_chests == 1) {
+			dir = coords_to_dir(y, x);
+			cmd_set_arg_direction(cmd, "direction", dir);
+		}
+
+		/* If there are chests to disarm, allow 5 as a direction */
+		else if (cmd_get_direction(cmd, "direction", &dir, n_trapped_chests > 0)) {
+			return;
+		}
+	}
 
 	/* Get location */
-	y = p_ptr->py + ddy[dir];
-	x = p_ptr->px + ddx[dir];
+	y = player->py + ddy[dir];
+	x = player->px + ddx[dir];
 
 	/* Check for chests */
 	o_idx = chest_check(y, x, CHEST_TRAPPED);
-
 
 	/* Verify legality */
 	if (!o_idx && !do_cmd_disarm_test(y, x))
 	{
 		/* Cancel repeat */
-		disturb(p_ptr, 0, 0);
+		disturb(player, 0);
 		return;
 	}
 
 	/* Take a turn */
-	p_ptr->energy_use = 100;
+	player->upkeep->energy_use = 100;
 
 	/* Apply confusion */
-	if (player_confuse_dir(p_ptr, &dir, FALSE))
+	if (player_confuse_dir(player, &dir, FALSE))
 	{
 		/* Get location */
-		y = p_ptr->py + ddy[dir];
-		x = p_ptr->px + ddx[dir];
+		y = player->py + ddy[dir];
+		x = player->px + ddx[dir];
 
 		/* Check for chests */
 		o_idx = chest_check(y, x, CHEST_TRAPPED);
@@ -1163,8 +1144,8 @@ void do_cmd_disarm(cmd_code code, cmd_arg args[])
 		more = do_cmd_disarm_chest(y, x, o_idx);
 
 	/* Door to lock */
-	else if (    cave_iscloseddoor(cave, y, x)
-	         && !cave_islockeddoor(cave, y, x))
+	else if (    square_iscloseddoor(cave, y, x)
+	         && !square_islockeddoor(cave, y, x))
 		more = do_cmd_lock_door(y, x);
 
 	/* Disarm trap */
@@ -1172,7 +1153,7 @@ void do_cmd_disarm(cmd_code code, cmd_arg args[])
 		more = do_cmd_disarm_aux(y, x);
 
 	/* Cancel repeat unless told not to */
-	if (!more) disturb(p_ptr, 0, 0);
+	if (!more) disturb(player, 0);
 }
 
 /*
@@ -1192,17 +1173,17 @@ void do_cmd_alter_aux(int dir)
 	bool more = FALSE;
 
 	/* Get location */
-	y = p_ptr->py + ddy[dir];
-	x = p_ptr->px + ddx[dir];
+	y = player->py + ddy[dir];
+	x = player->px + ddx[dir];
 
 	/* Take a turn */
-	p_ptr->energy_use = 100;
+	player->upkeep->energy_use = 100;
 
 	/* Apply confusion */
-	if (player_confuse_dir(p_ptr, &dir, FALSE)) {
+	if (player_confuse_dir(player, &dir, FALSE)) {
 		/* Get location */
-		y = p_ptr->py + ddy[dir];
-		x = p_ptr->px + ddx[dir];
+		y = player->py + ddy[dir];
+		x = player->px + ddx[dir];
 	}
 
 	/* Attack monsters */
@@ -1210,15 +1191,15 @@ void do_cmd_alter_aux(int dir)
 		py_attack(y, x);
 
 	/* Tunnel through walls and rubble */
-	else if (cave_isdiggable(cave, y, x))
+	else if (square_isdiggable(cave, y, x))
 		more = do_cmd_tunnel_aux(y, x);
 
 	/* Open closed doors */
-	else if (cave_iscloseddoor(cave, y, x))
+	else if (square_iscloseddoor(cave, y, x))
 		more = do_cmd_open_aux(y, x);
 
 	/* Disarm traps */
-	else if (cave_isknowntrap(cave, y, x))
+	else if (square_isknowntrap(cave, y, x))
 		more = do_cmd_disarm_aux(y, x);
 
 	/* Oops */
@@ -1226,12 +1207,18 @@ void do_cmd_alter_aux(int dir)
 		msg("You spin around.");
 
 	/* Cancel repetition unless we can continue */
-	if (!more) disturb(p_ptr, 0, 0);
+	if (!more) disturb(player, 0);
 }
 
-void do_cmd_alter(cmd_code code, cmd_arg args[])
+void do_cmd_alter(struct command *cmd)
 {
-	do_cmd_alter_aux(args[0].direction);
+	int dir;
+
+	/* Get arguments */
+	if (cmd_get_direction(cmd, "direction", &dir, FALSE) != CMD_OK)
+		return;
+
+	do_cmd_alter_aux(dir);
 }
 
 /*
@@ -1246,11 +1233,11 @@ static bool do_cmd_walk_test(int y, int x)
 	if (m_idx > 0 && m_ptr->ml && !is_mimicking(m_ptr))
 	{
 		/* Handle player fear */
-		if (check_state(p_ptr, OF_AFRAID, p_ptr->state.flags))
+		if (player_of_has(player, OF_AFRAID))
 		{
 			/* Extract monster name (or "it") */
 			char m_name[80];
-			monster_desc(m_name, sizeof(m_name), m_ptr, 0);
+			monster_desc(m_name, sizeof(m_name), m_ptr, MDESC_DEFAULT);
 
 			/* Message */
 			msgt(MSG_AFRAID, "You are too afraid to attack %s!", m_name);
@@ -1263,18 +1250,18 @@ static bool do_cmd_walk_test(int y, int x)
 	}
 
 	/* If we don't know the grid, allow attempts to walk into it */
-	if (!(cave->info[y][x] & CAVE_MARK))
+	if (!sqinfo_has(cave->info[y][x], SQUARE_MARK))
 		return TRUE;
 
 	/* Require open space */
-	if (!cave_ispassable(cave, y, x))
+	if (!square_ispassable(cave, y, x))
 	{
 		/* Rubble */
-		if (cave_isrubble(cave, y, x))
+		if (square_isrubble(cave, y, x))
 			msgt(MSG_HITWALL, "There is a pile of rubble in the way!");
 
 		/* Door */
-		else if (cave_iscloseddoor(cave, y, x))
+		else if (square_iscloseddoor(cave, y, x))
 			return TRUE;
 
 		/* Wall */
@@ -1282,7 +1269,7 @@ static bool do_cmd_walk_test(int y, int x)
 			msgt(MSG_HITWALL, "There is a wall in the way!");
 
 		/* Cancel repeat */
-		disturb(p_ptr, 0, 0);
+		disturb(player, 0);
 
 		/* Nope */
 		return (FALSE);
@@ -1296,25 +1283,26 @@ static bool do_cmd_walk_test(int y, int x)
 /*
  * Walk in the given direction.
  */
-void do_cmd_walk(cmd_code code, cmd_arg args[])
+void do_cmd_walk(struct command *cmd)
 {
-	int x, y;
-	int dir = args[0].direction;
+	int x, y, dir;
+
+	/* Get arguments */
+	if (cmd_get_direction(cmd, "direction", &dir, FALSE) != CMD_OK)
+		return;
 
 	/* Apply confusion if necessary */
-	player_confuse_dir(p_ptr, &dir, FALSE);
-
 	/* Confused movements use energy no matter what */
-	if (dir != args[0].direction)	
-		p_ptr->energy_use = 100;
+	if (player_confuse_dir(player, &dir, FALSE))
+		player->upkeep->energy_use = 100;
 	
 	/* Verify walkability */
-	y = p_ptr->py + ddy[dir];
-	x = p_ptr->px + ddx[dir];
+	y = player->py + ddy[dir];
+	x = player->px + ddx[dir];
 	if (!do_cmd_walk_test(y, x))
 		return;
 
-	p_ptr->energy_use = 100;
+	player->upkeep->energy_use = 100;
 
 	move_player(dir, TRUE);
 }
@@ -1323,21 +1311,25 @@ void do_cmd_walk(cmd_code code, cmd_arg args[])
 /*
  * Walk into a trap.
  */
-void do_cmd_jump(cmd_code code, cmd_arg args[])
+void do_cmd_jump(struct command *cmd)
 {
-	int x, y;
-	int dir = args[0].direction;
+	int x, y, dir;
+
+	/* Get arguments */
+	if (cmd_get_direction(cmd, "direction", &dir, FALSE) != CMD_OK)
+		return;
 
 	/* Apply confusion if necessary */
-	player_confuse_dir(p_ptr, &dir, FALSE);
+	if (player_confuse_dir(player, &dir, FALSE))
+		player->upkeep->energy_use = 100;
 
 	/* Verify walkability */
-	y = p_ptr->py + ddy[dir];
-	x = p_ptr->px + ddx[dir];
+	y = player->py + ddy[dir];
+	x = player->px + ddx[dir];
 	if (!do_cmd_walk_test(y, x))
 		return;
 
-	p_ptr->energy_use = 100;
+	player->upkeep->energy_use = 100;
 
 	move_player(dir, FALSE);
 }
@@ -1348,19 +1340,20 @@ void do_cmd_jump(cmd_code code, cmd_arg args[])
  *
  * Note that running while confused is not allowed.
  */
-void do_cmd_run(cmd_code code, cmd_arg args[])
+void do_cmd_run(struct command *cmd)
 {
-	int x, y;
-	int dir = args[0].direction;
+	int x, y, dir;
 
-	if (player_confuse_dir(p_ptr, &dir, TRUE))
-	{
+	/* Get arguments */
+	if (cmd_get_direction(cmd, "dirction", &dir, FALSE) != CMD_OK)
 		return;
-	}
+
+	if (player_confuse_dir(player, &dir, TRUE))
+		return;
 
 	/* Get location */
-	y = p_ptr->py + ddy[dir];
-	x = p_ptr->px + ddx[dir];
+	y = player->py + ddy[dir];
+	x = player->px + ddx[dir];
 	if (!do_cmd_walk_test(y, x))
 		return;
 
@@ -1374,21 +1367,21 @@ void do_cmd_run(cmd_code code, cmd_arg args[])
  *
  * Note that running while confused is not allowed.
  */
-void do_cmd_pathfind(cmd_code code, cmd_arg args[])
+void do_cmd_pathfind(struct command *cmd)
 {
-	/* Hack XXX XXX XXX */
-	int dir = 5;
-	if (player_confuse_dir(p_ptr, &dir, TRUE))
-	{
-		return;
-	}
+	int x, y;
 
-	if (findpath(args[0].point.x, args[0].point.y))
-	{
-		p_ptr->running = 1000;
+	/* XXX-AS Add better arg checking */
+	cmd_get_arg_point(cmd, "point", &x, &y);
+
+	if (player->timed[TMD_CONFUSED])
+		return;
+
+	if (findpath(x, y)) {
+		player->upkeep->running = 1000;
 		/* Calculate torch radius */
-		p_ptr->update |= (PU_TORCH);
-		p_ptr->running_withpathfind = TRUE;
+		player->upkeep->update |= (PU_TORCH);
+		player->upkeep->running_withpathfind = TRUE;
 		run_step(0);
 	}
 }
@@ -1399,20 +1392,20 @@ void do_cmd_pathfind(cmd_code code, cmd_arg args[])
  * Stay still.  Search.  Enter stores.
  * Pick up treasure if "pickup" is true.
  */
-void do_cmd_hold(cmd_code code, cmd_arg args[])
+void do_cmd_hold(struct command *cmd)
 {
 	/* Take a turn */
-	p_ptr->energy_use = 100;
+	player->upkeep->energy_use = 100;
 
 	/* Spontaneous Searching */
-	if ((p_ptr->state.skills[SKILL_SEARCH_FREQUENCY] >= 50) ||
-	    one_in_(50 - p_ptr->state.skills[SKILL_SEARCH_FREQUENCY]))
+	if ((player->state.skills[SKILL_SEARCH_FREQUENCY] >= 50) ||
+	    one_in_(50 - player->state.skills[SKILL_SEARCH_FREQUENCY]))
 	{
 		search(FALSE);
 	}
 
 	/* Continuous Searching */
-	if (p_ptr->searching)
+	if (player->searching)
 	{
 		search(FALSE);
 	}
@@ -1421,14 +1414,14 @@ void do_cmd_hold(cmd_code code, cmd_arg args[])
 	do_autopickup();
 
 	/* Hack -- enter a store if we are on one */
-	if (cave_isshop(cave, p_ptr->py, p_ptr->px)) {
+	if (square_isshop(cave, player->py, player->px)) {
 		/* Disturb */
-		disturb(p_ptr, 0, 0);
+		disturb(player, 0);
 
-		cmd_insert(CMD_ENTER_STORE);
+		cmdq_push(CMD_ENTER_STORE);
 
 		/* Free turn XXX XXX XXX */
-		p_ptr->energy_use = 0;
+		player->upkeep->energy_use = 0;
 	}
 	else
 	{
@@ -1440,40 +1433,37 @@ void do_cmd_hold(cmd_code code, cmd_arg args[])
 /*
  * Rest (restores hit points and mana and such)
  */
-void do_cmd_rest(cmd_code code, cmd_arg args[])
+void do_cmd_rest(struct command *cmd)
 {
+	int n;
+
+	/* XXX-AS need to insert UI here */
+	if (cmd_get_arg_choice(cmd, "choice", &n) != CMD_OK)
+		return;
+
 	/* 
 	 * A little sanity checking on the input - only the specified negative 
 	 * values are valid. 
 	 */
-	if ((args[0].choice < 0) &&
-		((args[0].choice != REST_COMPLETE) &&
-		 (args[0].choice != REST_ALL_POINTS) &&
-		 (args[0].choice != REST_SOME_POINTS))) 
-	{
-		return;
-	}
+    if (n < 0 && !player_resting_is_special(n))
+        return;
 
-	/* Save the rest code */
-	p_ptr->resting = args[0].choice;
-	
-	/* Truncate overlarge values */
-	if (p_ptr->resting > 9999) p_ptr->resting = 9999;
-	
+	player_resting_set_count(player, n);
+
 	/* Take a turn XXX XXX XXX (?) */
-	p_ptr->energy_use = 100;
+	player->upkeep->energy_use = 100;
 
 	/* Cancel searching */
-	p_ptr->searching = FALSE;
+	player->searching = FALSE;
 
 	/* Recalculate bonuses */
-	p_ptr->update |= (PU_BONUS);
+	player->upkeep->update |= (PU_BONUS);
 
 	/* Redraw the state */
-	p_ptr->redraw |= (PR_STATE);
+	player->upkeep->redraw |= (PR_STATE);
 
 	/* Handle stuff */
-	handle_stuff(p_ptr);
+	handle_stuff(player->upkeep);
 
 	/* Refresh XXX XXX XXX */
 	Term_fresh();
@@ -1492,24 +1482,24 @@ void textui_cmd_rest(void)
 	/* Rest until done */
 	if (out_val[0] == '&')
 	{
-		cmd_insert(CMD_REST);
-		cmd_set_arg_choice(cmd_get_top(), 0, REST_COMPLETE);
+		cmdq_push(CMD_REST);
+		cmd_set_arg_choice(cmdq_peek(), "choice", REST_COMPLETE);
 	}
 
 	/* Rest a lot */
 	else if (out_val[0] == '*')
 	{
-		cmd_insert(CMD_REST);
-		cmd_set_arg_choice(cmd_get_top(), 0, REST_ALL_POINTS);
+		cmdq_push(CMD_REST);
+		cmd_set_arg_choice(cmdq_peek(), "choice", REST_ALL_POINTS);
 	}
 
 	/* Rest until HP or SP filled */
 	else if (out_val[0] == '!')
 	{
-		cmd_insert(CMD_REST);
-		cmd_set_arg_choice(cmd_get_top(), 0, REST_SOME_POINTS);
+		cmdq_push(CMD_REST);
+		cmd_set_arg_choice(cmdq_peek(), "choice", REST_SOME_POINTS);
 	}
-	
+
 	/* Rest some */
 	else
 	{
@@ -1517,8 +1507,8 @@ void textui_cmd_rest(void)
 		if (turns <= 0) return;
 		if (turns > 9999) turns = 9999;
 		
-		cmd_insert(CMD_REST);
-		cmd_set_arg_choice(cmd_get_top(), 0, turns);
+		cmdq_push(CMD_REST);
+		cmd_set_arg_choice(cmdq_peek(), "choice", turns);
 	}
 }
 
@@ -1581,7 +1571,7 @@ void display_feeling(bool obj_only)
 	if (OPT(birth_no_feelings)) return;
 
 	/* No useful feeling in town */
-	if (!p_ptr->depth) {
+	if (!player->depth) {
 		msg("Looks like a typical town.");
 		return;
 	}

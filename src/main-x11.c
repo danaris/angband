@@ -17,6 +17,8 @@
  */
 #include "angband.h"
 #include "buildid.h"
+#include "dungeon.h"
+#include "init.h"
 
 /*
  * This file helps Angband work with UNIX/X11 computers.
@@ -110,6 +112,20 @@
 #include <X11/XKBlib.h>
 
 #include "main.h"
+
+/*
+ * Default fonts (when using X11).
+ */
+#define DEFAULT_X11_FONT		"9x15"
+#define DEFAULT_X11_FONT_0		"10x20"
+#define DEFAULT_X11_FONT_1		"9x15"
+#define DEFAULT_X11_FONT_2		"9x15"
+#define DEFAULT_X11_FONT_3		"5x8"
+#define DEFAULT_X11_FONT_4		"5x8"
+#define DEFAULT_X11_FONT_5		"5x8"
+#define DEFAULT_X11_FONT_6		"5x8"
+#define DEFAULT_X11_FONT_7		"5x8"
+
 
 #ifndef IsModifierKey
 
@@ -453,10 +469,8 @@ static infoclr *clr[MAX_COLORS * BG_MAX];
 
 /**** Code imported from the old maid-x11.c ****/
 
-#ifdef SUPPORT_GAMMA
 static bool gamma_table_ready = FALSE;
 static int gamma_val = 0;
-#endif /* SUPPORT_GAMMA */
 
 
 /*
@@ -467,8 +481,6 @@ static u32b create_pixel(Display *dpy, byte red, byte green, byte blue)
 	Colormap cmap = DefaultColormapOfScreen(DefaultScreenOfDisplay(dpy));
 
 	XColor xcolour;
-
-#ifdef SUPPORT_GAMMA
 
 	if (!gamma_table_ready)
 	{
@@ -488,8 +500,6 @@ static u32b create_pixel(Display *dpy, byte red, byte green, byte blue)
 		green = gamma_table[green];
 		blue = gamma_table[blue];
 	}
-
-#endif /* SUPPORT_GAMMA */
 
 	/* Build the color */
 

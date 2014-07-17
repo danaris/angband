@@ -42,18 +42,6 @@
  * are activated by a menu item.
  *
  *
- * Compiling this file, and using the resulting executable, requires
- * several extra files not distributed with the standard Angband code.
- * If "USE_GRAPHICS" is defined, then "readdib.h" and "readdib.c" must
- * be placed into "src/", and the "8x8.bmp" bitmap file must be placed
- * into "lib/xtra/graf".  In any case, some "*.fon" files (including
- * "8X13.FON" if nothing else) must be placed into "lib/xtra/font/".
- * If "USE_SOUND" is defined, then some special library (for example,
- * "winmm.lib") may need to be linked in, and desired "*.WAV" sound
- * files must be placed into "lib/xtra/sound/".  All of these extra
- * files can be found in the "ext-win" archive.
- *
- *
  * The "Term_xtra_win_clear()" function should probably do a low-level
  * clear of the current window, and redraw the borders and other things,
  * if only for efficiency.  XXX XXX XXX
@@ -82,11 +70,14 @@
 #include "buildid.h"
 #include "cmds.h"
 #include "cave.h"
+#include "dungeon.h"
 #include "init.h"
 #include "files.h"
 #include "grafmode.h"
+#include "prefs.h"
 #include "win/win-menu.h"
 #include "savefile.h" /* savefile_set_name() */
+#include "ui-input.h"
 
 /* Make sure the winver allows the AlphaBlend function */
 #if (WINVER < 0x0500)
@@ -117,15 +108,6 @@
 #endif /* HTML_HELP */
 
 
-
-#ifdef ALLOW_BORG
-
-/*
- * Hack -- allow use of "screen saver" mode
- */
-#define USE_SAVER
-
-#endif /* ALLOW_BORG */
 
 /*
  * This may need to be removed for some compilers XXX XXX XXX
@@ -187,8 +169,6 @@
 #define GWLP_USERDATA GWL_USERDATA
 #endif
 
-#ifdef USE_SOUND
-
 /*
  * Exclude parts of MMSYSTEM.H that are not needed
  */
@@ -204,17 +184,13 @@
 
 #include <mmsystem.h>
 
-#endif /* USE_SOUND */
-
 #include <commdlg.h>
 #include <shellapi.h>
 
 /*
  * Include the support for loading bitmaps
  */
-#ifdef USE_GRAPHICS
-# include "win/readdib.h"
-#endif /* USE_GRAPHICS */
+#include "win/readdib.h"
 
 #include <wingdi.h>
 
@@ -368,8 +344,6 @@ static HMENU main_menu;
 static bool screensaver_active = FALSE;
 
 
-#ifdef USE_GRAPHICS
-
 /*
  * Flag set once "graphics" has been initialized
  */
@@ -396,10 +370,6 @@ static int overdrawmax = -1;
 static int alphablend = 0;
 static BLENDFUNCTION blendfn;
 
-#endif /* USE_GRAPHICS */
-
-
-#ifdef USE_SOUND
 
 /*
  * Flag set once "sound" has been initialized
@@ -412,8 +382,6 @@ static bool can_use_sound = FALSE;
  * An array of sound file names
  */
 static char *sound_file[MSG_MAX][SAMPLE_MAX];
-
-#endif /* USE_SOUND */
 
 
 /*
@@ -467,15 +435,13 @@ static byte win_pal[MAX_COLORS] =
 };
 
 
-#ifdef SUPPORT_GAMMA
 static int gamma_correction;
-#endif /* SUPPORT_GAMMA */
 
 
 #include "cmds.h"
 #include "textui.h"
 
-static game_command cmd = { CMD_NULL, 0, {{NULL}} };
+static struct command cmd = { CMD_NULL, 0 };
 
 #if 0
 /*
@@ -885,12 +851,10 @@ static void load_prefs(void)
 	/* Extract the "arg_rebalance" flag */
 	arg_rebalance = (GetPrivateProfileInt("Angband", "Rebalance", FALSE, ini_file) != 0);
 
-#ifdef SUPPORT_GAMMA
 
 	/* Extract the gamma correction */
 	gamma_correction = GetPrivateProfileInt("Angband", "Gamma", 0, ini_file);
 
-#endif /* SUPPORT_GAMMA */
 
 	/* Load window prefs */
 	for (i = 0; i < MAX_TERM_DATA; i++)
@@ -911,8 +875,6 @@ static void load_prefs(void)
 	if (data[0].rows < 24) data[0].rows = 24;
 }
 
-
-#ifdef USE_SOUND
 
 /*
  * XXX XXX XXX - Taken from files.c.
@@ -978,10 +940,12 @@ static void load_sound_prefs(void)
 
 	for (i = 0; i < MSG_MAX; i++)
 	{
-		/* Ignore empty sound strings */
-		if (!angband_sound_name[i][0]) continue;
+		const char *sound_name = message_sound_name(i);
 
-		GetPrivateProfileString("Sound", angband_sound_name[i], "", tmp, sizeof(tmp), ini_path);
+		/* Ignore empty sound strings */
+		if (!sound_name[0]) continue;
+
+		GetPrivateProfileString("Sound", sound_name, "", tmp, sizeof(tmp), ini_path);
 
 		num = tokenize_whitespace(tmp, SAMPLE_MAX, zz);
 
@@ -997,9 +961,6 @@ static void load_sound_prefs(void)
 	}
 }
 
-#endif /* USE_SOUND */
-
-
 /*
  * Create the new global palette based on the bitmap palette
  * (if any), and the standard 16 entry palette derived from
@@ -1014,9 +975,7 @@ static void load_sound_prefs(void)
  */
 static int new_palette(void)
 {
-#ifdef USE_GRAPHICS
 	HPALETTE hBmPal;
-#endif /* USE_GRAPHICS */
 	HPALETTE hNewPal;
 	HDC hdc;
 	int i, nEntries;
@@ -1033,8 +992,6 @@ static int new_palette(void)
 	/* No bitmap */
 	lppe = NULL;
 	nEntries = 0;
-
-#ifdef USE_GRAPHICS
 
 	/* Check the bitmap palette */
 	hBmPal = infGraph.hPalette;
@@ -1056,8 +1013,6 @@ static int new_palette(void)
 			return (FALSE);
 		}
 	}
-
-#endif /* USE_GRAPHICS */
 
 	/* Size of palette */
 	pLogPalSize = sizeof(LOGPALETTE) + (nEntries + 16) * sizeof(PALETTEENTRY);
@@ -1090,7 +1045,6 @@ static int new_palette(void)
 		p->peGreen = GetGValue(win_clr[i]);
 		p->peBlue = GetBValue(win_clr[i]);
 
-#ifdef SUPPORT_GAMMA
 
 		if (gamma_correction > 0)
 		{
@@ -1099,7 +1053,6 @@ static int new_palette(void)
 			p->peBlue = gamma_table[p->peBlue];
 		}
 
-#endif /* SUPPORT_GAMMA */
 
 		/* Save the flags */
 		p->peFlags = PC_NOCOLLAPSE;
@@ -1146,7 +1099,6 @@ static int new_palette(void)
 }
 
 
-#ifdef USE_GRAPHICS
 /*
  * Initialize graphics
  */
@@ -1180,7 +1132,6 @@ static bool init_graphics(void)
 
 			name = mode->file;
 			ANGBAND_GRAF = mode->pref;
-			use_transparency = FALSE;
 
 			overdraw = mode->overdrawRow;
 			overdrawmax = mode->overdrawMax;
@@ -1280,10 +1231,8 @@ static bool init_graphics(void)
 	/* Result */
 	return (can_use_graphics);
 }
-#endif /* USE_GRAPHICS */
 
 
-#ifdef USE_SOUND
 /*
  * Initialize sound
  */
@@ -1302,7 +1251,6 @@ static bool init_sound(void)
 	/* Result */
 	return (can_use_sound);
 }
-#endif /* USE_SOUND */
 
 
 /*
@@ -1414,10 +1362,7 @@ static errr term_force_font(term_data *td, const char *path)
 	if (!file_exists(buf)) return (1);
 
 	/* Load the new font */
-	if (!AddFontResource(buf)) return (1);
-
-	/* Notify other applications that a new font is available  XXX */
-	PostMessage(HWND_BROADCAST, WM_FONTCHANGE, 0, 0);
+	if (!AddFontResourceEx(buf, FR_PRIVATE, 0)) return (1);
 
 	/* Save new font name */
 	td->font_file = string_make(base);
@@ -1630,16 +1575,12 @@ static errr Term_xtra_win_react(void)
 			gv = angband_color_table[i][2];
 			bv = angband_color_table[i][3];
 
-#ifdef SUPPORT_GAMMA
-
 			if (gamma_correction > 0)
 			{
 				rv = gamma_table[rv];
 				gv = gamma_table[gv];
 				bv = gamma_table[bv];
 			}
-
-#endif /* SUPPORT_GAMMA */
 
 			/* Extract a full color code */
 			code = PALETTERGB(rv, gv, bv);
@@ -1660,8 +1601,6 @@ static errr Term_xtra_win_react(void)
 	}
 
 
-#ifdef USE_SOUND
-
 	/* Initialize sound (if needed) */
 	if (OPT(use_sound) && !init_sound())
 	{
@@ -1671,11 +1610,6 @@ static errr Term_xtra_win_react(void)
 		/* Cannot enable */
 		OPT(use_sound) = FALSE;
 	}
-
-#endif /* USE_SOUND */
-
-
-#ifdef USE_GRAPHICS
 
         /* Handle "arg_graphics_nice" */
         if (use_graphics_nice != arg_graphics_nice)
@@ -1696,9 +1630,6 @@ static errr Term_xtra_win_react(void)
 	/* Handle "arg_graphics" */
 	if (use_graphics != arg_graphics)
 	{
-		/* Switch off transparency */
-		use_transparency = FALSE;
-
 		/* Free the bitmap stuff */
 		FreeDIB(&infGraph);
 		FreeDIB(&infMask);
@@ -1753,8 +1684,6 @@ static errr Term_xtra_win_react(void)
                 /* Reset the flag */
                 change_tilesize = FALSE;
         }
-
-#endif /* USE_GRAPHICS */
 
 
 	/* Clean up windows */
@@ -1886,18 +1815,14 @@ static errr Term_xtra_win_noise(void)
  */
 static void Term_xtra_win_sound(int v)
 {
-#ifdef USE_SOUND
 	int i;
 	char buf[1024];
 	MCI_OPEN_PARMS op;
 	MCI_PLAY_PARMS pp;
 	MCIDEVICEID pDevice;
-#endif /* USE_SOUND */
 
 	/* Illegal sound */
 	if ((v < 0) || (v >= MSG_MAX)) return;
-
-#ifdef USE_SOUND
 
 	/* Count the samples */
 	for (i = 0; i < SAMPLE_MAX; i++)
@@ -1937,13 +1862,6 @@ static void Term_xtra_win_sound(int v)
 	        /* Play the sound, catch errors */
 	        PlaySound(buf, 0, SND_FILENAME | SND_ASYNC);
 	}
-
-#else /* USE_SOUND */
-
-	/* Oops */
-	return;
-
-#endif /* USE_SOUND */
 }
 
 
@@ -2253,8 +2171,6 @@ static errr Term_pict_win(int x, int y, int n, const int *ap, const wchar_t *cp,
 {
 	term_data *td = (term_data*)(Term->data);
 
-#ifdef USE_GRAPHICS
-
 	int i;
 	int x1, y1, w1, h1;
 	int x2, y2, w2, h2, tw2, th2;
@@ -2384,13 +2300,6 @@ static errr Term_pict_win(int x, int y, int n, const int *ap, const wchar_t *cp,
 	/* Release */
 	ReleaseDC(td->w, hdc);
 
-#else /* USE_GRAPHICS */
-
-	/* Just erase this grid */
-	return (Term_wipe_win(x, y, n));
-
-#endif /* USE_GRAPHICS */
-
 	/* Success */
 	return 0;
 }
@@ -2443,8 +2352,6 @@ size_t Term_mbstowcs_win(wchar_t *dest, const char *src, int n)
 static errr Term_pict_win_alpha(int x, int y, int n, const int *ap, const wchar_t *cp, const int *tap, const wchar_t *tcp)
 {
 	term_data *td = (term_data*)(Term->data);
-
-#ifdef USE_GRAPHICS
 
 	int i;
 	int x1, y1, w1, h1;
@@ -2554,13 +2461,6 @@ static errr Term_pict_win_alpha(int x, int y, int n, const int *ap, const wchar_
 	/* Release */
 	ReleaseDC(td->w, hdc);
 
-#else /* USE_GRAPHICS */
-
-	/* Just erase this grid */
-	return (Term_wipe_win(x, y, n));
-
-#endif /* USE_GRAPHICS */
-
 	/* Success */
 	return 0;
 }
@@ -2603,7 +2503,7 @@ static void windows_map_aux(void)
 	}
 
 	/* Highlight the player */
-	Term_curs_win(p_ptr->px - min_x, p_ptr->py - min_y);
+	Term_curs_win(player->px - min_x, player->py - min_y);
 }
 
 
@@ -2684,7 +2584,6 @@ static void term_data_link(term_data *td)
 	t->wipe_hook = Term_wipe_win;
 	t->text_hook = Term_text_win;
 	t->pict_hook = Term_pict_win;
-	t->mbcs_hook = Term_mbstowcs_win;
 
 	/* Remember where we came from */
 	t->data = td;
@@ -2851,6 +2750,7 @@ static void init_windows(void)
 
 	term_data_link(td);
 	term_screen = &td->t;
+	text_mbcs_hook = Term_mbstowcs_win;
 
 	/* Activate the main window */
 	SetActiveWindow(td->w);
@@ -2858,12 +2758,8 @@ static void init_windows(void)
 	/* Bring main window back to top */
 	SetWindowPos(td->w, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
 
-#ifdef SUPPORT_GAMMA
-
 	if (gamma_correction > 0)
 		build_gamma_table(gamma_correction);
-
-#endif /* SUPPORT_GAMMA */
 
 	/* New palette XXX XXX XXX */
 	(void)new_palette();
@@ -3200,7 +3096,6 @@ static void setup_menus(void)
 	CheckMenuItem(hm, IDM_OPTIONS_LOW_PRIORITY,
 	              (low_priority ? MF_CHECKED : MF_UNCHECKED));
 
-#ifdef USE_GRAPHICS
 	if (inkey_flag && initialized) {
 		/* Menu "Options", Item "Graphics" */
 		mode = graphics_modes;
@@ -3223,7 +3118,6 @@ static void setup_menus(void)
 		EnableMenuItem(hm, IDM_TILE_12X20, MF_ENABLED);
 		EnableMenuItem(hm, IDM_TILE_16X25, MF_ENABLED);
 	}
-#endif /* USE_GRAPHICS */
 
 #ifdef USE_SAVER
 	/* Menu "Options", Item "ScreenSaver" */
@@ -3272,39 +3166,6 @@ static void check_for_save_file(LPSTR cmd_line)
 
 #ifdef USE_SAVER
 
-#ifdef ALLOW_BORG
-
-/*
- * Hook into the inkey() function so that flushing keypresses
- * doesn't affect us.
- *
- * ToDo: Try to implement recording and playing back of games
- * by saving/reading the keypresses to/from a file. Note that
- * interrupting certain actions (resting, running, and other
- * repeated actions) would mess that up, so this would have to
- * be switched off when recording.
- */
-
-extern struct keypress (*inkey_hack)(int flush_first);
-
-static struct keypress screensaver_inkey_hack_buffer[1024];
-
-static struct keypress screensaver_inkey_hack(int flush_first)
-{
-	static size_t screensaver_inkey_hack_index = 0;
-
-	if (screensaver_inkey_hack_index < sizeof(screensaver_inkey_hack_buffer))
-		return (screensaver_inkey_hack_buffer[screensaver_inkey_hack_index++]);
-	else
-	{
-		struct keypress key = {EVT_KBRD, ESCAPE, 0};
-		return key;
-	}
-}
-
-#endif /* ALLOW_BORG */
-
-
 /*
  * Start the screensaver
  */
@@ -3312,16 +3173,11 @@ static void start_screensaver(void)
 {
 	bool file_exist;
 
-#ifdef ALLOW_BORG
-	int i, j;
-	struct keypress key = {EVT_KBRD, 0, 0};
-#endif /* ALLOW_BORG */
-
 	/* Set the name for process_player_name() */
 	my_strcpy(op_ptr->full_name, saverfilename, sizeof(op_ptr->full_name));
 
 	/* Set 'savefile' to a valid name */
-	savefile_set_name(player_safe_name(p_ptr));
+	savefile_set_name(player_safe_name(player, FALSE));
 
 	/* Does the savefile already exist? */
 	file_exist = file_exists(savefile);
@@ -3340,87 +3196,6 @@ static void start_screensaver(void)
 	/* Low priority */
 	SendMessage(data[0].w, WM_COMMAND, IDM_OPTIONS_LOW_PRIORITY, 0);
 
-#ifdef ALLOW_BORG
-	/*
-	 * MegaHack - Try to start the Borg.
-	 *
-	 * The simulated keypresses will be processed when play_game()
-	 * is called.
-	 */
-
-	inkey_hack = screensaver_inkey_hack;
-	j = 0;
-
-	/*
-	 * If no savefile is present or then go through the steps necessary
-	 * to create a random character.  If a savefile already is present
-	 * then the simulated keypresses will either clean away any [-more-]
-	 * prompts (if the character is alive), or create a new random
-	 * character.
-	 *
-	 * Luckily it's possible to send the same keypresses no matter if
-	 * the character is alive, dead, or not even yet created.
-	 */
-	key.code = ESCAPE;
-	screensaver_inkey_hack_buffer[j++] = key; /* Gender */
-	screensaver_inkey_hack_buffer[j++] = key; /* Race */
-	screensaver_inkey_hack_buffer[j++] = key; /* Class */
-	key.code = 'n';
-	screensaver_inkey_hack_buffer[j++] = key; /* Modify options */
-	key.code = KC_ENTER;
-	screensaver_inkey_hack_buffer[j++] = key; /* Reroll */
-
-	if (!file_exist)
-	{
-		/* Savefile name */
-		int n = strlen(saverfilename);
-		for (i = 0; i < n; i++)
-		{
-			key.code = saverfilename[i];
-			screensaver_inkey_hack_buffer[j++] = key;
-		}
-	}
-
-	key.code = KC_ENTER;
-	screensaver_inkey_hack_buffer[j++] = key; /* Return */
-	key.code = ESCAPE;
-	screensaver_inkey_hack_buffer[j++] = key; /* Character info */
-
-	/*
-	 * Make sure the "verify_special" options is off, so that we can
-	 * get into Borg mode without confirmation.
-	 * 
-	 * Try just marking the savefile correctly.
-	 */
-	p_ptr->noscore |= (NOSCORE_BORG);
-
-	/*
-	 * Make sure the "OPT(cheat_live)" option is set, so that the Borg can
-	 * automatically restart.
-	 */
-	key.code = '5';
-	screensaver_inkey_hack_buffer[j++] = key; /* Cheat options */
-
-	/* Cursor down to "cheat live" */
-	key.code = '2';
-	for (i = 0; i < OPT_cheat_live - OPT_CHEAT - 1; i++)
-		screensaver_inkey_hack_buffer[j++] = key;
-
-	key.code = 'y';
-	screensaver_inkey_hack_buffer[j++] = key; /* Switch on "OPT(cheat_live)" */
-	key.code = ESCAPE;
-	screensaver_inkey_hack_buffer[j++] = key; /* Leave cheat options */
-	screensaver_inkey_hack_buffer[j++] = key; /* Leave options */
-
-	/*
-	 * Now start the Borg!
-	 */
-
-	key.code = KTRL('Z');
-	screensaver_inkey_hack_buffer[j++] = key; /* Enter borgmode */
-	key.code = 'z';
-	screensaver_inkey_hack_buffer[j++] = key; /* Run Borg */
-#endif /* ALLOW_BORG */
 
 	/* Play game */
 	play_game();
@@ -5125,11 +4900,7 @@ static void hook_plog(const char *str)
  */
 static void hook_quit(const char *str)
 {
-	int i;
-
-#ifdef USE_SOUND
-	int j;
-#endif /* USE_SOUND */
+	int i, j;
 
 
 #ifdef USE_SAVER
@@ -5163,15 +4934,12 @@ static void hook_quit(const char *str)
 		term_nuke(&data[i].t);
 	}
 
-#ifdef USE_GRAPHICS
 	/* Free the bitmap stuff */
 	FreeDIB(&infGraph);
 	FreeDIB(&infMask);
-#endif /* USE_GRAPHICS */
 
 	close_graphics_modes();
 
-#ifdef USE_SOUND
 	/* Free the sound names */
 	for (i = 0; i < MSG_MAX; i++)
 	{
@@ -5182,7 +4950,6 @@ static void hook_quit(const char *str)
 			string_free(sound_file[i][j]);
 		}
 	}
-#endif /* USE_SOUND */
 
 	/*** Free some other stuff ***/
 
@@ -5225,7 +4992,7 @@ static errr get_init_cmd()
 	game_in_progress = TRUE;
 
 	/* Push command into the queue. */
-	cmd_insert_s(&cmd);
+	cmdq_push_copy(&cmd);
 
 	/* Everything's OK. */
 	return 0;
@@ -5331,21 +5098,11 @@ static void init_stuff(void)
 	/* Hack -- Validate the basic font */
 	validate_file(path);
 
-
-#ifdef USE_GRAPHICS
-
 	/* Validate the "graf" directory */
 	validate_dir(ANGBAND_DIR_XTRA_GRAF);
 
-#endif /* USE_GRAPHICS */
-
-
-#ifdef USE_SOUND
-
 	/* Validate the "sound" directory */
 	validate_dir(ANGBAND_DIR_XTRA_SOUND);
-
-#endif /* USE_SOUND */
 }
 
 
@@ -5501,12 +5258,8 @@ int FAR PASCAL WinMain(HINSTANCE hInst, HINSTANCE hPrevInst,
 	}
 #endif /* USE_SAVER */
 
-#ifdef USE_SOUND
-
 	/* Set the sound hook */
 	sound_hook = Term_xtra_win_sound;
-
-#endif /* USE_SOUND */
 
 	/* Did the user double click on a save file? */
 	check_for_save_file(lpCmdLine);

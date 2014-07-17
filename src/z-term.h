@@ -13,6 +13,7 @@
 
 #include "h-basic.h"
 #include "ui-event.h"
+#include "z-msg.h"
 
 
 /*
@@ -231,8 +232,6 @@ struct term
 
 	errr (*pict_hook)(int x, int y, int n, const int *ap, const wchar_t *cp, const int *tap, const wchar_t *tcp);
 
-	size_t (*mbcs_hook)(wchar_t *dest, const char *src, int n);
-
 	void (*view_map_hook)(term *t);
 
 };
@@ -242,6 +241,28 @@ struct term
 
 
 /**** Available Constants ****/
+
+
+/* Maximum number of Angband windows */
+#define ANGBAND_TERM_MAX 8
+
+/**
+ * Number of text rows in each map screen, regardless of tile size
+ */
+#define SCREEN_ROWS	(Term->hgt - ROW_MAP - 1) 
+
+/**
+ * Number of grids in each screen (vertically)
+ */
+#define SCREEN_HGT    ((int) (SCREEN_ROWS / tile_height))
+
+/**
+ * Number of grids in each screen (horizontally)
+ */
+#define SCREEN_WID	((int)((Term->wid - COL_MAP - 1) / tile_width))
+
+#define ROW_MAP			1
+#define COL_MAP			13
 
 
 /*
@@ -273,85 +294,24 @@ struct term
 #define TERM_XTRA_LEVEL 12    /* Change the "soft" level (optional) */
 #define TERM_XTRA_DELAY 13    /* Delay some milliseconds (optional) */
 
-
-/*** Colors ***/
-
 /*
- * Angband "attributes" (with symbols, and base (R,G,B) codes)
- *
- * The "(R,G,B)" codes are given in "fourths" of the "maximal" value,
- * and should "gamma corrected" on most (non-Macintosh) machines.
+ * Bit flags for the "window_flag" variable.
  */
-#define TERM_DARK     0  /* d */    /* 0 0 0 */
-#define TERM_WHITE    1  /* w */    /* 4 4 4 */
-#define TERM_SLATE    2  /* s */    /* 2 2 2 */
-#define TERM_ORANGE   3  /* o */    /* 4 2 0 */
-#define TERM_RED      4  /* r */    /* 3 0 0 */
-#define TERM_GREEN    5  /* g */    /* 0 2 1 */
-#define TERM_BLUE     6  /* b */    /* 0 0 4 */
-#define TERM_UMBER    7  /* u */    /* 2 1 0 */
-#define TERM_L_DARK   8  /* D */    /* 1 1 1 */
-#define TERM_L_WHITE  9  /* W */    /* 3 3 3 */
-#define TERM_L_PURPLE 10 /* P */    /* ? ? ? */
-#define TERM_YELLOW   11 /* y */    /* 4 4 0 */
-#define TERM_L_RED    12 /* R */    /* 4 0 0 */
-#define TERM_L_GREEN  13 /* G */    /* 0 4 0 */
-#define TERM_L_BLUE   14 /* B */    /* 0 4 4 */
-#define TERM_L_UMBER  15 /* U */    /* 3 2 1 */
+#define PW_INVEN            0x00000001L /* Display inven/equip */
+#define PW_EQUIP            0x00000002L /* Display equip/inven */
+#define PW_PLAYER_0         0x00000004L /* Display player (basic) */
+#define PW_PLAYER_1         0x00000008L /* Display player (extra) */
+#define PW_PLAYER_2         0x00000010L /* Display player (compact) */
+#define PW_MAP              0x00000020L /* Display dungeon map */
+#define PW_MESSAGE          0x00000040L /* Display messages */
+#define PW_OVERHEAD         0x00000080L /* Display overhead view */
+#define PW_MONSTER          0x00000100L /* Display monster recall */
+#define PW_OBJECT           0x00000200L /* Display object recall */
+#define PW_MONLIST          0x00000400L /* Display monster list */
+#define PW_STATUS           0x00000800L /* Display status */
+#define PW_ITEMLIST         0x00001000L /* Display item list */
 
-#define TERM_PURPLE      16    /* p */
-#define TERM_VIOLET      17    /* v */
-#define TERM_TEAL        18    /* t */
-#define TERM_MUD         19    /* m */
-#define TERM_L_YELLOW    20    /* Y */
-#define TERM_MAGENTA     21    /* i */
-#define TERM_L_TEAL      22    /* T */
-#define TERM_L_VIOLET    23    /* V */
-#define TERM_L_PINK      24    /* I */
-#define TERM_MUSTARD     25    /* M */
-#define TERM_BLUE_SLATE  26    /* z */
-#define TERM_DEEP_L_BLUE 27    /* Z */
-#define TERM_SHADE       28    /* for shaded backgrounds */
-
-/* The following allow color 'translations' to support environments with a limited color depth
- * as well as translate colours to alternates for e.g. menu highlighting. */
-
-#define ATTR_FULL        0    /* full color translation */
-#define ATTR_MONO        1    /* mono color translation */
-#define ATTR_VGA         2    /* 16 color translation */
-#define ATTR_BLIND       3    /* "Blind" color translation */
-#define ATTR_LIGHT       4    /* "Torchlit" color translation */
-#define ATTR_DARK        5    /* "Dark" color translation */
-#define ATTR_HIGH        6    /* "Highlight" color translation */
-#define ATTR_METAL       7    /* "Metallic" color translation */
-#define ATTR_MISC        8    /* "Miscellaneous" color translation - see misc_to_attr */
-
-#define MAX_ATTR        9
-
-/*
- * Maximum number of colours, and number of "basic" Angband colours
- */ 
-#define MAX_COLORS        256
-#define BASIC_COLORS    29
-#define BG_BLACK 0	/* The set number for the black-background glyphs */
-#define BG_SAME  1	/* The set number for the same-background glyphs */
-#define BG_DARK  2	/* The set number for the dark-background glyphs */
-#define BG_MAX   3	/* The max number of backgrounds */
-
-/*
- * A game color.
- */
-typedef struct color_type color_type;
-struct color_type
-{
-	char index_char;            /* Character index:  'r' = red, etc. */
-	char name[32];              /* Color name */
-	byte color_translate[MAX_ATTR];       /* Index for various in-game translations */
-};
-
-extern byte angband_color_table[MAX_COLORS][4];
-extern color_type color_table[MAX_COLORS];
-
+#define PW_MAX_FLAGS		16
 
 
 /* sketchy key logging pt. 1 */
@@ -368,11 +328,20 @@ extern byte tile_width;
 extern byte tile_height;
 extern bool bigcurs;
 extern bool smlcurs;
+extern term *angband_term[ANGBAND_TERM_MAX];
+extern char angband_term_name[ANGBAND_TERM_MAX][16];
+extern u32b window_flag[ANGBAND_TERM_MAX];
+
+/*
+ * Hack -- The main "screen"
+ */
+#define term_screen	(angband_term[0])
+
+
 
 /**** Available Functions ****/
 
 extern errr Term_xtra(int n, int v);
-extern size_t Term_mbstowcs(wchar_t *dest, const char *src, int n);
 
 extern void Term_queue_char(term *t, int x, int y, int a, wchar_t c, int ta, wchar_t tc);
 extern void Term_big_queue_char(term *t, int x, int y, int a, wchar_t c, int a1, wchar_t c1);

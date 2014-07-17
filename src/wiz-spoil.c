@@ -19,15 +19,21 @@
 #include "angband.h"
 #include "buildid.h"
 #include "cmds.h"
-#include "monster/mon-lore.h"
-#include "monster/monster.h"
-#include "object/tvalsval.h"
+#include "dungeon.h"
+#include "init.h"
+#include "mon-lore.h"
+#include "monster.h"
+#include "obj-desc.h"
+#include "obj-identify.h"
+#include "obj-info.h"
+#include "obj-make.h"
+#include "obj-power.h"
+#include "obj-tval.h"
+#include "obj-util.h"
+#include "object.h"
 #include "ui-menu.h"
 #include "wizard.h"
 #include "z-file.h"
-
-
-#ifdef ALLOW_SPOILERS
 
 
 /*
@@ -103,6 +109,7 @@ static const grouper group_item[] =
 	{ TV_SCROLL,	"Scrolls" },
 	{ TV_POTION,	"Potions" },
 	{ TV_FOOD,		"Food" },
+	{ TV_MUSHROOM,	"Mushrooms" },
 
 	{ TV_ROD,		"Rods" },
 	{ TV_WAND,		"Wands" },
@@ -147,8 +154,8 @@ static void kind_info(char *buf, size_t buf_len,
 	k_ptr = i_ptr->kind;
 
 	/* Cancel bonuses */
-	for (i = 0; i < MAX_PVALS; i++)
-		i_ptr->pval[i] = 0;
+	for (i = 0; i < OBJ_MOD_MAX; i++)
+		i_ptr->modifiers[i] = 0;
 	i_ptr->to_a = 0;
 	i_ptr->to_h = 0;
 	i_ptr->to_d = 0;
@@ -180,48 +187,10 @@ static void kind_info(char *buf, size_t buf_len,
 	dam[0] = '\0';
 
 	/* Damage */
-	switch (i_ptr->tval)
-	{
-		/* Bows */
-		case TV_BOW:
-		{
-			break;
-		}
-
-		/* Ammo */
-		case TV_SHOT:
-		case TV_BOLT:
-		case TV_ARROW:
-		{
-			strnfmt(dam, dam_len, "%dd%d", i_ptr->dd, i_ptr->ds);
-			break;
-		}
-
-		/* Weapons */
-		case TV_HAFTED:
-		case TV_POLEARM:
-		case TV_SWORD:
-		case TV_DIGGING:
-		{
-			strnfmt(dam, dam_len, "%dd%d", i_ptr->dd, i_ptr->ds);
-			break;
-		}
-
-		/* Armour */
-		case TV_BOOTS:
-		case TV_GLOVES:
-		case TV_CLOAK:
-		case TV_CROWN:
-		case TV_HELM:
-		case TV_SHIELD:
-		case TV_SOFT_ARMOR:
-		case TV_HARD_ARMOR:
-		case TV_DRAG_ARMOR:
-		{
-			strnfmt(dam, dam_len, "%d", i_ptr->ac);
-			break;
-		}
-	}
+	if (tval_is_ammo(i_ptr) || tval_is_melee_weapon(i_ptr))
+		strnfmt(dam, dam_len, "%dd%d", i_ptr->dd, i_ptr->ds);
+	else if (tval_is_armor(i_ptr))
+		strnfmt(dam, dam_len, "%d", i_ptr->ac);
 }
 
 
@@ -326,7 +295,7 @@ static void spoil_obj_desc(const char *fname)
 			if (k_ptr->tval != group_item[i].tval) continue;
 
 			/* Hack -- Skip instant-artifacts */
-			if (of_has(k_ptr->flags, OF_INSTA_ART)) continue;
+			if (kf_has(k_ptr->kind_flags, KF_INSTA_ART)) continue;
 
 			/* Save the index */
 			who[n++] = k;
@@ -384,8 +353,11 @@ static const grouper group_artifact[] =
 };
 
 
-/*
+/**
  * Create a fake artifact
+ *
+ * Since this is now in no way marked as fake, we must make sure this function
+ * is never used to create an actual game object
  */
 bool make_fake_artifact(object_type *o_ptr, struct artifact *artifact)
 {
@@ -408,7 +380,6 @@ bool make_fake_artifact(object_type *o_ptr, struct artifact *artifact)
 	copy_artifact_data(o_ptr, artifact);
 
 	/* Success */
-	o_ptr->ident |= IDENT_FAKE;
 	return (TRUE);
 }
 
@@ -462,6 +433,7 @@ static void spoil_artifact(const char *fname)
 		{
 			artifact_type *a_ptr = &a_info[j];
 			char buf2[80];
+			char *temp;
 
 			/* We only want objects in the current group */
 			if (a_ptr->tval != group_artifact[i].tval) continue;
@@ -482,8 +454,19 @@ static void spoil_artifact(const char *fname)
 			/* Print name and underline */
 			spoiler_underline(buf2, '-');
 
+			/* Cheat extra knowledge */
+			object_know_all_but_flavor(i_ptr); 
+
+			/* Temporarily blank the artifact flavour text - spoilers
+			   spoil the mechanics, not the atmosphere. */
+			temp = i_ptr->artifact->text;
+			i_ptr->artifact->text = NULL;
+
 			/* Write out the artifact description to the spoiler file */
 			object_info_spoil(fh, i_ptr, 80);
+
+			/* Put back the flavour */
+			i_ptr->artifact->text = temp;
 
 			/*
 			 * Determine the minimum and maximum depths an
@@ -794,6 +777,3 @@ void do_cmd_spoilers(void)
 	menu_select(spoil_menu, 0, FALSE);
 	screen_load();
 }
-
-
-#endif

@@ -26,6 +26,7 @@
 typedef struct maxima
 {
 	u16b f_max;       /**< Maximum number of terrain features */
+    u16b trap_max;	  /**< Maximum number of trap kinds */
 	u16b k_max;       /**< Maximum number of object base kinds */
 	u16b a_max;       /**< Maximum number of artifact kinds */
 	u16b e_max;       /**< Maximum number of ego-item kinds */
@@ -36,6 +37,7 @@ typedef struct maxima
 
 	u16b o_max;       /**< Maximum number of objects on a given level */
 	u16b m_max;       /**< Maximum number of monsters on a given level */
+    u16b l_max;		  /**< Maximum number of traps on a given level */
 } maxima;
 
 struct init_module {
@@ -45,6 +47,24 @@ struct init_module {
 };
 
 extern maxima *z_info;
+
+extern const char *ANGBAND_SYS;
+extern const char *ANGBAND_GRAF;
+
+extern char *ANGBAND_DIR_APEX;
+extern char *ANGBAND_DIR_EDIT;
+extern char *ANGBAND_DIR_FILE;
+extern char *ANGBAND_DIR_HELP;
+extern char *ANGBAND_DIR_INFO;
+extern char *ANGBAND_DIR_SAVE;
+extern char *ANGBAND_DIR_PREF;
+extern char *ANGBAND_DIR_USER;
+extern char *ANGBAND_DIR_XTRA;
+
+extern char *ANGBAND_DIR_XTRA_FONT;
+extern char *ANGBAND_DIR_XTRA_GRAF;
+extern char *ANGBAND_DIR_XTRA_SOUND;
+extern char *ANGBAND_DIR_XTRA_ICON;
 
 extern struct parser *init_parse_a(void);
 extern struct parser *init_parse_c(void);
@@ -63,6 +83,7 @@ extern struct parser *init_parse_z(void);
 extern struct parser *init_parse_flavor(void);
 extern struct parser *init_parse_names(void);
 extern struct parser *init_parse_hints(void);
+extern struct parser *init_parse_trap(void);
 
 extern void init_file_paths(const char *config, const char *lib, const char *data);
 extern void init_arrays(void);

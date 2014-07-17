@@ -278,10 +278,6 @@ C:0:^C
 A:w0\s\s
 C:0:x
 
-# Pickup an item (with autopickup)
-A:^Gg
-C:0:g
-
 ##### Roguelike Keyset Mappings #####
 
 # Stay still (numerical)
@@ -350,19 +346,12 @@ C:1:^U
 A:Q
 C:1:^C
 
-# Pickup an item (with autopickup)
-A:^Gg
-C:1:g
-
 # Message colors
 %:message.prf
 
 ##### System Specific Subfiles #####
 
-#?:[EQU $SYS mac]
-#%:pref-run.prf
-
-#?:[EQU $SYS sdl]
-#%:pref-run.prf
+?:[EQU $SYS gcu]
+%:keys-gcu.prf
 
 ?:1

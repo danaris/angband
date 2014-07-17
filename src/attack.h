@@ -3,25 +3,24 @@
 #ifndef ATTACK_H
 #define ATTACK_H
 
+#include "cmd-core.h"
+
 /* attack.c */
-extern void do_cmd_fire(cmd_code code, cmd_arg args[]);
-extern void textui_cmd_fire_at_nearest(void);
-extern void do_cmd_throw(cmd_code code, cmd_arg args[]);
-extern void textui_cmd_throw(void);
+extern void do_cmd_fire(struct command *cmd);
+extern void do_cmd_fire_at_nearest(void);
+extern void do_cmd_throw(struct command *cmd);
 
 
 extern int breakage_chance(const object_type *o_ptr, bool hit_target);
 extern bool test_hit(int chance, int ac, int vis);
 extern void py_attack(int y, int x);
+int py_attack_hit_chance(const object_type *weapon);
 
-/**
- *
- */
 struct attack_result {
     bool success;
     int dmg;
     u32b msg_type;
-    const char *hit_verb;
+    char *hit_verb;
 };
 
 /**

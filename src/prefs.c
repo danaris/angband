@@ -18,11 +18,24 @@
  *    are included in all such copies.  Other copyrights may also apply.
  */
 #include "angband.h"
+#include "cave.h"
+#include "grafmode.h"
+#include "init.h"
 #include "keymap.h"
+#include "monster.h"
+#include "obj-ignore.h"
+#include "obj-tval.h"
+#include "obj-util.h"
+#include "object.h"
 #include "prefs.h"
-#include "squelch.h"
+#include "project.h"
 #include "spells.h"
+#include "ui-game.h"
 
+bool arg_wizard;			/* Command arg -- Request wizard mode */
+bool arg_rebalance;			/* Command arg -- Rebalance monsters */
+int arg_graphics;			/* Command arg -- Request graphics mode */
+bool arg_graphics_nice;			/* Command arg -- Request nice graphics mode */
 
 /*** Pref file saving code ***/
 
@@ -242,8 +255,10 @@ void dump_features(ang_file *fff)
 			wint_t chr = f_ptr->x_char[j];
 
 			const char *light = NULL;
-			if (j == FEAT_LIGHTING_BRIGHT)
-				light = "bright";
+			if (j == FEAT_LIGHTING_TORCH)
+				light = "torch";
+			if (j == FEAT_LIGHTING_LOS)
+				light = "los";
 			else if (j == FEAT_LIGHTING_LIT)
 				light = "lit";
 			else if (j == FEAT_LIGHTING_DARK)
@@ -539,13 +554,13 @@ static const char *process_pref_file_expr(char **sp, char *fp)
 			else if (streq(b+1, "GRAF"))
 				v = ANGBAND_GRAF;
 			else if (streq(b+1, "RACE"))
-				v = p_ptr->race->name;
+				v = player->race->name;
 			else if (streq(b+1, "CLASS"))
-				v = p_ptr->class->name;
+				v = player->class->name;
 			else if (streq(b+1, "PLAYER"))
-				v = player_safe_name(p_ptr);
+				v = player_safe_name(player, TRUE);
 			else if (streq(b+1, "GENDER"))
-				v = p_ptr->sex->title;
+				v = player->sex->title;
 		}
 
 		/* Constant */
@@ -651,8 +666,10 @@ static enum parser_error parse_prefs_f(struct parser *p)
 		return PARSE_ERROR_OUT_OF_BOUNDS;
 
 	lighting = parser_getsym(p, "lighting");
-	if (streq(lighting, "bright"))
-		light_idx = FEAT_LIGHTING_BRIGHT;
+	if (streq(lighting, "torch"))
+		light_idx = FEAT_LIGHTING_TORCH;
+	else if (streq(lighting, "los"))
+		light_idx = FEAT_LIGHTING_LOS;
 	else if (streq(lighting, "lit"))
 		light_idx = FEAT_LIGHTING_LIT;
 	else if (streq(lighting, "dark"))
@@ -760,24 +777,6 @@ static enum parser_error parse_prefs_l(struct parser *p)
 	return PARSE_ERROR_NONE;
 }
 
-static enum parser_error parse_prefs_e(struct parser *p)
-{
-	int tvi, a;
-
-	struct prefs_data *d = parser_priv(p);
-	assert(d != NULL);
-	if (d->bypass) return PARSE_ERROR_NONE;
-
-	tvi = tval_find_idx(parser_getsym(p, "tval"));
-	if (tvi < 0 || tvi >= (long)N_ELEMENTS(tval_to_attr))
-		return PARSE_ERROR_UNRECOGNISED_TVAL;
-
-	a = parser_getint(p, "attr");
-	if (a) tval_to_attr[tvi] = (byte) a;
-
-	return PARSE_ERROR_NONE;
-}
-
 static enum parser_error parse_prefs_q(struct parser *p)
 {
 	struct prefs_data *d = parser_priv(p);
@@ -801,14 +800,14 @@ static enum parser_error parse_prefs_q(struct parser *p)
 		if (!kind)
 			return PARSE_ERROR_UNRECOGNISED_SVAL;
 
-		kind->squelch = parser_getint(p, "flag");
+		kind->ignore = parser_getint(p, "flag");
 	}
 	else
 	{
 		int idx = parser_getint(p, "idx");
 		int level = parser_getint(p, "n");
 
-		squelch_level[idx] = level;
+		ignore_level[idx] = level;
 	}
 
 	return PARSE_ERROR_NONE;
@@ -844,7 +843,7 @@ static enum parser_error parse_prefs_a(struct parser *p)
 {
 	const char *act = "";
 
-	struct prefs_data *d = parser_priv(p);
+	struct prefs_data *d = parser_priv(p);	
 	assert(d != NULL);
 	if (d->bypass) return PARSE_ERROR_NONE;
 
@@ -880,15 +879,21 @@ static enum parser_error parse_prefs_c(struct parser *p)
 
 static enum parser_error parse_prefs_m(struct parser *p)
 {
-	int a, type;
+	int a, msg_index;
 	const char *attr;
+	const char *type;
 
 	struct prefs_data *d = parser_priv(p);
 	assert(d != NULL);
 	if (d->bypass) return PARSE_ERROR_NONE;
 
-	type = parser_getint(p, "type");
+	type = parser_getsym(p, "type");
 	attr = parser_getsym(p, "attr");
+
+	msg_index = message_lookup_by_name(type);
+
+	if (msg_index < 0)
+		return PARSE_ERROR_GENERIC;
 
 	if (strlen(attr) > 1)
 		a = color_text_to_attr(attr);
@@ -898,7 +903,7 @@ static enum parser_error parse_prefs_m(struct parser *p)
 	if (a < 0)
 		return PARSE_ERROR_INVALID_COLOR;
 
-	message_color_define((u16b)type, (byte)a);
+	message_color_define(msg_index, (byte)a);
 
 	return PARSE_ERROR_NONE;
 }
@@ -1007,13 +1012,12 @@ static struct parser *init_parse_prefs(bool user)
 	parser_reg(p, "F uint idx sym lighting int attr int char", parse_prefs_f);
 	parser_reg(p, "GF sym type sym direction uint attr uint char", parse_prefs_gf);
 	parser_reg(p, "L uint idx int attr int char", parse_prefs_l);
-	parser_reg(p, "E sym tval int attr", parse_prefs_e);
 	parser_reg(p, "Q sym idx sym n ?sym sval ?sym flag", parse_prefs_q);
 		/* XXX should be split into two kinds of line */
 	parser_reg(p, "inscribe sym tval sym sval str text", parse_prefs_inscribe);
 	parser_reg(p, "A ?str act", parse_prefs_a);
 	parser_reg(p, "C int mode str key", parse_prefs_c);
-	parser_reg(p, "M int type sym attr", parse_prefs_m);
+	parser_reg(p, "M sym type sym attr", parse_prefs_m);
 	parser_reg(p, "V uint idx int k int r int g int b", parse_prefs_v);
 	parser_reg(p, "W int window uint flag uint value", parse_prefs_w);
 	parser_reg(p, "X str option", parse_prefs_x);
@@ -1030,7 +1034,7 @@ static errr finish_parse_prefs(struct parser *p)
 
 	/* Update sub-windows based on the newly read-in prefs.
 	 *
-	 * The op_ptr->window_flag[] array cannot be updated directly during
+	 * The window_flag[] array cannot be updated directly during
 	 * parsing since the changes between the existing flags and the new
 	 * are used to set/unset the event handlers that update the windows.
 	 *
@@ -1039,7 +1043,7 @@ static errr finish_parse_prefs(struct parser *p)
 	 */
 	for (i = 0; i < ANGBAND_TERM_MAX; i++) {
 		if (!d->loaded_window_flag[i])
-			d->window_flags[i] = op_ptr->window_flag[i];
+			d->window_flags[i] = window_flag[i];
 	}
 	subwindows_set_flags(d->window_flags, ANGBAND_TERM_MAX);
 
@@ -1064,17 +1068,18 @@ static void print_error(const char *name, struct parser *p) {
 	message_flush();
 }
 
-
-/*
- * Process the user pref file with the given name.
- * "quiet" means "don't complain about not finding the file.
+/**
+ * Process the user pref file with a given name and search paths.
  *
- * 'user' should be TRUE if the pref file loaded is user-specific and not
- * a game default.
- *
- * Returns TRUE if everything worked OK, false otherwise
+ * \param name is the name of the pref file.
+ * \param quiet means "don't complain about not finding the file".
+ * \param user should be TRUE if the pref file is user-specific and not a game default.
+ * \param base_search_path is the first path that should be checked for the file.
+ * \param fallback_search_path is the path that should be checked if the file couldn't be found at the base path.
+ * \param used_fallback will be set on return to TRUE if the fallback path was used, FALSE otherwise.
+ * \returns TRUE if everything worked OK, FALSE otherwise.
  */
-bool process_pref_file(const char *name, bool quiet, bool user)
+static bool process_pref_file_layered(const char *name, bool quiet, bool user, const char *base_search_path, const char *fallback_search_path, bool *used_fallback)
 {
 	char buf[1024];
 
@@ -1084,10 +1089,20 @@ bool process_pref_file(const char *name, bool quiet, bool user)
 
 	int line_no = 0;
 
+	assert(base_search_path != NULL);
+
 	/* Build the filename */
-	path_build(buf, sizeof(buf), ANGBAND_DIR_PREF, name);
-	if (!file_exists(buf))
-		path_build(buf, sizeof(buf), ANGBAND_DIR_USER, name);
+	path_build(buf, sizeof(buf), base_search_path, name);
+
+	if (used_fallback != NULL)
+		*used_fallback = FALSE;
+
+	if (!file_exists(buf) && fallback_search_path != NULL) {
+		path_build(buf, sizeof(buf), fallback_search_path, name);
+
+		if (used_fallback != NULL)
+			*used_fallback = TRUE;
+	}
 
 	f = file_open(buf, MODE_READ, -1);
 	if (!f)
@@ -1095,7 +1110,7 @@ bool process_pref_file(const char *name, bool quiet, bool user)
 		if (!quiet)
 			msg("Cannot open '%s'.", buf);
 
-		e = PARSE_ERROR_INTERNAL; // signal failure to callers
+		e = PARSE_ERROR_INTERNAL; /* signal failure to callers */
 	}
 	else
 	{
@@ -1122,4 +1137,115 @@ bool process_pref_file(const char *name, bool quiet, bool user)
 
 	/* Result */
 	return e == PARSE_ERROR_NONE;
+}
+
+/**
+ * Look for a pref file at its base location (falling back to another path if needed) and then in the user location. This
+ * effectively will layer a user pref file on top of a default pref file.
+ *
+ * Because of the way this function works, there might be some unexpected effects when a pref file triggers another
+ * pref file to be loaded. For example, pref/pref.prf causes message.prf to load. This means that the game will
+ * load pref/pref.prf, then pref/message.prf, then user/message.prf, and finally user/pref.prf.
+ *
+ * \param name is the name of the pref file.
+ * \param quiet means "don't complain about not finding the file".
+ * \param user should be TRUE if the pref file is user-specific and not a game default.
+ * \returns TRUE if everything worked OK, FALSE otherwise.
+ */
+bool process_pref_file(const char *name, bool quiet, bool user)
+{
+	bool root_success = FALSE;
+	bool user_success = FALSE;
+	bool used_fallback = FALSE;
+
+	/* This supports the old behavior: look for a file first in 'pref/', and if not found there, then 'user/'. */
+	root_success = process_pref_file_layered(name, quiet, user, ANGBAND_DIR_PREF, ANGBAND_DIR_USER, &used_fallback);
+
+	/* Next, we want to force a check for the file in the user/ directory. However, since we used the user directory
+	 * as a fallback in the previous check, we only want to do this if the fallback wasn't used. This cuts down on
+	 * unnecessary parsing. */
+	if (!used_fallback) {
+		/* Force quiet (since this is an optional file) and force user (since this should always be considered user-specific). */
+		user_success = process_pref_file_layered(name, TRUE, TRUE, ANGBAND_DIR_USER, NULL, &used_fallback);
+	}
+
+	/* If only one load was successful, that's okay; we loaded something. */
+	return root_success || user_success;
+}
+
+int use_graphics;		/* The "graphics" mode is enabled */
+
+/*
+ * Reset the "visual" lists
+ *
+ * This involves resetting various things to their "default" state.
+ *
+ * If the "prefs" flag is TRUE, then we will also load the appropriate
+ * "user pref file" based on the current setting of the "use_graphics"
+ * flag.  This is useful for switching "graphics" on/off.
+ */
+void reset_visuals(bool load_prefs)
+{
+	int i;
+	struct flavor *f;
+
+	/* Extract default attr/char code for features */
+	for (i = 0; i < z_info->f_max; i++)
+	{
+		int j;
+		feature_type *f_ptr = &f_info[i];
+
+		/* Assume we will use the underlying values */
+		for (j = 0; j < FEAT_LIGHTING_MAX; j++)
+		{
+			f_ptr->x_attr[j] = f_ptr->d_attr;
+			f_ptr->x_char[j] = f_ptr->d_char;
+		}
+	}
+
+	/* Extract default attr/char code for objects */
+	for (i = 0; i < z_info->k_max; i++)
+	{
+		object_kind *k_ptr = &k_info[i];
+
+		/* Default attr/char */
+		k_ptr->x_attr = k_ptr->d_attr;
+		k_ptr->x_char = k_ptr->d_char;
+	}
+
+	/* Extract default attr/char code for monsters */
+	for (i = 0; i < z_info->r_max; i++)
+	{
+		monster_race *r_ptr = &r_info[i];
+
+		/* Default attr/char */
+		r_ptr->x_attr = r_ptr->d_attr;
+		r_ptr->x_char = r_ptr->d_char;
+	}
+
+	/* Extract default attr/char code for flavors */
+	for (f = flavors; f; f = f->next)
+	{
+		f->x_attr = f->d_attr;
+		f->x_char = f->d_char;
+	}
+
+	if (!load_prefs)
+		return;
+
+	/* Graphic symbols */
+	if (use_graphics) {
+		/* if we have a graphics mode, see if the mode has a pref file name */
+		graphics_mode *mode = get_graphics_mode(use_graphics);
+		if (mode && strstr(mode->pref,".prf")) {
+			(void)process_pref_file(mode->pref, FALSE, FALSE);
+		} else {
+			(void)process_pref_file("graf.prf", FALSE, FALSE);
+		}
+		/* process_pref_file("graf.prf", FALSE, FALSE); */
+
+	/* Normal symbols */
+	} else {
+		process_pref_file("font.prf", FALSE, FALSE);
+	}
 }

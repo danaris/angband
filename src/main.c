@@ -20,7 +20,9 @@
 #include "dungeon.h"
 #include "files.h"
 #include "init.h"
+#include "prefs.h"
 #include "savefile.h"
+#include "signals.h"
 
 /* locale junk */
 #include "locale.h"
@@ -340,10 +342,10 @@ static errr get_init_cmd(void)
 	pause_line(Term);
 
 	if (new_game)
-		cmd_insert(CMD_NEWGAME);
+		cmdq_push(CMD_NEWGAME);
 	else
 		/* This might be modified to supply the filename in future. */
-		cmd_insert(CMD_LOADFILE);
+		cmdq_push(CMD_LOADFILE);
 
 	/* Everything's OK. */
 	return 0;
@@ -468,7 +470,7 @@ int main(int argc, char *argv[])
 				 * can do whatever the hell they want.
 				 */
 #ifdef SETGID
-				savefile_set_name(player_safe_name(p_ptr));
+				savefile_set_name(player_safe_name(player, FALSE));
 #else
 				savefile_set_name(arg);
 #endif /* SETGID */
@@ -586,7 +588,7 @@ int main(int argc, char *argv[])
 		user_name(op_ptr->full_name, sizeof(op_ptr->full_name), player_uid);
 
 		/* Set the savefile to load */
-		savefile_set_name(player_safe_name(p_ptr));
+		savefile_set_name(player_safe_name(player, FALSE));
 	}
 
 	/* Create any missing directories */

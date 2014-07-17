@@ -3,10 +3,10 @@
 #include "unit-test.h"
 
 #include "init.h"
-#include "object/tvalsval.h"
-#include "object/obj-flag.h"
-#include "object/object.h"
-#include "z-term.h"
+#include "obj-tval.h"
+#include "obj-properties.h"
+#include "object.h"
+#include "z-color.h"
 
 int setup_tests(void **state) {
 	*state = init_parse_flavor();

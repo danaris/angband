@@ -16,12 +16,16 @@
  */
 
 #include "angband.h"
-#include "button.h"
 #include "cmds.h"
 #include "dungeon.h"
 #include "files.h"
 #include "init.h"
 #include "grafmode.h"
+#include "obj-util.h"
+#include "prefs.h"
+#include "savefile.h"
+#include "ui-game.h"
+#include "ui-input.h"
 
 #if defined(SAFE_DIRECTORY)
 #import "buildid.h"
@@ -29,11 +33,6 @@
 
 //#define NSLog(...) ;
 
-
-#if BORG
-#include "borg1.h"
-#include "borg9.h"
-#endif
 
 #if defined(MACH_O_CARBON)
 
@@ -53,6 +52,7 @@ static NSString * const AngbandDirectoryNameBase = @"Angband";
 static NSString * const AngbandTerminalsDefaultsKey = @"Terminals";
 static NSString * const AngbandTerminalRowsDefaultsKey = @"Rows";
 static NSString * const AngbandTerminalColumnsDefaultsKey = @"Columns";
+static NSString * const AngbandTerminalVisibleDefaultsKey = @"Visible";
 static NSInteger const AngbandWindowMenuItemTagBase = 1000;
 static NSInteger const AngbandCommandMenuItemTagBase = 2000;
 
@@ -65,7 +65,7 @@ static NSInteger const AngbandCommandMenuItemTagBase = 2000;
  * Support the improved game command handling
  */
 #include "textui.h"
-static game_command cmd = { CMD_NULL, 0 };
+static struct command cmd = { CMD_NULL, 0 };
 
 
 /* Our command-fetching function */
@@ -159,9 +159,11 @@ static NSFont *default_font;
 @private
 
     BOOL _hasSubwindowFlags;
+    BOOL _windowVisibilityChecked;
 }
 
 @property (nonatomic, assign) BOOL hasSubwindowFlags;
+@property (nonatomic, assign) BOOL windowVisibilityChecked;
 
 - (void)drawRect:(NSRect)rect inView:(NSView *)view;
 
@@ -201,12 +203,6 @@ static NSFont *default_font;
 /* Handle becoming the main window */
 - (void)windowDidBecomeMain:(NSNotification *)notification;
 
-/* Order the context's primary window frontmost */
-- (void)orderFront;
-
-/* Order the context's primary window out */
-- (void)orderOut;
-
 /* Return whether the context's primary window is ordered in or not */
 - (BOOL)isOrderedIn;
 
@@ -222,9 +218,15 @@ static NSFont *default_font;
 /* Display (flush) our Angband views */
 - (void)displayIfNeeded;
 
+/* Resize context to size of contentRect, and optionally save size to
+ * defaults */
+- (void)resizeTerminalWithContentRect: (NSRect)contentRect saveToDefaults: (BOOL)saveToDefaults;
+
 /* Called from the view to indicate that it is starting or ending live resize */
 - (void)viewWillStartLiveResize:(AngbandView *)view;
 - (void)viewDidEndLiveResize:(AngbandView *)view;
+- (void)saveWindowVisibleToDefaults: (BOOL)windowVisible;
+- (BOOL)windowVisibleUsingDefaults;
 
 /* Class methods */
 
@@ -245,7 +247,7 @@ static NSFont *default_font;
  */
 u32b AngbandMaskForValidSubwindowFlags(void)
 {
-    int windowFlagBits = sizeof(*(op_ptr->window_flag)) * CHAR_BIT;
+    int windowFlagBits = sizeof(*(window_flag)) * CHAR_BIT;
     int maxBits = MIN( PW_MAX_FLAGS, windowFlagBits );
     u32b mask = 0;
 
@@ -285,17 +287,39 @@ static void AngbandUpdateWindowVisibility(void)
             continue;
         }
 
-        BOOL termHasSubwindowFlags = ((op_ptr->window_flag[i] & validWindowFlagsMask) > 0);
-
-        if( angbandContext.hasSubwindowFlags && !termHasSubwindowFlags )
+        // this horrible mess of flags is so that we can try to maintain some user visibility preference. this should allow the user
+        // a window and have it stay closed between application launches. however, this means that when a subwindow is turned on, 
+        // it will no longer appear automatically. angband has no concept of user control over window visibility, other than the
+        // subwindow flags.
+        if( !angbandContext.windowVisibilityChecked )
         {
-            [angbandContext->primaryWindow close];
-            angbandContext.hasSubwindowFlags = NO;
+            if( [angbandContext windowVisibleUsingDefaults] )
+            {
+                [angbandContext->primaryWindow orderFront: nil];
+                angbandContext.windowVisibilityChecked = YES;
+            }
+            else
+            {
+                [angbandContext->primaryWindow close];
+                angbandContext.windowVisibilityChecked = NO;
+            }
         }
-        else if( !angbandContext.hasSubwindowFlags && termHasSubwindowFlags )
+        else
         {
-            [angbandContext->primaryWindow orderFront: nil];
-            angbandContext.hasSubwindowFlags = YES;
+            BOOL termHasSubwindowFlags = ((window_flag[i] & validWindowFlagsMask) > 0);
+
+            if( angbandContext.hasSubwindowFlags && !termHasSubwindowFlags )
+            {
+                [angbandContext->primaryWindow close];
+                angbandContext.hasSubwindowFlags = NO;
+                [angbandContext saveWindowVisibleToDefaults: NO];
+            }
+            else if( !angbandContext.hasSubwindowFlags && termHasSubwindowFlags )
+            {
+                [angbandContext->primaryWindow orderFront: nil];
+                angbandContext.hasSubwindowFlags = YES;
+                [angbandContext saveWindowVisibleToDefaults: YES];
+            }
         }
     }
 
@@ -465,6 +489,7 @@ static bool initialized = FALSE;
 @implementation AngbandContext
 
 @synthesize hasSubwindowFlags=_hasSubwindowFlags;
+@synthesize windowVisibilityChecked=_windowVisibilityChecked;
 
 - (NSFont *)selectionFont
 {
@@ -805,7 +830,9 @@ static int compare_advances(const void *ap, const void *bp)
         angbandViews = [[NSMutableArray alloc] init];
         
         /* Make the image. Since we have no views, it'll just be a puny 1x1 image. */
-        [self updateImage];        
+        [self updateImage];
+
+        _windowVisibilityChecked = NO;
     }
     return self;
 }
@@ -906,6 +933,55 @@ static int compare_advances(const void *ap, const void *bp)
 
 #pragma mark -
 
+/* From the Linux mbstowcs(3) man page:
+ *   If dest is NULL, n is ignored, and the conversion  proceeds  as  above,
+ *   except  that  the converted wide characters are not written out to mem‐
+ *   ory, and that no length limit exists.
+ */
+static size_t Term_mbcs_cocoa(wchar_t *dest, const char *src, int n)
+{
+    int i;
+    int count = 0;
+
+    /* Unicode code point to UTF-8
+     *  0x0000-0x007f:   0xxxxxxx
+     *  0x0080-0x07ff:   110xxxxx 10xxxxxx
+     *  0x0800-0xffff:   1110xxxx 10xxxxxx 10xxxxxx
+     * 0x10000-0x1fffff: 11110xxx 10xxxxxx 10xxxxxx 10xxxxxx
+     * Note that UTF-16 limits Unicode to 0x10ffff. This code is not
+     * endian-agnostic.
+     */
+    for (i = 0; i < n || dest == NULL; i++) {
+        if ((src[i] & 0x80) == 0) {
+            if (dest != NULL) dest[count] = src[i];
+            if (src[i] == 0) break;
+        } else if ((src[i] & 0xe0) == 0xc0) {
+            if (dest != NULL) dest[count] = 
+                            (((unsigned char)src[i] & 0x1f) << 6)| 
+                            ((unsigned char)src[i+1] & 0x3f);
+            i++;
+        } else if ((src[i] & 0xf0) == 0xe0) {
+            if (dest != NULL) dest[count] = 
+                            (((unsigned char)src[i] & 0x0f) << 12) | 
+                            (((unsigned char)src[i+1] & 0x3f) << 6) |
+                            ((unsigned char)src[i+2] & 0x3f);
+            i += 2;
+        } else if ((src[i] & 0xf8) == 0xf0) {
+            if (dest != NULL) dest[count] = 
+                            (((unsigned char)src[i] & 0x0f) << 18) | 
+                            (((unsigned char)src[i+1] & 0x3f) << 12) |
+                            (((unsigned char)src[i+2] & 0x3f) << 6) |
+                            ((unsigned char)src[i+3] & 0x3f);
+            i += 3;
+        } else {
+            /* Found an invalid multibyte sequence */
+            return (size_t)-1;
+        }
+        count++;
+    }
+    return count;
+}
+
 /* Entry point for initializing Angband */
 + (void)beginGame
 {
@@ -938,6 +1014,7 @@ static int compare_advances(const void *ap, const void *bp)
     
     /* Prepare the windows */
     init_windows();
+	text_mbcs_hook = Term_mbcs_cocoa;
     
     /* Set up game event handlers */
     init_display();
@@ -975,8 +1052,8 @@ static int compare_advances(const void *ap, const void *bp)
     /* Hack -- Forget messages */
     msg_flag = FALSE;
     
-    p_ptr->playing = FALSE;
-    p_ptr->leaving = TRUE;
+    player->upkeep->playing = FALSE;
+    player->upkeep->leaving = TRUE;
     quit_when_ready = TRUE;
 }
 
@@ -1139,12 +1216,6 @@ static NSMenuItem *superitem(NSMenuItem *self)
     if (viewInLiveResize) CGContextSetInterpolationQuality(context, kCGInterpolationDefault);
 }
 
-
-- (void)orderFront
-{
-    [[[angbandViews lastObject] window] makeKeyAndOrderFront:self];
-}
-
 - (BOOL)isOrderedIn
 {
     return [[[angbandViews lastObject] window] isVisible];
@@ -1153,11 +1224,6 @@ static NSMenuItem *superitem(NSMenuItem *self)
 - (BOOL)isMainWindow
 {
     return [[[angbandViews lastObject] window] isMainWindow];
-}
-
-- (void)orderOut
-{
-    [[[angbandViews lastObject] window] orderOut:self];
 }
 
 - (void)setNeedsDisplay:(BOOL)val
@@ -1194,6 +1260,21 @@ static NSMenuItem *superitem(NSMenuItem *self)
     self->attrOverdrawCache = NSAllocateCollectable(self->cols * self->rows *sizeof *attrOverdrawCache, 0);
 }
 
+- (int)terminalIndex
+{
+	int termIndex = 0;
+
+	for( termIndex = 0; termIndex < ANGBAND_TERM_MAX; termIndex++ )
+	{
+		if( angband_term[termIndex] == self->terminal )
+		{
+			break;
+		}
+	}
+
+	return termIndex;
+}
+
 - (void)resizeTerminalWithContentRect: (NSRect)contentRect saveToDefaults: (BOOL)saveToDefaults
 {
     CGFloat newRows = floor( (contentRect.size.height - (borderSize.height * 2.0)) / tileSize.height );
@@ -1205,23 +1286,14 @@ static NSMenuItem *superitem(NSMenuItem *self)
 
     if( saveToDefaults )
     {
-        int termIndex = 0;
-
-        for( termIndex = 0; termIndex < ANGBAND_TERM_MAX; termIndex++ )
-        {
-            if( angband_term[termIndex] == self->terminal )
-            {
-                break;
-            }
-        }
-
+        int termIndex = [self terminalIndex];
         NSArray *terminals = [[NSUserDefaults standardUserDefaults] valueForKey: AngbandTerminalsDefaultsKey];
 
         if( termIndex < (int)[terminals count] )
         {
             NSMutableDictionary *mutableTerm = [[NSMutableDictionary alloc] initWithDictionary: [terminals objectAtIndex: termIndex]];
-            [mutableTerm setValue: @(self->cols) forKey: AngbandTerminalColumnsDefaultsKey];
-            [mutableTerm setValue: @(self->rows) forKey: AngbandTerminalRowsDefaultsKey];
+            [mutableTerm setValue: [NSNumber numberWithUnsignedInt: self->cols] forKey: AngbandTerminalColumnsDefaultsKey];
+            [mutableTerm setValue: [NSNumber numberWithUnsignedInt: self->rows] forKey: AngbandTerminalRowsDefaultsKey];
 
             NSMutableArray *mutableTerminals = [[NSMutableArray alloc] initWithArray: terminals];
             [mutableTerminals replaceObjectAtIndex: termIndex withObject: mutableTerm];
@@ -1237,6 +1309,52 @@ static NSMenuItem *superitem(NSMenuItem *self)
     Term_resize( (int)newColumns, (int)newRows);
     Term_redraw();
     Term_activate( old );
+}
+
+- (void)saveWindowVisibleToDefaults: (BOOL)windowVisible
+{
+	int termIndex = [self terminalIndex];
+	BOOL safeVisibility = (termIndex == 0) ? YES : windowVisible; // ensure main term doesn't go away because of these defaults
+	NSArray *terminals = [[NSUserDefaults standardUserDefaults] valueForKey: AngbandTerminalsDefaultsKey];
+
+	if( termIndex < (int)[terminals count] )
+	{
+		NSMutableDictionary *mutableTerm = [[NSMutableDictionary alloc] initWithDictionary: [terminals objectAtIndex: termIndex]];
+		[mutableTerm setValue: [NSNumber numberWithBool: safeVisibility] forKey: AngbandTerminalVisibleDefaultsKey];
+
+		NSMutableArray *mutableTerminals = [[NSMutableArray alloc] initWithArray: terminals];
+		[mutableTerminals replaceObjectAtIndex: termIndex withObject: mutableTerm];
+
+		[[NSUserDefaults standardUserDefaults] setValue: mutableTerminals forKey: AngbandTerminalsDefaultsKey];
+		[mutableTerminals release];
+		[mutableTerm release];
+	}
+}
+
+- (BOOL)windowVisibleUsingDefaults
+{
+	int termIndex = [self terminalIndex];
+
+	if( termIndex == 0 )
+	{
+		return YES;
+	}
+
+	NSArray *terminals = [[NSUserDefaults standardUserDefaults] valueForKey: AngbandTerminalsDefaultsKey];
+	BOOL visible = NO;
+
+	if( termIndex < (int)[terminals count] )
+	{
+		NSDictionary *term = [terminals objectAtIndex: termIndex];
+		NSNumber *visibleValue = [term valueForKey: AngbandTerminalVisibleDefaultsKey];
+
+		if( visibleValue != nil )
+		{
+			visible = [visibleValue boolValue];
+		}
+	}
+
+	return visible;
 }
 
 #pragma mark -
@@ -1320,6 +1438,11 @@ static NSMenuItem *superitem(NSMenuItem *self)
 
     NSMenuItem *item = [[[NSApplication sharedApplication] windowsMenu] itemWithTag: AngbandWindowMenuItemTagBase + termIndex];
     [item setState: NSOffState];
+}
+
+- (void)windowWillClose: (NSNotification *)notification
+{
+	[self saveWindowVisibleToDefaults: NO];
 }
 
 @end
@@ -1449,14 +1572,20 @@ static void Term_init_cocoa(term *t)
             break;
         }
     }
-    
+
     /* Set its font. */
-    NSString *fontName = [[NSUserDefaults angbandDefaults] 
-        stringForKey:[NSString stringWithFormat:@"FontName-%d", termIdx]];
+    NSString *fontName = [[NSUserDefaults angbandDefaults] stringForKey:[NSString stringWithFormat:@"FontName-%d", termIdx]];
     if (! fontName) fontName = [default_font fontName];
-    float fontSize = [[NSUserDefaults angbandDefaults] 
-        floatForKey:[NSString stringWithFormat:@"FontSize-%d", termIdx]];
-    if (! fontSize) fontSize = [default_font pointSize];
+
+    // use a smaller default font for the other windows, but only if the font hasn't been explicitly set
+    float fontSize = (termIdx > 0) ? 10.0 : [default_font pointSize];
+    NSNumber *fontSizeNumber = [[NSUserDefaults angbandDefaults] valueForKey: [NSString stringWithFormat: @"FontSize-%d", termIdx]];
+
+    if( fontSizeNumber != nil )
+    {
+        fontSize = [fontSizeNumber floatValue];
+    }
+
     [context setSelectionFont:[NSFont fontWithName:fontName size:fontSize] adjustTerminal: NO];
 
     NSArray *terminalDefaults = [[NSUserDefaults standardUserDefaults] valueForKey: AngbandTerminalsDefaultsKey];
@@ -1501,22 +1630,76 @@ static void Term_init_cocoa(term *t)
     {
         [window setRestorable:NO];
     }
-    
-    /* Position the window, either through autosave or cascading it */
-    [window center];
-    
-    /* Cascade it */
-    static NSPoint lastPoint = {0, 0};
-    lastPoint = [window cascadeTopLeftFromPoint:lastPoint];
-    
-    /* And maybe that's all for naught */
-    if (autosaveName) [window setFrameAutosaveName:autosaveName];
-    
+
+	/* default window placement */ {
+		static NSRect overallBoundingRect;
+
+		if( termIdx == 0 )
+		{
+			// this is a bit of a trick to allow us to display multiple windows in the "standard default" window position in OS X: the upper center of the screen.
+			// the term sizes set in load_prefs() are based on a 5-wide by 3-high grid, with the main term being 4/5 wide by 2/3 high (hence the scaling to find
+			// what the containing rect would be).
+			NSRect originalMainTermFrame = [window frame];
+			NSRect scaledFrame = originalMainTermFrame;
+			scaledFrame.size.width *= 5.0 / 4.0;
+			scaledFrame.size.height *= 3.0 / 2.0;
+			scaledFrame.size.width += 1.0; // spacing between window columns
+			scaledFrame.size.height += 1.0; // spacing between window rows
+			[window setFrame: scaledFrame  display: NO];
+			[window center];
+			overallBoundingRect = [window frame];
+			[window setFrame: originalMainTermFrame display: NO];
+		}
+
+		static NSRect mainTermBaseRect;
+		NSRect windowFrame = [window frame];
+
+		if( termIdx == 0 )
+		{
+			// the height and width adjustments were determined experimentally, so that the rest of the windows line up nicely without overlapping
+            windowFrame.size.width += 7.0;
+			windowFrame.size.height += 9.0;
+			windowFrame.origin.x = NSMinX( overallBoundingRect );
+			windowFrame.origin.y = NSMaxY( overallBoundingRect ) - NSHeight( windowFrame );
+			mainTermBaseRect = windowFrame;
+		}
+		else if( termIdx == 1 )
+		{
+			windowFrame.origin.x = NSMinX( mainTermBaseRect );
+			windowFrame.origin.y = NSMinY( mainTermBaseRect ) - NSHeight( windowFrame ) - 1.0;
+		}
+		else if( termIdx == 2 )
+		{
+			windowFrame.origin.x = NSMaxX( mainTermBaseRect ) + 1.0;
+			windowFrame.origin.y = NSMaxY( mainTermBaseRect ) - NSHeight( windowFrame );
+		}
+		else if( termIdx == 3 )
+		{
+			windowFrame.origin.x = NSMaxX( mainTermBaseRect ) + 1.0;
+			windowFrame.origin.y = NSMinY( mainTermBaseRect ) - NSHeight( windowFrame ) - 1.0;
+		}
+		else if( termIdx == 4 )
+		{
+			windowFrame.origin.x = NSMaxX( mainTermBaseRect ) + 1.0;
+			windowFrame.origin.y = NSMinY( mainTermBaseRect );
+		}
+		else if( termIdx == 5 )
+		{
+			windowFrame.origin.x = NSMinX( mainTermBaseRect ) + NSWidth( windowFrame ) + 1.0;
+			windowFrame.origin.y = NSMinY( mainTermBaseRect ) - NSHeight( windowFrame ) - 1.0;
+		}
+
+		[window setFrame: windowFrame display: NO];
+	}
+
+	// override the default frame above if the user has adjusted windows in the past
+	if (autosaveName) [window setFrameAutosaveName:autosaveName];
+
     /* Tell it about its term. Do this after we've sized it so that the sizing doesn't trigger redrawing and such. */
     [context setTerm:t];
     
-    /* Only order front if it's the first term. Other terms will be ordered front from update_term_visibility(). This is to work around a problem where Angband aggressively tells us to initialize terms that don't do anything! */
-    if (t == angband_term[0]) [context orderFront];
+    /* Only order front if it's the first term. Other terms will be ordered front from AngbandUpdateWindowVisibility(). This is to work around a problem where Angband aggressively tells us to initialize terms that don't do anything! */
+    if (t == angband_term[0]) [context->primaryWindow makeKeyAndOrderFront: nil];
     
     NSEnableScreenUpdates();
     
@@ -1655,7 +1838,6 @@ static errr Term_xtra_cocoa_react(void)
         
         /* Record what we did */
         use_graphics = (new_mode != NULL);
-        use_transparency = (new_mode != NULL);
         ANGBAND_GRAF = (new_mode ? new_mode->pref : NULL);
         current_graphics_mode = new_mode;
         
@@ -2113,55 +2295,6 @@ static errr Term_text_cocoa(int x, int y, int n, int a, const wchar_t *cp)
     return (0);
 }
 
-/* From the Linux mbstowcs(3) man page:
- *   If dest is NULL, n is ignored, and the conversion  proceeds  as  above,
- *   except  that  the converted wide characters are not written out to mem‐
- *   ory, and that no length limit exists.
- */
-static size_t Term_mbcs_cocoa(wchar_t *dest, const char *src, int n)
-{
-    int i;
-    int count = 0;
-
-    /* Unicode code point to UTF-8
-     *  0x0000-0x007f:   0xxxxxxx
-     *  0x0080-0x07ff:   110xxxxx 10xxxxxx
-     *  0x0800-0xffff:   1110xxxx 10xxxxxx 10xxxxxx
-     * 0x10000-0x1fffff: 11110xxx 10xxxxxx 10xxxxxx 10xxxxxx
-     * Note that UTF-16 limits Unicode to 0x10ffff. This code is not
-     * endian-agnostic.
-     */
-    for (i = 0; i < n || dest == NULL; i++) {
-        if ((src[i] & 0x80) == 0) {
-            if (dest != NULL) dest[count] = src[i];
-            if (src[i] == 0) break;
-        } else if ((src[i] & 0xe0) == 0xc0) {
-            if (dest != NULL) dest[count] = 
-                            (((unsigned char)src[i] & 0x1f) << 6)| 
-                            ((unsigned char)src[i+1] & 0x3f);
-            i++;
-        } else if ((src[i] & 0xf0) == 0xe0) {
-            if (dest != NULL) dest[count] = 
-                            (((unsigned char)src[i] & 0x0f) << 12) | 
-                            (((unsigned char)src[i+1] & 0x3f) << 6) |
-                            ((unsigned char)src[i+2] & 0x3f);
-            i += 2;
-        } else if ((src[i] & 0xf8) == 0xf0) {
-            if (dest != NULL) dest[count] = 
-                            (((unsigned char)src[i] & 0x0f) << 18) | 
-                            (((unsigned char)src[i+1] & 0x3f) << 12) |
-                            (((unsigned char)src[i+2] & 0x3f) << 6) |
-                            ((unsigned char)src[i+3] & 0x3f);
-            i += 3;
-        } else {
-            /* Found an invalid multibyte sequence */
-            return (size_t)-1;
-        }
-        count++;
-    }
-    return count;
-}
-
 /* Post a nonsense event so that our event loop wakes up */
 static void wakeup_event_loop(void)
 {
@@ -2213,7 +2346,6 @@ static term *term_data_link(int i)
     newterm->curs_hook = Term_curs_cocoa;
     newterm->text_hook = Term_text_cocoa;
     newterm->pict_hook = Term_pict_cocoa;
-    newterm->mbcs_hook = Term_mbcs_cocoa;
     
     /* Global pointer */
     angband_term[i] = newterm;
@@ -2231,13 +2363,53 @@ static void load_prefs()
     
     /* Make some default defaults */
     NSMutableArray *defaultTerms = [[NSMutableArray alloc] init];
-    NSDictionary *standardTerm = @{
-                                   AngbandTerminalRowsDefaultsKey : @24,
-                                   AngbandTerminalColumnsDefaultsKey : @80,
-                                   };
-    
-    for( NSUInteger i = 0; i < 9; i++ )
+
+    // the following default rows/cols were determined experimentally by first finding the ideal window/font size combinations.
+    // but because of awful temporal coupling in Term_init_cocoa(), it's impossible to set up the defaults there, so we do it
+    // this way.
+    for( NSUInteger i = 0; i < ANGBAND_TERM_MAX; i++ )
     {
+		int columns, rows;
+		BOOL visible = YES;
+
+		switch( i )
+		{
+			case 0:
+				columns = 129;
+				rows = 32;
+				break;
+			case 1:
+				columns = 84;
+				rows = 20;
+				break;
+			case 2:
+				columns = 42;
+				rows = 24;
+				break;
+			case 3:
+				columns = 42;
+				rows = 20;
+				break;
+			case 4:
+				columns = 42;
+				rows = 16;
+				break;
+			case 5:
+				columns = 84;
+				rows = 20;
+				break;
+			default:
+				columns = 80;
+				rows = 24;
+				visible = NO;
+				break;
+		}
+
+		NSDictionary *standardTerm = [NSDictionary dictionaryWithObjectsAndKeys:
+									  [NSNumber numberWithInt: rows], AngbandTerminalRowsDefaultsKey,
+									  [NSNumber numberWithInt: columns], AngbandTerminalColumnsDefaultsKey,
+									  [NSNumber numberWithBool: visible], AngbandTerminalVisibleDefaultsKey,
+									  nil];
         [defaultTerms addObject: standardTerm];
     }
 
@@ -2268,7 +2440,7 @@ static void load_prefs()
 }
 
 /* Arbitary limit on number of possible samples per event */
-#define MAX_SAMPLES            8
+#define MAX_SAMPLES            16
 
 /* Struct representing all data for a set of event samples */
 typedef struct
@@ -2347,11 +2519,7 @@ static void load_sounds(void)
 		search[0] = '\0';
         
 		/* Make sure this is a valid event name */
-		for (event = MSG_MAX - 1; event >= 0; event--)
-		{
-			if (strcmp(msg_name, angband_sound_name[event]) == 0)
-				break;
-		}
+		event = message_lookup_by_sound_name(msg_name);
 		if (event < 0) continue;
         
 		/* Advance the sample list pointer so it's at the beginning of text */
@@ -2516,7 +2684,7 @@ static errr get_cmd_init(void)
     }
     
     /* Push the command to the game. */
-    cmd_insert_s(&cmd);
+    cmdq_push_copy(&cmd);
     
     return 0; 
 } 
@@ -2573,7 +2741,7 @@ static void quit_calmly(void)
         msg_flag = FALSE;
         
         /* Save the game */
-        do_cmd_save_game(FALSE, 0);
+        do_cmd_save_game(NULL);
         record_current_savefile();
         
         
@@ -2596,17 +2764,74 @@ static BOOL contains_angband_view(NSView *view)
     return NO;
 }
 
+
+/**
+ * Queue mouse presses if they occur in the map section of the main window.
+ */
+static void AngbandHandleEventMouseDown( NSEvent *event )
+{
+	AngbandContext *angbandContext = [[[event window] contentView] angbandContext];
+	AngbandContext *mainAngbandContext = angband_term[0]->data;
+
+	if (mainAngbandContext->primaryWindow && [[event window] windowNumber] == [mainAngbandContext->primaryWindow windowNumber])
+	{
+		int cols, rows, x, y;
+		Term_get_size(&cols, &rows);
+		NSSize tileSize = angbandContext->tileSize;
+		NSSize border = angbandContext->borderSize;
+		NSPoint windowPoint = [event locationInWindow];
+
+		// adjust for border; add border height because window origin is at bottom
+		windowPoint = NSMakePoint( windowPoint.x - border.width, windowPoint.y + border.height );
+
+		NSPoint p = [[[event window] contentView] convertPoint: windowPoint fromView: nil];
+		x = floor( p.x / tileSize.width );
+		y = floor( p.y / tileSize.height );
+
+		// being safe about this, since xcode doesn't seem to like the bool_hack stuff
+		BOOL displayingMapInterface = ((int)inkey_flag != 0);
+
+		// Sidebar plus border == thirteen characters; top row is reserved.
+		// Coordinates run from (0,0) to (cols-1, rows-1).
+		BOOL mouseInMapSection = (x > 13 && x <= cols - 1 && y > 0  && y <= rows - 2);
+
+		// if we are displaying a menu, allow clicks anywhere; if we are displaying the main
+		// game interface, only allow clicks in the map section
+		if (!displayingMapInterface || (displayingMapInterface && mouseInMapSection))
+		{
+			// [event buttonNumber] will return 0 for left click, 1 for right click, but this is safer
+			int button = ([event type] == NSLeftMouseDown) ? 1 : 2;
+
+#ifdef KC_MOD_ALT
+			NSUInteger eventModifiers = [event modifierFlags];
+			byte angbandModifiers = 0;
+			angbandModifiers |= (eventModifiers & NSShiftKeyMask) ? KC_MOD_SHIFT : 0;
+			angbandModifiers |= (eventModifiers & NSControlKeyMask) ? KC_MOD_CONTROL : 0;
+			angbandModifiers |= (eventModifiers & NSAlternateKeyMask) ? KC_MOD_ALT : 0;
+			button |= (angbandModifiers & 0x0F) << 4; // encode modifiers in the button number (see Term_mousepress())
+#endif
+
+			Term_mousepress(x, y, button);
+		}
+	}
+
+	/* Pass click through to permit focus change, resize, etc. */
+	[NSApp sendEvent:event];
+}
+
+
+
 /* Encodes an NSEvent Angband-style, or forwards it along.  Returns YES if the event was sent to Angband, NO if Cocoa (or nothing) handled it */
 static BOOL send_event(NSEvent *event)
 {
-        
+
     /* If the receiving window is not an Angband window, then do nothing */
     if (! contains_angband_view([[event window] contentView]))
     {
         [NSApp sendEvent:event];
         return NO;
     }
-    
+
     /* Analyze the event */
     switch ([event type])
     {
@@ -2715,61 +2940,8 @@ static BOOL send_event(NSEvent *event)
             
         case NSLeftMouseDown:
 		case NSRightMouseDown:
-        {
-            /* Queue mouse presses if they occur in the map section
-             * of the main window.
-             */
-
-            AngbandContext *angbandContext =
-                [[[event window] contentView] angbandContext];
-            AngbandContext *mainAngbandContext =
-                angband_term[0]->data;
-
-            if (mainAngbandContext->primaryWindow &&
-                [[event window] windowNumber] ==
-                [mainAngbandContext->primaryWindow windowNumber])
-            {
-                int cols, rows, x, y;
-                Term_get_size(&cols, &rows);
-
-                /* Term_mousepress() expects the origin (0,0) at the upper
-                 * left, while locationInWindow puts the origin at the lower
-                 * left.
-                 */
-                NSPoint p = [event locationInWindow];
-                NSSize tileSize = angbandContext->tileSize;
-                x = p.x/(tileSize.width * AngbandScaleIdentity.width);
-                y = rows - p.y/(tileSize.height * AngbandScaleIdentity.height);
-                    
-                /* Sidebar plus border == thirteen characters;
-                 * top row is reserved, and bottom row may have mouse buttons.
-                 * Coordinates run from (0,0) to (cols-1, rows-1).
-                 */
-                if ((x > 13 && x <= cols - 1 &&
-                     y > 0  && y <= rows - 2) ||
-                    (OPT(mouse_buttons) && y == rows - 1 && 
-                     x >= COL_MAP && x < COL_MAP + button_get_length()))
-                {
-					// [event buttonNumber] will return 0 for left click, 1 for right click, but this is safer
-					int button = ([event type] == NSLeftMouseDown) ? 1 : 2;
-
-#ifdef KC_MOD_ALT
-					NSUInteger eventModifiers = [event modifierFlags];
-					byte angbandModifiers = 0;
-					angbandModifiers |= (eventModifiers & NSShiftKeyMask) ? KC_MOD_SHIFT : 0;
-					angbandModifiers |= (eventModifiers & NSControlKeyMask) ? KC_MOD_CONTROL : 0;
-					angbandModifiers |= (eventModifiers & NSAlternateKeyMask) ? KC_MOD_ALT : 0;
-					button |= (angbandModifiers & 0x0F) << 4; // encode modifiers in the button number (see Term_mousepress())
-#endif
-
-                    Term_mousepress(x, y, button);
-                }
-            }
-
-            /* Pass click through to permit focus change, resize, etc. */
-            [NSApp sendEvent:event];
+			AngbandHandleEventMouseDown(event);
             break;
-        }
 
         case NSApplicationDefined:
         {
@@ -2783,7 +2955,6 @@ static BOOL send_event(NSEvent *event)
         default:
             [NSApp sendEvent:event];
             return YES;
-            break;
     }
     return YES;
 }
@@ -2852,8 +3023,9 @@ static void hook_plog(const char * str)
 {
     if (str)
     {
-        NSString *string = [NSString stringWithCString:str encoding:NSMacOSRomanStringEncoding];
-        NSRunAlertPanel(@"Danger Will Robinson", @"%@", @"OK", nil, nil, string);
+		NSLog( @"%s", str );
+//        NSString *string = [NSString stringWithCString:str encoding:NSMacOSRomanStringEncoding];
+//        NSRunAlertPanel(@"Danger Will Robinson", @"%@", @"OK", nil, nil, string);
     }
 }
 
@@ -3043,7 +3215,7 @@ static bool cocoa_get_file(const char *suggested_name, char *path, size_t len)
     msg_flag = FALSE;
     
     /* Save the game */
-    do_cmd_save_game(FALSE, 0);
+    do_cmd_save_game(NULL);
     
     /* Record the current save file so we can select it by default next time. It's a little sketchy that this only happens when we save through the menu; ideally game-triggered saves would trigger it too. */
     record_current_savefile();
@@ -3064,7 +3236,7 @@ static bool cocoa_get_file(const char *suggested_name, char *path, size_t len)
         else
         {
             NSInteger subwindowNumber = tag - AngbandWindowMenuItemTagBase;
-            return (op_ptr->window_flag[subwindowNumber] > 0);
+            return (window_flag[subwindowNumber] > 0);
         }
 
         return NO;
@@ -3114,6 +3286,7 @@ static bool cocoa_get_file(const char *suggested_name, char *path, size_t len)
     NSInteger subwindowNumber = [(NSMenuItem *)sender tag] - AngbandWindowMenuItemTagBase;
     AngbandContext *context = angband_term[subwindowNumber]->data;
     [context->primaryWindow makeKeyAndOrderFront: self];
+	[context saveWindowVisibleToDefaults: YES];
 }
 
 - (void)prepareWindowsMenu
@@ -3147,7 +3320,7 @@ static bool cocoa_get_file(const char *suggested_name, char *path, size_t len)
 - (void)sendAngbandCommand: (id)sender
 {
     NSMenuItem *menuItem = (NSMenuItem *)sender;
-    NSString *command = [self.commandMenuTagMap objectForKey: @([menuItem tag])];
+    NSString *command = [self.commandMenuTagMap objectForKey: [NSNumber numberWithInteger: [menuItem tag]]];
     NSInteger windowNumber = [((AngbandContext *)angband_term[0]->data)->primaryWindow windowNumber];
 
     // send a \ to bypass keymaps
@@ -3205,7 +3378,7 @@ static bool cocoa_get_file(const char *suggested_name, char *path, size_t len)
         [menuItem release];
 
         NSString *angbandCommand = [item valueForKey: @"AngbandCommand"];
-        [angbandCommands setObject: angbandCommand forKey: @([menuItem tag])];
+        [angbandCommands setObject: angbandCommand forKey: [NSNumber numberWithInteger: [menuItem tag]]];
         tagOffset++;
     }
 
@@ -3236,7 +3409,7 @@ static bool cocoa_get_file(const char *suggested_name, char *path, size_t len)
 
 - (NSApplicationTerminateReply)applicationShouldTerminate:(NSApplication *)sender
 {
-    if (p_ptr->playing == FALSE || game_is_finished == TRUE)
+    if (player->upkeep->playing == FALSE || game_is_finished == TRUE)
     {
         return NSTerminateNow;
     }
@@ -3247,7 +3420,7 @@ static bool cocoa_get_file(const char *suggested_name, char *path, size_t len)
     }
     else
     {
-        cmd_insert(CMD_QUIT);
+        cmdq_push(CMD_QUIT);
         /* Post an escape event so that we can return from our get-key-event function */
         wakeup_event_loop();
         quit_when_ready = true;
@@ -3315,10 +3488,12 @@ static bool cocoa_get_file(const char *suggested_name, char *path, size_t len)
 
 @end
 
+#if !XCODE
 int main(int argc, char* argv[])
 {
     NSApplicationMain(argc, (void*)argv);    
     return (0);
 }
+#endif
 
 #endif /* MACINTOSH || MACH_O_CARBON */

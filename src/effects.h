@@ -21,21 +21,31 @@
 /* Types of effect */
 typedef enum
 {
-	#define EFFECT(x, y, r, z)		EF_##x,
+	#define EFFECT(x, a, r, h, v, c, d)	EF_##x,
 	#include "list-effects.h"
 	#undef EFFECT
+} effect_index;
 
-	EF_MAX
-} effect_type;
+struct effect {
+	struct effect *next;
+	u16b index;		/**< The effect index */
+	dice_t *dice;	/**< Dice expression used in the effect */
+	int params[2];	/**< Extra parameters to be passed to the handler */
+};
 
 /*** Functions ***/
 
-bool effect_do(effect_type effect, bool *ident, bool aware, int dir, int beam,
+void copy_effect(struct effect **dest, struct effect *source);
+void free_effect(struct effect *source);
+bool effect_do(effect_index effect, bool *ident, bool aware, int dir, int beam,
 	int boost);
-bool effect_aim(effect_type effect);
-const char *effect_desc(effect_type effect);
-int effect_power(effect_type effect);
-bool effect_obvious(effect_type effect);
+bool effect_aim(effect_index effect);
+const char *effect_desc(effect_index effect);
+int effect_power(effect_index effect);
+bool effect_obvious(effect_index effect);
 bool effect_wonder(int dir, int die, int beam);
+bool effect_valid(effect_index effect);
+int effect_param(effect_index effect, size_t param_num);
+effect_index effect_lookup(const char *name);
 
 #endif /* INCLUDED_EFFECTS_H */

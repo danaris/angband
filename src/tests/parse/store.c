@@ -1,7 +1,7 @@
 /* parse/store */
 
 #include "unit-test.h"
-
+#include "object.h"
 #include "store.h"
 
 int setup_tests(void **state) {
@@ -22,7 +22,7 @@ int test_store0(void *state) {
 	s = parser_priv(state);
 	require(s);
 	eq(s->sidx, 0);
-	streq(s->name, "foobar");
+	require(streq(s->name, "foobar"));
 	ok;
 }
 

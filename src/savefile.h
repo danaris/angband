@@ -5,6 +5,8 @@
 
 /*** Savefile API ***/
 
+extern char savefile[1024];
+
 /**
  * Set the filename of the savefile.
  */
@@ -53,43 +55,25 @@ void strip_bytes(int n);
 
 /* load.c */
 int rd_randomizer(void);
-int rd_options_2(void);
+int rd_options(void);
 int rd_messages(void);
-int rd_monster_memory_2(void);
-int rd_monster_memory_3(void);
-int rd_object_memory_1(void);
-int rd_object_memory_2(void);
+int rd_monster_memory(void);
+int rd_object_memory(void);
 int rd_quests(void);
 int rd_artifacts(void);
-int rd_player_2(void);
-int rd_player_3(void);
-int rd_squelch(void);
+int rd_player(void);
+int rd_ignore(void);
 int rd_misc(void);
-int rd_misc_2(void);
 int rd_player_hp(void);
 int rd_player_spells(void);
-int rd_inventory_1(void);
-int rd_inventory_2(void);
-int rd_inventory_3(void);
-int rd_inventory_4(void);
-int rd_inventory_5(void);
-int rd_inventory_6(void);
-int rd_stores_1(void);
-int rd_stores_2(void);
-int rd_stores_3(void);
-int rd_stores_4(void);
-int rd_stores_5(void);
-int rd_stores_6(void);
+int rd_gear(void);
+int rd_stores(void);
 int rd_dungeon(void);
-int rd_objects_1(void);
-int rd_objects_2(void);
-int rd_objects_3(void);
-int rd_objects_4(void);
-int rd_objects_5(void);
-int rd_objects_6(void);
-int rd_monsters_6(void);
-int rd_monsters_7(void);
+int rd_chunks(void);
+int rd_objects(void);
+int rd_monsters(void);
 int rd_history(void);
+int rd_traps(void);
 int rd_null(void);
 
 /* save.c */
@@ -102,18 +86,20 @@ void wr_object_memory(void);
 void wr_quests(void);
 void wr_artifacts(void);
 void wr_player(void);
-void wr_squelch(void);
+void wr_ignore(void);
 void wr_misc(void);
 void wr_player_hp(void);
 void wr_player_spells(void);
 void wr_randarts(void);
-void wr_inventory(void);
+void wr_gear(void);
 void wr_stores(void);
 void wr_dungeon(void);
+void wr_chunks(void);
 void wr_objects(void);
 void wr_monsters(void);
 void wr_ghost(void);
 void wr_history(void);
+void wr_traps(void);
 
 
 #endif /* INCLUDED_SAVEFILE_H */

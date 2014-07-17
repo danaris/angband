@@ -13,11 +13,23 @@ extern char *argv0;
 
 
 /* Aux functions */
+size_t (*text_mbcs_hook)(wchar_t *dest, const char *src, int n);
 extern void (*plog_aux)(const char *);
 extern void (*quit_aux)(const char *);
 
 
 /**** Available Functions ****/
+
+/*
+ * Return "s" (or not) depending on whether n is singular.
+ */
+#define PLURAL(n)		((n) == 1 ? "" : "s")
+
+/**
+ * Return the verb form matching the given count
+ */
+#define VERB_AGREEMENT(count, singular, plural)    (((count) == 1) ? (singular) : (plural))
+
 
 /**
  * Case insensitive comparison between two strings
@@ -76,6 +88,15 @@ extern void strescape(char *s, const char c);
 
 /* determines if a string is "empty" */
 bool contains_only_spaces(const char* s);
+
+/* Check if a char is a vowel */
+bool is_a_vowel(int ch);
+
+
+/*
+ * Allow override of the multi-byte to wide char conversion
+ */
+size_t text_mbstowcs(wchar_t *dest, const char *src, int n);
 
 /* Print an error message */
 extern void plog(const char *str);

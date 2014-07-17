@@ -3,7 +3,8 @@
 #include "unit-test.h"
 #include "unit-test-data.h"
 
-#include "monster/monster.h"
+#include "monster.h"
+#include "player-timed.h"
 
 int setup_tests(void **state) {
 	struct monster_race *r = &test_r_human;
@@ -12,7 +13,7 @@ int setup_tests(void **state) {
 	r_info = r;
 	*state = m;
 
-	p_ptr = NULL;
+	player = NULL;
 	rand_fix(100);
 	return 0;
 }

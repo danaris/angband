@@ -20,14 +20,21 @@
 #include "attack.h"
 #include "cave.h"
 #include "cmds.h"
+#include "cmd-core.h"
 #include "files.h"
-#include "game-cmd.h"
 #include "keymap.h"
+#include "monster.h"
+#include "obj-gear.h"
+#include "obj-util.h"
+#include "player-timed.h"
+#include "player-util.h"
+#include "target.h"
 #include "textui.h"
 #include "ui-event.h"
+#include "ui-game.h"
+#include "ui-input.h"
 #include "ui-menu.h"
 #include "wizard.h"
-#include "target.h"
 
 /*
  * This file contains (several) big lists of commands, so that they can be
@@ -63,16 +70,16 @@ static struct cmd_info cmd_item[] =
 	{ "Take off/unwield an item", { 't', 'T'}, CMD_TAKEOFF },
 	{ "Examine an item", { 'I' }, CMD_NULL, textui_obj_examine },
 	{ "Drop an item", { 'd' }, CMD_DROP },
-	{ "Fire your missile weapon", { 'f', 't' }, CMD_FIRE, NULL, player_can_fire_msg },
+	{ "Fire your missile weapon", { 'f', 't' }, CMD_FIRE, NULL, player_can_fire_prereq },
 	{ "Use a staff", { 'u', 'Z' }, CMD_USE_STAFF },
 	{ "Aim a wand", {'a', 'z'}, CMD_USE_WAND },
 	{ "Zap a rod", {'z', 'a'}, CMD_USE_ROD },
 	{ "Activate an object", {'A' }, CMD_ACTIVATE },
 	{ "Eat some food", { 'E' }, CMD_EAT },
 	{ "Quaff a potion", { 'q' }, CMD_QUAFF },
-	{ "Read a scroll", { 'r' }, CMD_READ_SCROLL, NULL, player_can_read_msg },
-	{ "Fuel your light source", { 'F' }, CMD_REFILL, NULL, player_can_refuel_msg },
-	{ "Use an item", { 'U', 'X' }, CMD_USE_ANY }
+	{ "Read a scroll", { 'r' }, CMD_READ_SCROLL, NULL, player_can_read_prereq },
+	{ "Fuel your light source", { 'F' }, CMD_REFILL, NULL, player_can_refuel_prereq },
+	{ "Use an item", { 'U', 'X' }, CMD_USE }
 };
 
 /* General actions */
@@ -90,8 +97,8 @@ static struct cmd_info cmd_action[] =
 	{ "Toggle search mode", { 'S', '#' }, CMD_TOGGLE_SEARCH },
 	{ "Open a door or a chest", { 'o' }, CMD_OPEN },
 	{ "Close a door", { 'c' }, CMD_CLOSE },
-	{ "Fire at nearest target", { 'h', KC_TAB }, CMD_NULL, textui_cmd_fire_at_nearest },
-	{ "Throw an item", { 'v' }, CMD_THROW, textui_cmd_throw },
+	{ "Fire at nearest target", { 'h', KC_TAB }, CMD_NULL, do_cmd_fire_at_nearest },
+	{ "Throw an item", { 'v' }, CMD_THROW },
 	{ "Walk into a trap", { 'W', '-' }, CMD_JUMP, NULL },
 };
 
@@ -108,9 +115,9 @@ static struct cmd_info cmd_item_manage[] =
 static struct cmd_info cmd_info[] =
 {
 	{ "Browse a book", { 'b', 'P' }, CMD_BROWSE_SPELL, textui_spell_browse },
-	{ "Gain new spells", { 'G' }, CMD_STUDY_BOOK, textui_obj_study, player_can_study_msg },
-	{ "Cast a spell", { 'm' }, CMD_CAST, textui_obj_cast, player_can_cast_msg },
-	{ "Cast a spell", { 'p' }, CMD_CAST, textui_obj_cast, player_can_cast_msg },
+	{ "Gain new spells", { 'G' }, CMD_STUDY, NULL, player_can_study_prereq },
+	{ "Cast a spell", { 'm' }, CMD_CAST, NULL, player_can_cast_prereq },
+	{ "Cast a spell", { 'p' }, CMD_CAST, NULL, player_can_cast_prereq },
 	{ "Full dungeon map", { 'M' }, CMD_NULL, do_cmd_view_map },
 	{ "Toggle ignoring of items", { 'K', 'O' }, CMD_NULL, textui_cmd_toggle_ignore },
 	{ "Display visible item list", { ']' }, CMD_NULL, do_cmd_itemlist },
@@ -153,17 +160,10 @@ static struct cmd_info cmd_hidden[] =
 	{ "Start running", { '.', ',' }, CMD_RUN, NULL },
 	{ "Stand still", { ',', '.' }, CMD_HOLD, NULL },
 	{ "Center map", { KTRL('L'), '@' }, CMD_NULL, do_cmd_center_map },
-
 	{ "Toggle wizard mode", { KTRL('W') }, CMD_NULL, do_cmd_wizard },
 	{ "Repeat previous command", { 'n', KTRL('V') }, CMD_REPEAT, NULL },
 	{ "Do autopickup", { KTRL('G') }, CMD_AUTOPICKUP, NULL },
-
-#ifdef ALLOW_DEBUG
 	{ "Debug mode commands", { KTRL('A') }, CMD_NULL, do_cmd_try_debug },
-#endif
-#ifdef ALLOW_BORG
-	{ "Borg commands", { KTRL('Z') }, CMD_NULL, do_cmd_try_borg }
-#endif
 };
 
 
@@ -350,6 +350,16 @@ unsigned char cmd_lookup_key(cmd_code lookup_cmd, int mode)
 	}
 
 	return 0;
+}
+
+unsigned char cmd_lookup_key_unktrl(cmd_code lookup_cmd, int mode)
+{
+	unsigned char c = cmd_lookup_key(lookup_cmd, mode);
+
+	if (c < 0x20)
+		c = UN_KTRL(c);
+
+	return c;
 }
 
 cmd_code cmd_lookup(unsigned char key, int mode)
@@ -553,7 +563,7 @@ static int show_command_list(struct cmd_info cmd_list[], int size, int mx,
 			key[0] = cmd_list[i].key[mode];
 			key[1] = '\0';
 		}
-		strnfmt(cmd_name, 80, "%s (%s)",  cmd_list[i].desc, key[mode]);
+		strnfmt(cmd_name, 80, "%s (%s)",  cmd_list[i].desc, key);
 		menu_dynamic_add(m, cmd_name, i+1);
 	}
 
@@ -681,16 +691,15 @@ static void textui_process_click(ui_event e)
 	x = KEY_GRID_X(e);
 
 	/* Check for a valid location */
-	if (!cave_in_bounds_fully(cave, y, x)) return;
+	if (!square_in_bounds_fully(cave, y, x)) return;
 
 	/* XXX show context menu here */
-	if ((p_ptr->py == y) && (p_ptr->px == x)) {
+	if ((player->py == y) && (player->px == x)) {
 		if (e.mouse.mods & KC_MOD_SHIFT) {
 			/* shift-click - cast magic */
 			if (e.mouse.button == 1) {
-				textui_obj_cast();
-			} else
-			if (e.mouse.button == 2) {
+				cmdq_push(CMD_CAST);
+			} else if (e.mouse.button == 2) {
 				Term_keypress('i',0);
 			}
 		} else
@@ -698,20 +707,20 @@ static void textui_process_click(ui_event e)
 			/* ctrl-click - use feature / use inventory item */
 			/* switch with default */
 			if (e.mouse.button == 1) {
-				if (cave_isupstairs(cave, p_ptr->py, p_ptr->px))
-					cmd_insert(CMD_GO_UP);
-				else if (cave_isdownstairs(cave, p_ptr->py, p_ptr->px))
-					cmd_insert(CMD_GO_DOWN);
+				if (square_isupstairs(cave, player->py, player->px))
+					cmdq_push(CMD_GO_UP);
+				else if (square_isdownstairs(cave, player->py, player->px))
+					cmdq_push(CMD_GO_DOWN);
 			} else
 			if (e.mouse.button == 2) {
-				cmd_insert(CMD_USE_UNAIMED);
+				cmdq_push(CMD_USE);
 			}
 		} else
 		if (e.mouse.mods & KC_MOD_ALT) {
 			/* alt-click - Search  or show char screen */
 			/* XXX call a platform specific hook */
 			if (e.mouse.button == 1) {
- 				cmd_insert(CMD_SEARCH);
+ 				cmdq_push(CMD_SEARCH);
 			} else
 			if (e.mouse.button == 2) {
 				Term_keypress('C',0);
@@ -720,9 +729,9 @@ static void textui_process_click(ui_event e)
 		{
 			if (e.mouse.button == 1) {
 				if (cave->o_idx[y][x]) {
-					cmd_insert(CMD_PICKUP);
+					cmdq_push(CMD_PICKUP);
 				} else {
-					cmd_insert(CMD_HOLD);
+					cmdq_push(CMD_HOLD);
 				}
 			} else
 			if (e.mouse.button == 2) {
@@ -734,48 +743,48 @@ static void textui_process_click(ui_event e)
 
 	else if (e.mouse.button == 1)
 	{
-		if (p_ptr->timed[TMD_CONFUSED])
+		if (player->timed[TMD_CONFUSED])
 		{
-			cmd_insert(CMD_WALK);
+			cmdq_push(CMD_WALK);
 		}
 		else
 		{
 			if (e.mouse.mods & KC_MOD_SHIFT) {
 				/* shift-click - run */
-				cmd_insert(CMD_RUN);
-				cmd_set_arg_direction(cmd_get_top(), 0, coords_to_dir(y,x));
-				/*if ((y-p_ptr->py >= -1) && (y-p_ptr->py <= 1)
-					&& (x-p_ptr->px >= -1) && (x-p_ptr->px <= 1)) {
-					cmd_insert(CMD_JUMP);
-					cmd_set_arg_direction(cmd_get_top(), 0, coords_to_dir(y,x));
+				cmdq_push(CMD_RUN);
+				cmd_set_arg_direction(cmdq_peek(), "direction", coords_to_dir(y,x));
+				/*if ((y-player->py >= -1) && (y-player->py <= 1)
+					&& (x-player->px >= -1) && (x-player->px <= 1)) {
+					cmdq_push(CMD_JUMP);
+					cmd_set_arg_direction(cmdq_peek(), "direction", coords_to_dir(y,x));
 				} else {
-				  cmd_insert(CMD_RUN);
-				  cmd_set_arg_direction(cmd_get_top(), 0, coords_to_dir(y,x));
+				  cmdq_push(CMD_RUN);
+				  cmd_set_arg_direction(cmdq_peek(), "direction", coords_to_dir(y,x));
 				}*/
 			} else
 			if (e.mouse.mods & KC_MOD_CONTROL) {
 				/* control-click - alter */
-				cmd_insert(CMD_ALTER);
-				cmd_set_arg_direction(cmd_get_top(), 0, coords_to_dir(y,x));
+				cmdq_push(CMD_ALTER);
+				cmd_set_arg_direction(cmdq_peek(), "direction", coords_to_dir(y,x));
 			} else
 			if (e.mouse.mods & KC_MOD_ALT) {
 				/* alt-click - look */
 				if (target_set_interactive(TARGET_LOOK, x, y)) {
 					msg("Target Selected.");
 				}
-				//cmd_insert(CMD_LOOK);
-				//cmd_set_arg_point(cmd_get_top(), 0, y, x);
+				//cmdq_push(CMD_LOOK);
+				//cmd_set_arg_point(cmdq_peek(), "point", y, x);
 			} else
 			{
 				/* pathfind does not work well on trap detection borders,
 				 * so if the click is next to the player, force a walk step */
-				if ((y-p_ptr->py >= -1) && (y-p_ptr->py <= 1)
-					&& (x-p_ptr->px >= -1) && (x-p_ptr->px <= 1)) {
-					cmd_insert(CMD_WALK);
-					cmd_set_arg_direction(cmd_get_top(), 0, coords_to_dir(y,x));
+				if ((y-player->py >= -1) && (y-player->py <= 1)
+					&& (x-player->px >= -1) && (x-player->px <= 1)) {
+					cmdq_push(CMD_WALK);
+					cmd_set_arg_direction(cmdq_peek(), "direction", coords_to_dir(y,x));
 				} else {
-					cmd_insert(CMD_PATHFIND);
-					cmd_set_arg_point(cmd_get_top(), 0, y, x);
+					cmdq_push(CMD_PATHFIND);
+					cmd_set_arg_point(cmdq_peek(), "point", y, x);
 				}
 			}
 		}
@@ -783,36 +792,33 @@ static void textui_process_click(ui_event e)
 
 	else if (e.mouse.button == 2)
 	{
-		struct monster *m = cave_monster_at(cave, y, x);
+		struct monster *m = square_monster(cave, y, x);
 		if (m && target_able(m)) {
 			/* Set up target information */
-			monster_race_track(m->race);
-			health_track(p_ptr, m);
+			monster_race_track(player->upkeep, m->race);
+			health_track(player->upkeep, m);
 			target_set_monster(m);
 		} else {
 			target_set_location(y,x);
 		}
+
 		if (e.mouse.mods & KC_MOD_SHIFT) {
 			/* shift-click - cast spell at target */
-			if (textui_obj_cast_ret() >= 0) {
-				cmd_set_arg_target(cmd_get_top(), 1, DIR_TARGET);
-			}
-		} else
-		if (e.mouse.mods & KC_MOD_CONTROL) {
+			cmdq_push(CMD_CAST);
+			cmd_set_arg_target(cmdq_peek(), "target", DIR_TARGET);
+		} else if (e.mouse.mods & KC_MOD_CONTROL) {
 			/* control-click - fire at target */
-			cmd_insert(CMD_USE_AIMED);
-			cmd_set_arg_target(cmd_get_top(), 1, DIR_TARGET);
-		} else
-		if (e.mouse.mods & KC_MOD_ALT) {
+			cmdq_push(CMD_USE);
+			cmd_set_arg_target(cmdq_peek(), "target", DIR_TARGET);
+		} else if (e.mouse.mods & KC_MOD_ALT) {
 			/* alt-click - throw at target */
-			cmd_insert(CMD_THROW);
-			cmd_set_arg_target(cmd_get_top(), 1, DIR_TARGET);
-		} else
-		{
+			cmdq_push(CMD_THROW);
+			cmd_set_arg_target(cmdq_peek(), "target", DIR_TARGET);
+		} else {
 			//msg("Target set.");
 			/* see if the click was adjacent to the player */
-			if ((y-p_ptr->py >= -1) && (y-p_ptr->py <= 1)
-				&& (x-p_ptr->px >= -1) && (x-p_ptr->px <= 1)) {
+			if ((y-player->py >= -1) && (y-player->py <= 1)
+				&& (x-player->px >= -1) && (x-player->px <= 1)) {
 				context_menu_cave(cave,y,x,1,e.mouse.x, e.mouse.y);
 			} else {
 				context_menu_cave(cave,y,x,0,e.mouse.x, e.mouse.y);
@@ -825,17 +831,17 @@ static void textui_process_click(ui_event e)
 /**
  * Check no currently worn items are stopping the action 'c'
  */
-static bool key_confirm_command(unsigned char c)
+bool key_confirm_command(unsigned char c)
 {
 	int i;
 
 	/* Hack -- Scan equipment */
-	for (i = INVEN_WIELD; i < INVEN_TOTAL; i++)
+	for (i = 0; i < player->body.count; i++)
 	{
 		char verify_inscrip[] = "^*";
 		unsigned n;
 
-		object_type *o_ptr = &p_ptr->inventory[i];
+		object_type *o_ptr = equipped_item_by_slot(player, i);
 		if (!o_ptr->kind) continue;
 
 		/* Set up string to look for, e.g. "^d" */
@@ -882,7 +888,7 @@ static bool textui_process_key(struct keypress kp, int count)
 		if (cmd->hook)
 			cmd->hook();
 		else if (cmd->cmd)
-			cmd_insert_repeated(cmd->cmd, count);
+			cmdq_push_repeat(cmd->cmd, count);
 	}
 
 	return TRUE;

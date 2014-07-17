@@ -3,10 +3,11 @@
 #include "unit-test.h"
 
 #include "init.h"
-#include "object/obj-flag.h"
-#include "object/object.h"
-#include "object/tvalsval.h"
-#include "player/player.h"
+#include "obj-properties.h"
+#include "object.h"
+#include "obj-tval.h"
+#include "obj-util.h"
+#include "player.h"
 
 int setup_tests(void **state) {
 	*state = init_parse_c();
@@ -37,11 +38,11 @@ int test_s0(void *state) {
 	eq(r, PARSE_ERROR_NONE);
 	c = parser_priv(state);
 	require(c);
-	eq(c->c_adj[A_STR], 3);
-	eq(c->c_adj[A_INT], -3);
-	eq(c->c_adj[A_WIS], 2);
-	eq(c->c_adj[A_DEX], -2);
-	eq(c->c_adj[A_CON], 1);
+	eq(c->c_adj[STAT_STR], 3);
+	eq(c->c_adj[STAT_INT], -3);
+	eq(c->c_adj[STAT_WIS], 2);
+	eq(c->c_adj[STAT_DEX], -2);
+	eq(c->c_adj[STAT_CON], 1);
 	ok;
 }
 
@@ -133,10 +134,10 @@ int test_b0(void *state) {
 	eq(r, PARSE_ERROR_NONE);
 	c = parser_priv(state);
 	require(c);
-	eq(c->spells.info[8].slevel, 23);
-	eq(c->spells.info[8].smana, 25);
-	eq(c->spells.info[8].sfail, 90);
-	eq(c->spells.info[8].sexp, 3);
+	eq(c->magic.spells[8].slevel, 23);
+	eq(c->magic.spells[8].smana, 25);
+	eq(c->magic.spells[8].sfail, 90);
+	eq(c->magic.spells[8].sexp, 3);
 	ok;
 }
 
@@ -162,7 +163,7 @@ int test_e0(void *state) {
 	eq(r, PARSE_ERROR_NONE);
 	c = parser_priv(state);
 	require(c);
-	ptreq(c->start_items[0].kind, objkind_get(TV_MAGIC_BOOK, 2));
+	ptreq(c->start_items[0].kind, lookup_kind(TV_MAGIC_BOOK, 2));
 	eq(c->start_items[0].min, 2);
 	eq(c->start_items[0].max, 5);
 	ok;

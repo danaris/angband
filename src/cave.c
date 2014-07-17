@@ -18,13 +18,26 @@
 
 #include "angband.h"
 #include "cave.h"
-#include "game-event.h"
-#include "game-cmd.h"
-#include "monster/mon-util.h"
-#include "object/tvalsval.h"
-#include "squelch.h"
 #include "cmds.h"
+#include "dungeon.h"
+#include "cmd-core.h"
+#include "game-event.h"
 #include "grafmode.h"
+#include "init.h"
+#include "mon-util.h"
+#include "monster.h"
+#include "obj-ignore.h"
+#include "obj-tval.h"
+#include "obj-ui.h"
+#include "obj-util.h"
+#include "object.h"
+#include "player-timed.h"
+#include "prefs.h"
+#include "project.h"
+#include "tables.h"
+#include "trap.h"
+
+feature_type *f_info;
 
 /*
  * Approximate distance between two points.
@@ -82,7 +95,7 @@ int distance(int y1, int x1, int y2, int x2)
  * determining which grids are illuminated by the player's torch, and which
  * grids and monsters can be "seen" by the player, etc).
  */
-bool los(int y1, int x1, int y2, int x2)
+bool los(struct chunk *c, int y1, int x1, int y2, int x2)
 {
 	/* Delta */
 	int dx, dy;
@@ -127,7 +140,7 @@ bool los(int y1, int x1, int y2, int x2)
 		{
 			for (ty = y1 + 1; ty < y2; ty++)
 			{
-				if (!cave_ispassable(cave, ty, x1)) return (FALSE);
+				if (!square_isprojectable(c, ty, x1)) return (FALSE);
 			}
 		}
 
@@ -136,7 +149,7 @@ bool los(int y1, int x1, int y2, int x2)
 		{
 			for (ty = y1 - 1; ty > y2; ty--)
 			{
-				if (!cave_ispassable(cave, ty, x1)) return (FALSE);
+				if (!square_isprojectable(c, ty, x1)) return (FALSE);
 			}
 		}
 
@@ -152,7 +165,7 @@ bool los(int y1, int x1, int y2, int x2)
 		{
 			for (tx = x1 + 1; tx < x2; tx++)
 			{
-				if (!cave_ispassable(cave, y1, tx)) return (FALSE);
+				if (!square_isprojectable(c, y1, tx)) return (FALSE);
 			}
 		}
 
@@ -161,7 +174,7 @@ bool los(int y1, int x1, int y2, int x2)
 		{
 			for (tx = x1 - 1; tx > x2; tx--)
 			{
-				if (!cave_ispassable(cave, y1, tx)) return (FALSE);
+				if (!square_isprojectable(c, y1, tx)) return (FALSE);
 			}
 		}
 
@@ -179,7 +192,7 @@ bool los(int y1, int x1, int y2, int x2)
 	{
 		if (ay == 2)
 		{
-			if (cave_ispassable(cave, y1 + sy, x1)) return (TRUE);
+			if (square_isprojectable(c, y1 + sy, x1)) return (TRUE);
 		}
 	}
 
@@ -188,7 +201,7 @@ bool los(int y1, int x1, int y2, int x2)
 	{
 		if (ax == 2)
 		{
-			if (cave_ispassable(cave, y1, x1 + sx)) return (TRUE);
+			if (square_isprojectable(c, y1, x1 + sx)) return (TRUE);
 		}
 	}
 
@@ -223,7 +236,7 @@ bool los(int y1, int x1, int y2, int x2)
 		/* the LOS exactly meets the corner of a tile. */
 		while (x2 - tx)
 		{
-			if (!cave_ispassable(cave, ty, tx)) return (FALSE);
+			if (!square_isprojectable(c, ty, tx)) return (FALSE);
 
 			qy += m;
 
@@ -234,7 +247,7 @@ bool los(int y1, int x1, int y2, int x2)
 			else if (qy > f2)
 			{
 				ty += sy;
-				if (!cave_ispassable(cave, ty, tx)) return (FALSE);
+				if (!square_isprojectable(c, ty, tx)) return (FALSE);
 				qy -= f1;
 				tx += sx;
 			}
@@ -270,7 +283,7 @@ bool los(int y1, int x1, int y2, int x2)
 		/* the LOS exactly meets the corner of a tile. */
 		while (y2 - ty)
 		{
-			if (!cave_ispassable(cave, ty, tx)) return (FALSE);
+			if (!square_isprojectable(c, ty, tx)) return (FALSE);
 
 			qx += m;
 
@@ -281,7 +294,7 @@ bool los(int y1, int x1, int y2, int x2)
 			else if (qx > f2)
 			{
 				tx += sx;
-				if (!cave_ispassable(cave, ty, tx)) return (FALSE);
+				if (!square_isprojectable(c, ty, tx)) return (FALSE);
 				qx -= f1;
 				ty += sy;
 			}
@@ -303,7 +316,7 @@ bool los(int y1, int x1, int y2, int x2)
  */
 bool no_light(void)
 {
-	return (!player_can_see_bold(p_ptr->py, p_ptr->px));
+	return (!player_can_see_bold(player->py, player->px));
 }
 
 
@@ -314,13 +327,13 @@ bool no_light(void)
  *
  * Used by destruction spells, and for placing stairs, etc.
  */
-bool cave_valid_bold(int y, int x)
+bool square_valid_bold(int y, int x)
 {
 	object_type *o_ptr;
 
 	/* Forbid perma-grids */
-	if (cave_isperm(cave, y, x) || cave_isshop(cave, y, x) || 
-		cave_isstairs(cave, y, x)) return (FALSE);
+	if (square_isperm(cave, y, x) || square_isshop(cave, y, x) || 
+		square_isstairs(cave, y, x)) return (FALSE);
 
 	/* Check objects */
 	for (o_ptr = get_first_object(y, x); o_ptr; o_ptr = get_next_object(o_ptr))
@@ -421,13 +434,13 @@ byte get_color(byte a, int attr, int n)
 bool dtrap_edge(int y, int x) 
 { 
 	/* Check if the square is a dtrap in the first place */ 
- 	if (!(cave->info2[y][x] & CAVE2_DTRAP)) return FALSE; 
+ 	if (!sqinfo_has(cave->info[y][x], SQUARE_DTRAP)) return FALSE; 
 
  	/* Check for non-dtrap adjacent grids */ 
- 	if (cave_in_bounds_fully(cave, y + 1, x    ) && (!(cave->info2[y + 1][x    ] & CAVE2_DTRAP))) return TRUE; 
- 	if (cave_in_bounds_fully(cave, y    , x + 1) && (!(cave->info2[y    ][x + 1] & CAVE2_DTRAP))) return TRUE; 
- 	if (cave_in_bounds_fully(cave, y - 1, x    ) && (!(cave->info2[y - 1][x    ] & CAVE2_DTRAP))) return TRUE; 
- 	if (cave_in_bounds_fully(cave, y    , x - 1) && (!(cave->info2[y    ][x - 1] & CAVE2_DTRAP))) return TRUE; 
+ 	if (square_in_bounds_fully(cave, y + 1, x    ) && (!sqinfo_has(cave->info[y + 1][x    ], SQUARE_DTRAP))) return TRUE; 
+ 	if (square_in_bounds_fully(cave, y    , x + 1) && (!sqinfo_has(cave->info[y    ][x + 1], SQUARE_DTRAP))) return TRUE; 
+ 	if (square_in_bounds_fully(cave, y - 1, x    ) && (!sqinfo_has(cave->info[y - 1][x    ], SQUARE_DTRAP))) return TRUE; 
+ 	if (square_in_bounds_fully(cave, y    , x - 1) && (!sqinfo_has(cave->info[y    ][x - 1], SQUARE_DTRAP))) return TRUE; 
 
 	return FALSE; 
 }
@@ -437,11 +450,13 @@ bool dtrap_edge(int y, int x)
  */
 static void grid_get_attr(grid_data *g, int *a)
 {
+    feature_type *f_ptr = &f_info[g->f_idx];
+
 	/* Save the high-bit, since it's used for attr inversion in GCU */
 	int a0 = *a & 0x80;
 
 	/* We will never tint traps or treasure */
-	if (feat_is_known_trap(g->f_idx)) return;
+	//if (feat_is_known_trap(g->f_idx)) return;
 
 	/* Remove the high bit so we can add it back again at the end */
 	*a = (*a & 0x7F);
@@ -457,16 +472,22 @@ static void grid_get_attr(grid_data *g, int *a)
 		 * this is to stop e.g. doors going grey when out of LOS */
 		if (*a == TERM_WHITE) {
 			/* If it's a floor tile then we'll tint based on lighting. */
-			if (g->f_idx == FEAT_FLOOR)
+			if (tf_has(f_ptr->flags, TF_TORCH))
 				switch (g->lighting) {
-					case FEAT_LIGHTING_BRIGHT: *a = TERM_YELLOW; break;
+					case FEAT_LIGHTING_TORCH: *a = TERM_YELLOW; break;
+					case FEAT_LIGHTING_LIT: *a = TERM_L_DARK; break;
 					case FEAT_LIGHTING_DARK: *a = TERM_L_DARK; break;
 					default: break;
 				}
 
 			/* If it's another kind of tile, only tint when unlit. */
-			else if (g->f_idx > FEAT_INVIS && g->lighting == FEAT_LIGHTING_DARK)
-				*a = TERM_SLATE;
+			else if (g->lighting == FEAT_LIGHTING_DARK || g->lighting == FEAT_LIGHTING_LIT)
+				*a = TERM_L_DARK;
+		}
+		else if (feat_is_magma(g->f_idx) || feat_is_quartz(g->f_idx)) {
+			if (!g->in_view) {
+				*a = TERM_L_DARK;
+			}
 		}
 	}
 
@@ -527,17 +548,24 @@ void grid_data_as_text(grid_data *g, int *ap, wchar_t *cp, int *tap, wchar_t *tc
 	/* Check for trap detection boundaries */
 	if (use_graphics == GRAPHICS_NONE)
 		grid_get_attr(g, &a);
-	else if (g->trapborder && (g->f_idx == FEAT_FLOOR)
-		 && (g->m_idx || g->first_kind)) {
+	else if (g->trapborder && tf_has(f_ptr->flags, TF_FLOOR)
+			 && (g->m_idx || g->first_kind)) {
 		/* if there is an object or monster here, and this is a plain floor
 		 * display the border here rather than an overlay below */
-		a = f_info[64].x_attr[g->lighting]; /* 64 is the index of the feat that */
-		c = f_info[64].x_char[g->lighting]; /* holds the trap detect border floor tile */
+		a = f_info[FEAT_DTRAP_FLOOR].x_attr[g->lighting];
+		c = f_info[FEAT_DTRAP_FLOOR].x_char[g->lighting];
 	}
 
 	/* Save the terrain info for the transparency effects */
 	(*tap) = a;
 	(*tcp) = c;
+
+	/* There is a trap in this grid, and we are not hallucinating */
+	if (((int) g->trap < cave_trap_max(cave)) && (!g->hallucinate))
+	{
+	    /* Change graphics to indicate a trap (if visible) */
+	    (void) get_trap_graphics(cave, g->trap, &a, &c, TRUE);
+	}
 
 
 	/* If there's an object, deal with that. */
@@ -614,7 +642,7 @@ void grid_data_as_text(grid_data *g, int *ap, wchar_t *cp, int *tap, wchar_t *tc
 			
 			/* Normal monster (not "clear" in any way) */
 			else if (!flags_test(m_ptr->race->flags, RF_SIZE,
-				RF_ATTR_CLEAR, RF_CHAR_CLEAR, FLAG_END))
+								 RF_ATTR_CLEAR, RF_CHAR_CLEAR, FLAG_END))
 			{
 				/* Use attr */
 				a = da;
@@ -665,44 +693,44 @@ void grid_data_as_text(grid_data *g, int *ap, wchar_t *cp, int *tap, wchar_t *tc
 		a = r_ptr->x_attr;
 		if ((OPT(hp_changes_color)) && !(a & 0x80))
 		{
-			switch(p_ptr->chp * 10 / p_ptr->mhp)
+			switch(player->chp * 10 / player->mhp)
 			{
-				case 10:
-				case  9: 
-				{
-					a = TERM_WHITE; 
-					break;
-				}
-				case  8:
-				case  7:
-				{
-					a = TERM_YELLOW;
-					break;
-				}
-				case  6:
-				case  5:
-				{
-					a = TERM_ORANGE;
-					break;
-				}
-				case  4:
-				case  3:
-				{
-					a = TERM_L_RED;
-					break;
-				}
-				case  2:
-				case  1:
-				case  0:
-				{
-					a = TERM_RED;
-					break;
-				}
-				default:
-				{
-					a = TERM_WHITE;
-					break;
-				}
+			case 10:
+			case  9: 
+			{
+				a = TERM_WHITE; 
+				break;
+			}
+			case  8:
+			case  7:
+			{
+				a = TERM_YELLOW;
+				break;
+			}
+			case  6:
+			case  5:
+			{
+				a = TERM_ORANGE;
+				break;
+			}
+			case  4:
+			case  3:
+			{
+				a = TERM_L_RED;
+				break;
+			}
+			case  2:
+			case  1:
+			case  0:
+			{
+				a = TERM_RED;
+				break;
+			}
+			default:
+			{
+				a = TERM_WHITE;
+				break;
+			}
 			}
 		}
 
@@ -710,10 +738,10 @@ void grid_data_as_text(grid_data *g, int *ap, wchar_t *cp, int *tap, wchar_t *tc
 		c = r_ptr->x_char;
 	}
 	else if (g->trapborder && (g->f_idx) && !(g->first_kind)
-		&& (use_graphics != GRAPHICS_NONE)) {
+			 && (use_graphics != GRAPHICS_NONE)) {
 		/* no overlay is used, so we can use the trap border overlay */
-		a = f_info[65].x_attr[g->lighting]; /* 65 is the index of the feat that */
-		c = f_info[65].x_char[g->lighting]; /* holds the trap detect border overlay tile */
+		a = f_info[FEAT_DTRAP_WALL].x_attr[g->lighting];
+		c = f_info[FEAT_DTRAP_WALL].x_char[g->lighting];
 	}
 
 	/* Result */
@@ -747,9 +775,10 @@ void grid_data_as_text(grid_data *g, int *ap, wchar_t *cp, int *tap, wchar_t *tc
  *    be used to indicate field-of-view, such as through the OPT(view_bright_light)
  *    option.
  *  - g->lighting is set to indicate the lighting level for the grid:
- *    FEAT_LIGHTING_DARK for unlit grids, FEAT_LIGHTING_LIT for those lit by the player's
- *    light source, and FEAT_LIGHTING_BRIGHT for inherently light grids (lit rooms, etc).
- *    Note that lighting is always FEAT_LIGHTING_BRIGHT for known "interesting" grids
+ *    FEAT_LIGHTING_DARK for unlit grids, FEAT_LIGHTING_LIT for inherently light
+ *    grids (lit rooms, etc), FEAT_LIGHTING_TORCH for grids lit by the player's
+ *    light source, and FEAT_LIGHTING_LOS for grids in the player's line of sight.
+ *    Note that lighting is always FEAT_LIGHTING_LIT for known "interesting" grids
  *    like walls.
  *  - g->is_player is TRUE if the player is on the given grid.
  *  - g->hallucinate is TRUE if the player is hallucinating something "strange"
@@ -773,15 +802,13 @@ void grid_data_as_text(grid_data *g, int *ap, wchar_t *cp, int *tap, wchar_t *tc
 void map_info(unsigned y, unsigned x, grid_data *g)
 {
 	object_type *o_ptr;
-	byte info;
 
-	assert(x < DUNGEON_WID);
-	assert(y < DUNGEON_HGT);
+	assert(x < (unsigned) cave->width);
+	assert(y < (unsigned) cave->height);
 
-	info = cave->info[y][x];
-	
 	/* Default "clear" values, others will be set later where appropriate. */
 	g->first_kind = NULL;
+    g->trap = cave_trap_max(cave);
 	g->multiple_objects = FALSE;
 	g->lighting = FEAT_LIGHTING_DARK;
 	g->unseen_object = FALSE;
@@ -791,24 +818,50 @@ void map_info(unsigned y, unsigned x, grid_data *g)
 	if (f_info[g->f_idx].mimic)
 		g->f_idx = f_info[g->f_idx].mimic;
 
-	g->in_view = (info & CAVE_SEEN) ? TRUE : FALSE;
+	g->in_view = (sqinfo_has(cave->info[y][x], SQUARE_SEEN)) ? TRUE : FALSE;
 	g->is_player = (cave->m_idx[y][x] < 0) ? TRUE : FALSE;
 	g->m_idx = (g->is_player) ? 0 : cave->m_idx[y][x];
-	g->hallucinate = p_ptr->timed[TMD_IMAGE] ? TRUE : FALSE;
-	g->trapborder = (cave->info2[y][x] & CAVE2_DEDGE) ? TRUE : FALSE;
+	g->hallucinate = player->timed[TMD_IMAGE] ? TRUE : FALSE;
+	g->trapborder = (sqinfo_has(cave->info[y][x], SQUARE_DEDGE)) ? TRUE : FALSE;
 
 	if (g->in_view)
 	{
-		g->lighting = FEAT_LIGHTING_LIT;
+		g->lighting = FEAT_LIGHTING_LOS;
 
-		if (!(info & CAVE_GLOW) && OPT(view_yellow_light))
-			g->lighting = FEAT_LIGHTING_BRIGHT;
+		if (!sqinfo_has(cave->info[y][x], SQUARE_GLOW) && OPT(view_yellow_light))
+			g->lighting = FEAT_LIGHTING_TORCH;
 	}
-	else if (!(info & CAVE_MARK))
+	else if (!sqinfo_has(cave->info[y][x], SQUARE_MARK))
 	{
 		g->f_idx = FEAT_NONE;
 	}
+	else if (sqinfo_has(cave->info[y][x], SQUARE_GLOW))
+	{
+		g->lighting = FEAT_LIGHTING_LIT;
+	}
 
+
+    /* There is a trap in this square */
+    if (sqinfo_has(cave->info[y][x], SQUARE_TRAP) && 
+		sqinfo_has(cave->info[y][x], SQUARE_MARK))
+    {
+		int i;
+		
+		/* Scan the current trap list */
+		for (i = 0; i < cave_trap_max(cave); i++)
+		{
+			/* Point to this trap */
+			trap_type *t_ptr = cave_trap(cave, i);
+			
+			/* Find a trap in this position */
+			if ((t_ptr->fy == y) && (t_ptr->fx == x))
+			{
+				/* Get the trap */
+				g->trap = i;
+				break;
+			}
+		}
+    }
 
 	/* Objects */
 	for (o_ptr = get_first_object(y, x); o_ptr; o_ptr = get_next_object(o_ptr))
@@ -816,13 +869,13 @@ void map_info(unsigned y, unsigned x, grid_data *g)
 		if (o_ptr->marked == MARK_AWARE) {
 		
 			/* Distinguish between unseen money and objects */
-			if (o_ptr->tval == TV_GOLD) {
-			    g->unseen_money = TRUE;
+			if (tval_is_money(o_ptr)) {
+				g->unseen_money = TRUE;
 			} else {
 				g->unseen_object = TRUE;
 			}
 			
-		} else if (o_ptr->marked == MARK_SEEN && !squelch_item_ok(o_ptr)) {
+		} else if (o_ptr->marked == MARK_SEEN && !ignore_item_ok(o_ptr)) {
 			if (!g->first_kind) {
 				g->first_kind = o_ptr->kind;
 			} else {
@@ -843,16 +896,16 @@ void map_info(unsigned y, unsigned x, grid_data *g)
 	/* Rare random hallucination on non-outer walls */
 	if (g->hallucinate && g->m_idx == 0 && g->first_kind == 0)
 	{
-		if (one_in_(128) && g->f_idx < FEAT_PERM_SOLID)
+		if (one_in_(128) && g->f_idx != FEAT_PERM)
 			g->m_idx = 1;
-		else if (one_in_(128) && g->f_idx < FEAT_PERM_SOLID)
+		else if (one_in_(128) && g->f_idx != FEAT_PERM)
 			/* if hallucinating, we just need first_kind to not be NULL */
 			g->first_kind = k_info;
 		else
 			g->hallucinate = FALSE;
 	}
 
-	assert(g->f_idx <= FEAT_PERM_SOLID);
+	assert(g->f_idx <= FEAT_PERM);
 	if (!g->hallucinate)
 		assert((int)g->m_idx < cave->mon_max);
 	/* All other g fields are 'flags', mostly booleans. */
@@ -880,14 +933,14 @@ static void move_cursor_relative_map(int y, int x)
 		if (!t) continue;
 
 		/* No relevant flags */
-		if (!(op_ptr->window_flag[j] & (PW_MAP))) continue;
+		if (!(window_flag[j] & (PW_MAP))) continue;
 
 		/* Location relative to panel */
 		ky = y - t->offset_y;
 
 		if (tile_height > 1)
 		{
-		        ky = tile_height * ky;
+			ky = tile_height * ky;
 		}
 
 		/* Verify location */
@@ -898,7 +951,7 @@ static void move_cursor_relative_map(int y, int x)
 
 		if (tile_width > 1)
 		{
-		        kx = tile_width * kx;
+			kx = tile_width * kx;
 		}
 
 		/* Verify location */
@@ -946,11 +999,11 @@ void move_cursor_relative(int y, int x)
 
 	if (tile_width > 1)
 	{
-	        vx += (tile_width - 1) * kx;
+		vx += (tile_width - 1) * kx;
 	}
 	if (tile_height > 1)
 	{
-	        vy += (tile_height - 1) * ky;
+		vy += (tile_height - 1) * ky;
 	}
 
 	/* Go there */
@@ -981,14 +1034,14 @@ static void print_rel_map(wchar_t c, byte a, int y, int x)
 		if (!t) continue;
 
 		/* No relevant flags */
-		if (!(op_ptr->window_flag[j] & (PW_MAP))) continue;
+		if (!(window_flag[j] & (PW_MAP))) continue;
 
 		/* Location relative to panel */
 		ky = y - t->offset_y;
 
 		if (tile_height > 1)
 		{
-		        ky = tile_height * ky;
+			ky = tile_height * ky;
 			if (ky + 1 >= t->hgt) continue;
 		}
 
@@ -1000,7 +1053,7 @@ static void print_rel_map(wchar_t c, byte a, int y, int x)
 
 		if (tile_width > 1)
 		{
-		        kx = tile_width * kx;
+			kx = tile_width * kx;
 			if (kx + 1 >= t->wid) continue;
 		}
 
@@ -1011,7 +1064,7 @@ static void print_rel_map(wchar_t c, byte a, int y, int x)
 		Term_queue_char(t, kx, ky, a, c, 0, 0);
 
 		if ((tile_width > 1) || (tile_height > 1))
-		        Term_big_queue_char(Term, kx, ky, a, c, 0, 0);
+			Term_big_queue_char(Term, kx, ky, a, c, 0, 0);
 	}
 }
 
@@ -1054,7 +1107,7 @@ void print_rel(wchar_t c, byte a, int y, int x)
 	Term_queue_char(Term, vx, vy, a, c, 0, 0);
 
 	if ((tile_width > 1) || (tile_height > 1))
-	        Term_big_queue_char(Term, vx, vy, a, c, 0, 0);
+		Term_big_queue_char(Term, vx, vy, a, c, 0, 0);
   
 }
 
@@ -1090,22 +1143,22 @@ void print_rel(wchar_t c, byte a, int y, int x)
  * This function is called primarily from the "update_view()" function, for
  * each grid which becomes newly "see-able".
  */
-void cave_note_spot(struct cave *c, int y, int x)
+void square_note_spot(struct chunk *c, int y, int x)
 {
 	object_type *o_ptr;
 
 	/* Require "seen" flag */
-	if (!(c->info[y][x] & CAVE_SEEN))
+	if (!sqinfo_has(c->info[y][x], SQUARE_SEEN))
 		return;
 
 	for (o_ptr = get_first_object(y, x); o_ptr; o_ptr = get_next_object(o_ptr))
 		o_ptr->marked = MARK_SEEN;
 
-	if (c->info[y][x] & CAVE_MARK)
+	if (sqinfo_has(c->info[y][x], SQUARE_MARK))
 		return;
 
 	/* Memorize this grid */
-	cave->info[y][x] |= (CAVE_MARK);
+	sqinfo_on(c->info[y][x], SQUARE_MARK);
 }
 
 
@@ -1115,7 +1168,7 @@ void cave_note_spot(struct cave *c, int y, int x)
  *
  * This function should only be called on "legal" grids.
  */
-void cave_light_spot(struct cave *c, int y, int x)
+void square_light_spot(struct chunk *c, int y, int x)
 {
 	event_signal_point(EVENT_MAP, x, y);
 }
@@ -1142,7 +1195,7 @@ static void prt_map_aux(void)
 		if (!t) continue;
 
 		/* No relevant flags */
-		if (!(op_ptr->window_flag[j] & (PW_MAP))) continue;
+		if (!(window_flag[j] & (PW_MAP))) continue;
 
 		/* Assume screen */
 		ty = t->offset_y + (t->hgt / tile_height);
@@ -1151,12 +1204,11 @@ static void prt_map_aux(void)
 		/* Dump the map */
 		for (y = t->offset_y, vy = 0; y < ty; vy++, y++)
 		{
-		        if (vy + tile_height - 1 >= t->hgt) continue;
+			if (vy + tile_height - 1 >= t->hgt) continue;
 			for (x = t->offset_x, vx = 0; x < tx; vx++, x++)
 			{
 				/* Check bounds */
-				if (!cave_in_bounds(cave, y, x)) continue;
-
+				if (!square_in_bounds(cave, y, x)) continue;
 				if (vx + tile_width - 1 >= t->wid) continue;
 
 				/* Determine what is there */
@@ -1203,7 +1255,7 @@ void prt_map(void)
 		for (x = Term->offset_x, vx = COL_MAP; x < tx; vx+=tile_width, x++)
 		{
 			/* Check bounds */
-			if (!cave_in_bounds(cave, y, x)) continue;
+			if (!square_in_bounds(cave, y, x)) continue;
 
 			/* Determine what is there */
 			map_info(y, x, &g);
@@ -1214,7 +1266,7 @@ void prt_map(void)
 
 			if ((tile_width > 1) || (tile_height > 1))
 			{
-			        Term_big_queue_char(Term, vx, vy, a, c, TERM_WHITE, L' ');
+				Term_big_queue_char(Term, vx, vy, a, c, TERM_WHITE, L' ');
 			}
 		}
 	}
@@ -1238,67 +1290,59 @@ void prt_map(void)
  */
 void display_map(int *cy, int *cx)
 {
-	int py = p_ptr->py;
-	int px = p_ptr->px;
+	int py = player->py;
+	int px = player->px;
 
 	int map_hgt, map_wid;
-	int dungeon_hgt, dungeon_wid;
 	int row, col;
 
 	int x, y;
 	grid_data g;
 
 	int a, ta;
-	wchar_t tc;
+	wchar_t c, tc;
 
 	byte tp;
 
-	/* Large array on the stack */
-	byte mp[DUNGEON_HGT][DUNGEON_WID];
-
 	monster_race *r_ptr = &r_info[0];
+
+	/* Priority array */
+	byte **mp = mem_zalloc(cave->height * sizeof(byte*));
+	for (y = 0; y < cave->height; y++)
+		mp[y] = mem_zalloc(cave->width * sizeof(byte));
 
 	/* Desired map height */
 	map_hgt = Term->hgt - 2;
 	map_wid = Term->wid - 2;
 
-	dungeon_hgt = cave->height;
-	dungeon_wid = cave->width;
+	/* Prevent accidents */
+	if (map_hgt > cave->height) map_hgt = cave->height;
+	if (map_wid > cave->width) map_wid = cave->width;
 
 	/* Prevent accidents */
-	if (map_hgt > dungeon_hgt) map_hgt = dungeon_hgt;
-	if (map_wid > dungeon_wid) map_wid = dungeon_wid;
-
-	/* Prevent accidents */
-	if ((map_wid < 1) || (map_hgt < 1)) return;
-
+	if ((map_wid < 1) || (map_hgt < 1)) {
+		for (y = 0; y < cave->height; y++)
+			mem_free(mp[y]);
+		mem_free(mp);
+		return;
+	}
 
 	/* Nothing here */
 	a = TERM_WHITE;
+    c = L' ';
 	ta = TERM_WHITE;
 	tc = L' ';
-
-	/* Clear the priorities */
-	for (y = 0; y < map_hgt; ++y)
-	{
-		for (x = 0; x < map_wid; ++x)
-		{
-			/* No priority */
-			mp[y][x] = 0;
-		}
-	}
-
 
 	/* Draw a box around the edge of the term */
 	window_make(0, 0, map_wid + 1, map_hgt + 1);
 
 	/* Analyze the actual map */
-	for (y = 0; y < dungeon_hgt; y++)
+	for (y = 0; y < cave->height; y++)
 	{
-		for (x = 0; x < dungeon_wid; x++)
+		for (x = 0; x < cave->width; x++)
 		{
-			row = (y * map_hgt / dungeon_hgt);
-			col = (x * map_wid / dungeon_wid);
+			row = (y * map_hgt / cave->height);
+			col = (x * map_wid / cave->width);
 
 			if (tile_width > 1)
 				col = col - (col % tile_width);
@@ -1307,22 +1351,25 @@ void display_map(int *cy, int *cx)
 
 			/* Get the attr/char at that map location */
 			map_info(y, x, &g);
+			grid_data_as_text(&g, &a, &c, &ta, &tc);
 
 			/* Get the priority of that attr/char */
 			tp = f_info[g.f_idx].priority;
+
+			/* Stuff on top of terrain gets higher priority */
+			if ((a != ta) || (c != tc)) tp = 20;
 
 			/* Save "best" */
 			if (mp[row][col] < tp)
 			{
 				/* Hack - make every grid on the map lit */
-				g.lighting = FEAT_LIGHTING_LIT; /*FEAT_LIGHTING_BRIGHT;*/
-				grid_data_as_text(&g, &a, &tc, &ta, &tc);
+				g.lighting = FEAT_LIGHTING_LIT;
+				grid_data_as_text(&g, &a, &c, &ta, &tc);
 
-				/* Add the character */
-				Term_putch(col + 1, row + 1, ta, tc);
+				Term_queue_char(Term, col + 1, row + 1, a, c, ta, tc);
 
 				if ((tile_width > 1) || (tile_height > 1))
-					Term_big_putch(col + 1, row + 1, ta, tc);
+					Term_big_queue_char(Term, col + 1, row + 1, 255, -1, 0, 0);
 
 				/* Save priority */
 				mp[row][col] = tp;
@@ -1333,8 +1380,8 @@ void display_map(int *cy, int *cx)
 	/*** Display the player ***/
 
 	/* Player location */
-	row = (py * map_hgt / dungeon_hgt);
-	col = (px * map_wid / dungeon_wid);
+	row = (py * map_hgt / cave->height);
+	col = (px * map_wid / cave->width);
 
 	if (tile_width > 1)
 		col = col - (col % tile_width);
@@ -1354,6 +1401,10 @@ void display_map(int *cy, int *cx)
 	/* Return player location */
 	if (cy != NULL) (*cy) = row + 1;
 	if (cx != NULL) (*cx) = col + 1;
+
+	for (y = 0; y < cave->height; y++)
+		mem_free(mp[y]);
+	mem_free(mp);
 }
 
 
@@ -1435,28 +1486,6 @@ void do_cmd_view_map(void)
  * associated with the dungeon should really be associated with the player,
  * such as whether a given grid is viewable by a given player.
  *
- * One of the major bottlenecks in ancient versions of Angband was in the
- * calculation of "line of sight" from the player to various grids, such
- * as those containing monsters, using the relatively expensive "los()"
- * function.  This was such a nasty bottleneck that a lot of silly things
- * were done to reduce the dependancy on "line of sight", for example, you
- * could not "see" any grids in a lit room until you actually entered the
- * room, at which point every grid in the room became "illuminated" and
- * all of the grids in the room were "memorized" forever.  Other major
- * bottlenecks involved the determination of whether a grid was lit by the
- * player's torch, and whether a grid blocked the player's line of sight.
- * These bottlenecks led to the development of special new functions to
- * optimize issues involved with "line of sight" and "torch lit grids".
- * These optimizations led to entirely new additions to the game, such as
- * the ability to display the player's entire field of view using different
- * colors than were used for the "memorized" portions of the dungeon, and
- * the ability to memorize dark floor grids, but to indicate by the way in
- * which they are displayed that they are not actually illuminated.  And
- * of course many of them simply made the game itself faster or more fun.
- * Also, over time, the definition of "line of sight" has been relaxed to
- * allow the player to see a wider "field of view", which is slightly more
- * realistic, and only slightly more expensive to maintain.
- *
  * Currently, a lot of the information about the dungeon is stored in ways
  * that make it very efficient to access or modify the information, while
  * still attempting to be relatively conservative about memory usage, even
@@ -1470,72 +1499,29 @@ void do_cmd_view_map(void)
  * find out which monster.  The extra space used to store the information
  * twice is inconsequential compared to the speed increase.
  *
- * Some of the information about the dungeon is used by functions which can
- * constitute the "critical efficiency path" of the game itself, and so the
- * way in which they are stored and accessed has been optimized in order to
- * optimize the game itself.  For example, the "update_view()" function was
- * originally created to speed up the game itself (when the player was not
- * running), but then it took on extra responsibility as the provider of the
- * new "special effects lighting code", and became one of the most important
- * bottlenecks when the player was running.  So many rounds of optimization
- * were performed on both the function itself, and the data structures which
- * it uses, resulting eventually in a function which not only made the game
- * faster than before, but which was responsible for even more calculations
- * (including the determination of which grids are "viewable" by the player,
- * which grids are illuminated by the player's torch, and which grids can be
- * "seen" in some way by the player), as well as for providing the guts of
- * the special effects lighting code, and for the efficient redisplay of any
- * grids whose visual representation may have changed.
- *
- * Several pieces of information about each cave grid are stored in various
- * two dimensional arrays, with one unit of information for each grid in the
- * dungeon.  Some of these arrays have been intentionally expanded by a small
- * factor to make the two dimensional array accesses faster by allowing the
- * use of shifting instead of multiplication.
- *
  * Several pieces of information about each cave grid are stored in the
- * "cave->info" array, which is a special two dimensional array of bytes,
- * one for each cave grid, each containing eight separate "flags" which
- * describe some property of the cave grid.  These flags can be checked and
- * modified extremely quickly, especially when special idioms are used to
- * force the compiler to keep a local register pointing to the base of the
- * array.  Special location offset macros can be used to minimize the number
- * of computations which must be performed at runtime.  Note that using a
- * byte for each flag set may be slightly more efficient than using a larger
- * unit, so if another flag (or two) is needed later, and it must be fast,
- * then the two existing flags which do not have to be fast should be moved
- * out into some other data structure and the new flags should take their
- * place.  This may require a few minor changes in the savefile code.
+ * "cave->info" array, which is a special two dimensional array of bitflags.
  *
- * The "CAVE_ROOM" flag is saved in the savefile and is used to determine
- * which grids are part of "rooms", and thus which grids are affected by
- * "illumination" spells.  This flag does not have to be very fast.
+ * The "SQUARE_ROOM" flag is used to determine which grids are part of "rooms", 
+ * and thus which grids are affected by "illumination" spells.
  *
- * The "CAVE_VAULT" flag is saved in the savefile and is used to determine
- * which grids are part of "vaults", and thus which grids cannot serve as
- * the destinations of player teleportation.  This flag does not have to
- * be very fast.
+ * The "SQUARE_VAULT" flag is used to determine which grids are part of 
+ * "vaults", and thus which grids cannot serve as the destinations of player 
+ * teleportation.
  *
- * The "CAVE_MARK" flag is saved in the savefile and is used to determine
- * which grids have been "memorized" by the player.  This flag is used by
- * the "map_info()" function to determine if a grid should be displayed.
- * This flag is used in a few other places to determine if the player can
- * "know" about a given grid.  This flag must be very fast.
+ * The "SQUARE_MARK" flag is used to determine which grids have been memorized 
+ * by the player.  This flag is used by the "map_info()" function to determine
+ * if a grid should be displayed. This flag is used in a few other places to 
+ * determine if the player can * "know" about a given grid.
  *
- * The "CAVE_GLOW" flag is saved in the savefile and is used to determine
- * which grids are "permanently illuminated".  This flag is used by the
- * "update_view()" function to help determine which viewable flags may
- * be "seen" by the player.  This flag is used by the "map_info" function
- * to determine if a grid is only lit by the player's torch.  This flag
- * has special semantics for wall grids (see "update_view()").  This flag
- * must be very fast.
+ * The "SQUARE_GLOW" flag is used to determine which grids are "permanently 
+ * illuminated".  This flag is used by the update_view() function to help 
+ * determine which viewable flags may be "seen" by the player.  This flag 
+ * is used by the "map_info" function to determine if a grid is only lit by 
+ * the player's torch.  This flag has special semantics for wall grids 
+ * (see "update_view()").
  *
- * The "CAVE_WALL" flag is used to determine which grids block the player's
- * line of sight.  This flag is used by the "update_view()" function to
- * determine which grids block line of sight, and to help determine which
- * grids can be "seen" by the player.  This flag must be very fast.
- *
- * The "CAVE_VIEW" flag is used to determine which grids are currently in
+ * The "SQUARE_VIEW" flag is used to determine which grids are currently in
  * line of sight of the player.  This flag is set by (and used by) the
  * "update_view()" function.  This flag is used by any code which needs to
  * know if the player can "view" a given grid.  This flag is used by the
@@ -1545,42 +1531,36 @@ void do_cmd_view_map(void)
  * if a modification to a terrain feature might affect the player's field of
  * view.  This flag is used to see if certain monsters are "visible" to the
  * player.  This flag is used to allow any monster in the player's field of
- * view to "sense" the presence of the player.  This flag must be very fast.
+ * view to "sense" the presence of the player.
  *
- * The "CAVE_SEEN" flag is used to determine which grids are currently in
+ * The "SQUARE_SEEN" flag is used to determine which grids are currently in
  * line of sight of the player and also illuminated in some way.  This flag
  * is set by the "update_view()" function, using computations based on the
- * "CAVE_VIEW" and "CAVE_WALL" and "CAVE_GLOW" flags of various grids.  This
- * flag is used by any code which needs to know if the player can "see" a
+ * "SQUARE_VIEW" and "SQUARE_GLOW" flags and terrain of various grids.  
+ * This flag is used by any code which needs to know if the player can "see" a
  * given grid.  This flag is used by the "map_info()" function both to see
  * if a given "boring" grid can be seen by the player, and for some optional
  * special lighting effects.  The "player_can_see_bold()" macro wraps an
  * abstraction around this flag, but certain code idioms are much more
  * efficient.  This flag is used to see if certain monsters are "visible" to
- * the player.  This flag is never set for a grid unless "CAVE_VIEW" is also
- * set for the grid.  Whenever the "CAVE_WALL" or "CAVE_GLOW" flag changes
- * for a grid which has the "CAVE_VIEW" flag set, the "CAVE_SEEN" flag must
+ * the player.  This flag is never set for a grid unless "SQUARE_VIEW" is also
+ * set for the grid.  Whenever the terrain or "SQUARE_GLOW" flag changes
+ * for a grid which has the "SQUARE_VIEW" flag set, the "SQUARE_SEEN" flag must
  * be recalculated.  The simplest way to do this is to call "forget_view()"
- * and "update_view()" whenever the "CAVE_WALL" or "CAVE_GLOW" flags change
- * for a grid which has "CAVE_VIEW" set.  This flag must be very fast.
+ * and "update_view()" whenever the terrain or "SQUARE_GLOW" flag changes
+ * for a grid which has "SQUARE_VIEW" set.
  *
- * The "CAVE_WASSEEN" flag is used for a variety of temporary purposes.  This
- * flag is used to determine if the "CAVE_SEEN" flag for a grid has changed
+ * The "SQUARE_WASSEEN" flag is used for a variety of temporary purposes.  This
+ * flag is used to determine if the "SQUARE_SEEN" flag for a grid has changed
  * during the "update_view()" function.  This flag is used to "spread" light
  * or darkness through a room.  This flag is used by the "monster flow code".
- * This flag must always be cleared by any code which sets it, often, this
- * can be optimized by the use of the special "temp_g" array.  This flag must
- * be very fast.
+ * This flag must always be cleared by any code which sets it.
  *
- * Note that the "CAVE_MARK" flag is used for many reasons, some of which
- * are strictly for optimization purposes.  The "CAVE_MARK" flag means that
+ * Note that the "SQUARE_MARK" flag is used for many reasons, some of which
+ * are strictly for optimization purposes.  The "SQUARE_MARK" flag means that
  * even if the player cannot "see" the grid, he "knows" about the terrain in
  * that grid.  This is used to "memorize" grids when they are first "seen" by
  * the player, and to allow certain grids to be "detected" by certain magic.
- * Note that most grids are always memorized when they are first "seen", but
- * "boring" grids (floor grids) are only memorized if the "OPT(view_torch_grids)"
- * option is set, or if the "OPT(view_perma_grids)" option is set, and the grid
- * in question has the "CAVE_GLOW" flag set.
  *
  * Objects are "memorized" in a different way, using a special "marked" flag
  * on the object itself, which is set when an object is observed or detected.
@@ -1592,22 +1572,13 @@ void do_cmd_view_map(void)
  * is resting, or performing any repeated actions (like digging, disarming,
  * farming, etc), there is no need to call the "update_view()" function, so
  * even if it was not very efficient, this would really only matter when the
- * player was "running" through the dungeon.  It sets the "CAVE_VIEW" flag
- * on every cave grid in the player's field of view, and maintains an array
- * of all such grids in the global "view_g" array.  It also checks the torch
- * radius of the player, and sets the "CAVE_SEEN" flag for every grid which
+ * player was "running" through the dungeon.  It sets the "SQUARE_VIEW" flag
+ * on every cave grid in the player's field of view.  It also checks the torch
+ * radius of the player, and sets the "SQUARE_SEEN" flag for every grid which
  * is in the "field of view" of the player and which is also "illuminated",
  * either by the players torch (if any) or by any permanent light source.
  * It could use and help maintain information about multiple light sources,
  * which would be helpful in a multi-player version of Angband.
- *
- * The "update_view()" function maintains the special "view_g" array, which
- * contains exactly those grids which have the "CAVE_VIEW" flag set.  This
- * array is used by "update_view()" to (only) memorize grids which become
- * newly "seen", and to (only) redraw grids whose "seen" value changes, which
- * allows the use of some interesting (and very efficient) "special lighting
- * effects".  In addition, this array could be used elsewhere to quickly scan
- * through all the grids which are in the player's field of view.
  *
  * Note that the "update_view()" function allows, among other things, a room
  * to be "partially" seen as the player approaches it, with a growing cone
@@ -1619,19 +1590,6 @@ void do_cmd_view_map(void)
  * colors for grids which are not in the player's field of view, and/or to
  * indicate which grids are illuminated only by the player's torch by using
  * the color yellow for those grids.
- *
- * The old "update_view()" algorithm uses the special "CAVE_EASY" flag as a
- * temporary internal flag to mark those grids which are not only in view,
- * but which are also "easily" in line of sight of the player.  This flag
- * is actually just the "CAVE_SEEN" flag, and the "update_view()" function
- * makes sure to clear it for all old "CAVE_SEEN" grids, and then use it in
- * the algorithm as "CAVE_EASY", and then clear it for all "CAVE_EASY" grids,
- * and then reset it as appropriate for all new "CAVE_SEEN" grids.  This is
- * kind of messy, but it works.  The old algorithm may disappear eventually.
- *
- * The new "update_view()" algorithm uses a faster and more mathematically
- * correct algorithm, assisted by a large machine generated static array, to
- * determine the "CAVE_VIEW" and "CAVE_SEEN" flags simultaneously.  See below.
  *
  * It seems as though slight modifications to the "update_view()" functions
  * would allow us to determine "reverse" line-of-sight as well as "normal"
@@ -1645,14 +1603,14 @@ void do_cmd_view_map(void)
  * the monsters move around even if the player was not detectable, and to
  * "remember" where the player was last seen, to avoid looking stupid.
  *
- * Note that the "CAVE_GLOW" flag means that a grid is permanently lit in
+ * Note that the "SQUARE_GLOW" flag means that a grid is permanently lit in
  * some way.  However, for the player to "see" the grid, as determined by
- * the "CAVE_SEEN" flag, the player must not be blind, the grid must have
- * the "CAVE_VIEW" flag set, and if the grid is a "wall" grid, and it is
- * not lit by the player's torch, then it must touch a grid which does not
- * have the "CAVE_WALL" flag set, but which does have both the "CAVE_GLOW"
- * and "CAVE_VIEW" flags set.  This last part about wall grids is induced
- * by the semantics of "CAVE_GLOW" as applied to wall grids, and checking
+ * the "SQUARE_SEEN" flag, the player must not be blind, the grid must have
+ * the "SQUARE_VIEW" flag set, and if the grid is a "wall" grid, and it is
+ * not lit by the player's torch, then it must touch a projectable grid 
+ * which has both the "SQUARE_GLOW"
+ * and "SQUARE_VIEW" flags set.  This last part about wall grids is induced
+ * by the semantics of "SQUARE_GLOW" as applied to wall grids, and checking
  * the technical requirements can be very expensive, especially since the
  * grid may be touching some "illegal" grids.  Luckily, it is more or less
  * correct to restrict the "touching" grids from the eight "possible" grids
@@ -1660,19 +1618,19 @@ void do_cmd_view_map(void)
  * closer to the player than the grid itself, which eliminates more than
  * half of the work, including all of the potentially "illegal" grids, if
  * at most one of the three grids is a "diagonal" grid.  In addition, in
- * almost every situation, it is possible to ignore the "CAVE_VIEW" flag
+ * almost every situation, it is possible to ignore the "SQUARE_VIEW" flag
  * on these three "touching" grids, for a variety of technical reasons.
  * Finally, note that in most situations, it is only necessary to check
  * a single "touching" grid, in fact, the grid which is strictly closest
  * to the player of all the touching grids, and in fact, it is normally
- * only necessary to check the "CAVE_GLOW" flag of that grid, again, for
+ * only necessary to check the "SQUARE_GLOW" flag of that grid, again, for
  * various technical reasons.  However, one of the situations which does
  * not work with this last reduction is the very common one in which the
  * player approaches an illuminated room from a dark hallway, in which the
  * two wall grids which form the "entrance" to the room would not be marked
- * as "CAVE_SEEN", since of the three "touching" grids nearer to the player
+ * as "SQUARE_SEEN", since of the three "touching" grids nearer to the player
  * than each wall grid, only the farthest of these grids is itself marked
- * "CAVE_GLOW".
+ * "SQUARE_GLOW".
  *
  *
  * Here are some pictures of the legal "light source" radius values, in
@@ -1692,69 +1650,22 @@ void do_cmd_view_map(void)
  *                             333         43334
  *                                          333
  *
- *
- * Here is an illustration of the two different "update_view()" algorithms,
- * in which the grids marked "%" are pillars, and the grids marked "?" are
- * not in line of sight of the player.
- *
- *
- *                    Sample situation
- *
- *                  #####################
- *                  ############.%.%.%.%#
- *                  #...@..#####........#
- *                  #............%.%.%.%#
- *                  #......#####........#
- *                  ############........#
- *                  #####################
- *
- *
- *          New Algorithm             Old Algorithm
- *
- *      ########?????????????    ########?????????????
- *      #...@..#?????????????    #...@..#?????????????
- *      #...........?????????    #.........???????????
- *      #......#####.....????    #......####??????????
- *      ########?????????...#    ########?????????????
- *
- *      ########?????????????    ########?????????????
- *      #.@....#?????????????    #.@....#?????????????
- *      #............%???????    #...........?????????
- *      #......#####........?    #......#####?????????
- *      ########??????????..#    ########?????????????
- *
- *      ########?????????????    ########?????%???????
- *      #......#####........#    #......#####..???????
- *      #.@..........%???????    #.@..........%???????
- *      #......#####........#    #......#####..???????
- *      ########?????????????    ########?????????????
- *
- *      ########??????????..#    ########?????????????
- *      #......#####........?    #......#####?????????
- *      #............%???????    #...........?????????
- *      #.@....#?????????????    #.@....#?????????????
- *      ########?????????????    ########?????????????
- *
- *      ########?????????%???    ########?????????????
- *      #......#####.....????    #......####??????????
- *      #...........?????????    #.........???????????
- *      #...@..#?????????????    #...@..#?????????????
- *      ########?????????????    ########?????????????
  */
 
 /*
- * Forget the "CAVE_VIEW" grids, redrawing as needed
+ * Forget the "SQUARE_VIEW" grids, redrawing as needed
  */
-void forget_view(struct cave *c)
+void forget_view(struct chunk *c)
 {
 	int x, y;
 
 	for (y = 0; y < c->height; y++) {
 		for (x = 0; x < c->width; x++) {
-			if (!cave_isview(c, y, x))
+			if (!square_isview(c, y, x))
 				continue;
-			c->info[y][x] &= ~(CAVE_VIEW | CAVE_SEEN);
-			cave_light_spot(c, y, x);
+			sqinfo_off(c->info[y][x], SQUARE_VIEW);
+			sqinfo_off(c->info[y][x], SQUARE_SEEN);
+			square_light_spot(c, y, x);
 		}
 	}
 }
@@ -1763,104 +1674,22 @@ void forget_view(struct cave *c)
 
 /*
  * Calculate the complete field of view using a new algorithm
- *
- * If "view_g" and "temp_g" were global pointers to arrays of grids, as
- * opposed to actual arrays of grids, then we could be more efficient by
- * using "pointer swapping".
- *
- * Note the following idiom, which is used in the function below.
- * This idiom processes each "octant" of the field of view, in a
- * clockwise manner, starting with the east strip, south side,
- * and for each octant, allows a simple calculation to set "g"
- * equal to the proper grids, relative to "pg", in the octant.
- *
- *   for (o2 = 0; o2 < 8; o2++)
- *   ...
- *         g = pg + p->grid[o2];
- *   ...
- *
- *
- * Normally, vision along the major axes is more likely than vision
- * along the diagonal axes, so we check the bits corresponding to
- * the lines of sight near the major axes first.
- *
- * We use the "temp_g" array (and the "CAVE_WASSEEN" flag) to keep track of
- * which grids were previously marked "CAVE_SEEN", since only those grids
- * whose "CAVE_SEEN" value changes during this routine must be redrawn.
- *
- * This function is now responsible for maintaining the "CAVE_SEEN"
- * flags as well as the "CAVE_VIEW" flags, which is good, because
- * the only grids which normally need to be memorized and/or redrawn
- * are the ones whose "CAVE_SEEN" flag changes during this routine.
- *
- * Basically, this function divides the "octagon of view" into octants of
- * grids (where grids on the main axes and diagonal axes are "shared" by
- * two octants), and processes each octant one at a time, processing each
- * octant one grid at a time, processing only those grids which "might" be
- * viewable, and setting the "CAVE_VIEW" flag for each grid for which there
- * is an (unobstructed) line of sight from the center of the player grid to
- * any internal point in the grid (and collecting these "CAVE_VIEW" grids
- * into the "view_g" array), and setting the "CAVE_SEEN" flag for the grid
- * if, in addition, the grid is "illuminated" in some way.
- *
- * This function relies on a theorem (suggested and proven by Mat Hostetter)
- * which states that in each octant of a field of view, a given grid will
- * be "intersected" by one or more unobstructed "lines of sight" from the
- * center of the player grid if and only if it is "intersected" by at least
- * one such unobstructed "line of sight" which passes directly through some
- * corner of some grid in the octant which is not shared by any other octant.
- * The proof is based on the fact that there are at least three significant
- * lines of sight involving any non-shared grid in any octant, one which
- * intersects the grid and passes though the corner of the grid closest to
- * the player, and two which "brush" the grid, passing through the "outer"
- * corners of the grid, and that any line of sight which intersects a grid
- * without passing through the corner of a grid in the octant can be "slid"
- * slowly towards the corner of the grid closest to the player, until it
- * either reaches it or until it brushes the corner of another grid which
- * is closer to the player, and in either case, the existanc of a suitable
- * line of sight is thus demonstrated.
- *
- * It turns out that in each octant of the radius 20 "octagon of view",
- * there are 161 grids (with 128 not shared by any other octant), and there
- * are exactly 126 distinct "lines of sight" passing from the center of the
- * player grid through any corner of any non-shared grid in the octant.  To
- * determine if a grid is "viewable" by the player, therefore, you need to
- * simply show that one of these 126 lines of sight intersects the grid but
- * does not intersect any wall grid closer to the player.  So we simply use
- * a bit vector with 126 bits to represent the set of interesting lines of
- * sight which have not yet been obstructed by wall grids, and then we scan
- * all the grids in the octant, moving outwards from the player grid.  For
- * each grid, if any of the lines of sight which intersect that grid have not
- * yet been obstructed, then the grid is viewable.  Furthermore, if the grid
- * is a wall grid, then all of the lines of sight which intersect the grid
- * should be marked as obstructed for future reference.  Also, we only need
- * to check those grids for whom at least one of the "parents" was a viewable
- * non-wall grid, where the parents include the two grids touching the grid
- * but closer to the player grid (one adjacent, and one diagonal).  For the
- * bit vector, we simply use 4 32-bit integers.  All of the static values
- * which are needed by this function are stored in the large "vinfo" array
- * (above), which is machine generated by another program.  XXX XXX XXX
- *
- * Hack -- The queue must be able to hold more than VINFO_MAX_GRIDS grids
- * because the grids at the edge of the field of view use "grid zero" as
- * their children, and the queue must be able to hold several of these
- * special grids.  Because the actual number of required grids is bizarre,
- * we simply allocate twice as many as we would normally need.  XXX XXX XXX
  */
-static void mark_wasseen(struct cave *c) 
+static void mark_wasseen(struct chunk *c) 
 {
 	int x, y;
 	/* Save the old "view" grids for later */
 	for (y = 0; y < c->height; y++) {
 		for (x = 0; x < c->width; x++) {
-			if (c->info[y][x] & CAVE_SEEN)
-				c->info[y][x] |= CAVE_WASSEEN;
-			c->info[y][x] &= ~(CAVE_VIEW | CAVE_SEEN);
+			if (sqinfo_has(c->info[y][x], SQUARE_SEEN))
+				sqinfo_on(c->info[y][x], SQUARE_WASSEEN);
+			sqinfo_off(c->info[y][x], SQUARE_VIEW);
+			sqinfo_off(c->info[y][x], SQUARE_SEEN);
 		}
 	}
 }
 
-static void add_monster_lights(struct cave *c, struct loc from)
+static void add_monster_lights(struct chunk *c, struct loc from)
 {
 	int i, j, k;
 
@@ -1869,7 +1698,7 @@ static void add_monster_lights(struct cave *c, struct loc from)
 		/* Check the k'th monster */
 		struct monster *m = cave_monster(c, k);
 
-		bool in_los = los(from.y, from.x, m->fy, m->fx);
+		bool in_los = los(c, from.y, from.x, m->fy, m->fx);
 
 		/* Skip dead monsters */
 		if (!m->race)
@@ -1888,7 +1717,7 @@ static void add_monster_lights(struct cave *c, struct loc from)
 				int sx = m->fx + j;
 				
 				/* If the monster isn't visible we can only light open tiles */
-				if (!in_los && !cave_ispassable(cave, sy, sx))
+				if (!in_los && !square_isprojectable(c, sy, sx))
 					continue;
 
 				/* If the tile is too far away we won't light it */
@@ -1896,67 +1725,68 @@ static void add_monster_lights(struct cave *c, struct loc from)
 					continue;
 				
 				/* If the tile itself isn't in LOS, don't light it */
-				if (!los(from.y, from.x, sy, sx))
+				if (!los(c, from.y, from.x, sy, sx))
 					continue;
 
 				/* Mark the square lit and seen */
-				c->info[sy][sx] |= (CAVE_VIEW | CAVE_SEEN);
+				sqinfo_on(c->info[sy][sx], SQUARE_VIEW);
+				sqinfo_on(c->info[sy][sx], SQUARE_SEEN);
 			}
 		}
 	}
 }
 
-static void update_one(struct cave *c, int y, int x, int blind)
+static void update_one(struct chunk *c, int y, int x, int blind)
 {
 	if (blind)
-		c->info[y][x] &= ~CAVE_SEEN;
+		sqinfo_off(c->info[y][x], SQUARE_SEEN);
 
 	/* Square went from unseen -> seen */
-	if (cave_isseen(c, y, x) && !cave_wasseen(c, y, x)) {
-		if (cave_isfeel(c, y, x)) {
+	if (square_isseen(c, y, x) && !square_wasseen(c, y, x)) {
+		if (square_isfeel(c, y, x)) {
 			c->feeling_squares++;
-			c->info2[y][x] &= ~CAVE2_FEEL;
+			sqinfo_off(c->info[y][x], SQUARE_FEEL);
 			if (c->feeling_squares == FEELING1)
 				display_feeling(TRUE);
 		}
 
-		cave_note_spot(c, y, x);
-		cave_light_spot(c, y, x);
+		square_note_spot(c, y, x);
+		square_light_spot(c, y, x);
 	}
 
 	/* Square went from seen -> unseen */
-	if (!cave_isseen(c, y, x) && cave_wasseen(c, y, x))
-		cave_light_spot(c, y, x);
+	if (!square_isseen(c, y, x) && square_wasseen(c, y, x))
+		square_light_spot(c, y, x);
 
-	c->info[y][x] &= ~CAVE_WASSEEN;
+	sqinfo_off(c->info[y][x], SQUARE_WASSEEN);
 }
 
-static void become_viewable(struct cave *c, int y, int x, int lit, int py, int px)
+static void become_viewable(struct chunk *c, int y, int x, int lit, int py, int px)
 {
 	int xc = x;
 	int yc = y;
-	if (cave_isview(c, y, x))
+	if (square_isview(c, y, x))
 		return;
 
-	c->info[y][x] |= CAVE_VIEW;
+	sqinfo_on(c->info[y][x], SQUARE_VIEW);
 
 	if (lit)
-		c->info[y][x] |= CAVE_SEEN;
+		sqinfo_on(c->info[y][x], SQUARE_SEEN);
 
-	if (cave_isglow(c, y, x)) {
-		if (cave_iswall(c, y, x)) {
+	if (square_isglow(c, y, x)) {
+		if (square_iswall(c, y, x)) {
 			/* For walls, move a bit towards the player.
 			 * TODO(elly): huh? why?
 			 */
 			xc = (x < px) ? (x + 1) : (x > px) ? (x - 1) : x;
 			yc = (y < py) ? (y + 1) : (y > py) ? (y - 1) : y;
 		}
-		if (cave_isglow(c, yc, xc))
-			c->info[y][x] |= CAVE_SEEN;
+		if (square_isglow(c, yc, xc))
+			sqinfo_on(c->info[y][x], SQUARE_SEEN);
 	}
 }
 
-static void update_view_one(struct cave *c, int y, int x, int radius, int py, int px)
+static void update_view_one(struct chunk *c, int y, int x, int radius, int py, int px)
 {
 	int xc = x;
 	int yc = y;
@@ -1976,7 +1806,7 @@ static void update_view_one(struct cave *c, int y, int x, int radius, int py, in
 	 * where the wall cell marked '1' would not be lit because the LOS
 	 * algorithm runs into the adjacent wall cell.
 	 */
-	if (cave_iswall(c, y, x)) {
+	if (square_iswall(c, y, x)) {
 		int dx = x - px;
 		int dy = y - py;
 		int ax = ABS(dx);
@@ -1991,7 +1821,7 @@ static void update_view_one(struct cave *c, int y, int x, int radius, int py, in
 		 * wall. If we don't do this, double-thickness walls will have
 		 * both sides visible.
 		 */
-		if (cave_iswall(c, yc, xc)) {
+		if (square_iswall(c, yc, xc)) {
 			xc = x;
 			yc = y;
 		}
@@ -1999,14 +1829,14 @@ static void update_view_one(struct cave *c, int y, int x, int radius, int py, in
 		/* Check that we got here via the 'knight's move' rule. If so,
 		 * don't steal LOS. */
 		if (ax == 2 && ay == 1) {
-			if (  !cave_iswall(c, y, x - sx)
-			    && cave_iswall(c, y - sy, x - sx)) {
+			if (  !square_iswall(c, y, x - sx)
+				  && square_iswall(c, y - sy, x - sx)) {
 				xc = x;
 				yc = y;
 			}
 		} else if (ax == 1 && ay == 2) {
-			if (  !cave_iswall(c, y - sy, x)
-			    && cave_iswall(c, y - sy, x - sx)) {
+			if (  !square_iswall(c, y - sy, x)
+				  && square_iswall(c, y - sy, x - sx)) {
 				xc = x;
 				yc = y;
 			}
@@ -2014,11 +1844,11 @@ static void update_view_one(struct cave *c, int y, int x, int radius, int py, in
 	}
 
 
-	if (los(py, px, yc, xc))
+	if (los(c, py, px, yc, xc))
 		become_viewable(c, y, x, lit, py, px);
 }
 
-void update_view(struct cave *c, struct player *p)
+void update_view(struct chunk *c, struct player *p)
 {
 	int x, y;
 
@@ -2027,7 +1857,7 @@ void update_view(struct cave *c, struct player *p)
 	mark_wasseen(c);
 
 	/* Extract "radius" value */
-	radius = p->cur_light;
+	radius = p->state.cur_light;
 
 	/* Handle real light */
 	if (radius > 0) ++radius;
@@ -2035,14 +1865,14 @@ void update_view(struct cave *c, struct player *p)
 	add_monster_lights(c, loc(p->px, p->py));
 
 	/* Assume we can view the player grid */
-	c->info[p->py][p->px] |= CAVE_VIEW;
-	if (radius > 0 || cave_isglow(c, p->py, p->px))
-		c->info[p->py][p->px] |= CAVE_SEEN;
+	sqinfo_on(c->info[p->py][p->px], SQUARE_VIEW);
+	if (radius > 0 || square_isglow(c, p->py, p->px))
+		sqinfo_on(c->info[p->py][p->px], SQUARE_SEEN);
 
 	/* View squares we have LOS to */
 	for (y = 0; y < c->height; y++)
 		for (x = 0; x < c->width; x++)
-			update_view_one(cave, y, x, radius, p->py, p->px);
+			update_view_one(c, y, x, radius, p->py, p->px);
 
 	/*** Step 3 -- Complete the algorithm ***/
 
@@ -2052,7 +1882,27 @@ void update_view(struct cave *c, struct player *p)
 }
 
 
+/*
+ * Determine if a "legal" grid is within "los" of the player
+ */
+bool player_has_los_bold(int y, int x)
+{
+	if (sqinfo_has(cave->info[y][x], SQUARE_VIEW))
+		return TRUE;
 
+	return FALSE;
+}
+
+/*
+ * Determine if a "legal" grid can be "seen" by the player
+ */
+bool player_can_see_bold(int y, int x)
+{
+	if (sqinfo_has(cave->info[y][x], SQUARE_SEEN))
+		return TRUE;
+
+	return FALSE;
+}
 
 /*
  * Size of the circular queue used by "update_flow()"
@@ -2080,7 +1930,7 @@ static int flow_save = 0;
 /*
  * Hack -- forget the "flow" information
  */
-void cave_forget_flow(struct cave *c)
+void cave_forget_flow(struct chunk *c)
 {
 	int x, y;
 
@@ -2088,9 +1938,9 @@ void cave_forget_flow(struct cave *c)
 	if (!flow_save) return;
 
 	/* Check the entire dungeon */
-	for (y = 0; y < DUNGEON_HGT; y++)
+	for (y = 0; y < c->height; y++)
 	{
-		for (x = 0; x < DUNGEON_WID; x++)
+		for (x = 0; x < c->width; x++)
 		{
 			/* Forget the old data */
 			c->cost[y][x] = 0;
@@ -2117,10 +1967,10 @@ void cave_forget_flow(struct cave *c)
  * We do not need a priority queue because the cost from grid to grid
  * is always "one" (even along diagonals) and we process them in order.
  */
-void cave_update_flow(struct cave *c)
+void cave_update_flow(struct chunk *c)
 {
-	int py = p_ptr->py;
-	int px = p_ptr->px;
+	int py = player->py;
+	int px = player->px;
 
 	int ty, tx;
 
@@ -2143,9 +1993,9 @@ void cave_update_flow(struct cave *c)
 	if (flow_save++ == 255)
 	{
 		/* Cycle the flow */
-		for (y = 0; y < DUNGEON_HGT; y++)
+		for (y = 0; y < c->height; y++)
 		{
-			for (x = 0; x < DUNGEON_WID; x++)
+			for (x = 0; x < c->width; x++)
 			{
 				int w = c->when[y][x];
 				c->when[y][x] = (w >= 128) ? (w - 128) : 0;
@@ -2202,12 +2052,13 @@ void cave_update_flow(struct cave *c)
 			/* Child location */
 			y = ty + ddy_ddd[d];
 			x = tx + ddx_ddd[d];
+			if (!square_in_bounds(c, y, x)) continue;
 
 			/* Ignore "pre-stamped" entries */
 			if (c->when[y][x] == flow_n) continue;
 
 			/* Ignore "walls" and "rubble" */
-			if (c->feat[y][x] >= FEAT_RUBBLE) continue;
+			if (tf_has(f_info[c->feat[y][x]].flags, TF_NO_FLOW)) continue;
 
 			/* Save the time-stamp */
 			c->when[y][x] = flow_n;
@@ -2237,15 +2088,14 @@ void cave_update_flow(struct cave *c)
  * This function "illuminates" every grid in the dungeon, memorizes all
  * "objects", and memorizes all grids as with magic mapping.
  */
-void wiz_light(bool full)
+void wiz_light(struct chunk *c, bool full)
 {
 	int i, y, x;
 
-
 	/* Memorize objects */
-	for (i = 1; i < o_max; i++)
+	for (i = 1; i < cave_object_max(cave); i++)
 	{
-		object_type *o_ptr = object_byid(i);
+		object_type *o_ptr = cave_object(c, i);
 
 		/* Skip dead objects */
 		if (!o_ptr->kind) continue;
@@ -2259,13 +2109,13 @@ void wiz_light(bool full)
 	}
 
 	/* Scan all normal grids */
-	for (y = 1; y < cave->height - 1; y++)
+	for (y = 1; y < c->height - 1; y++)
 	{
 		/* Scan all normal grids */
-		for (x = 1; x < cave->width - 1; x++)
+		for (x = 1; x < c->width - 1; x++)
 		{
 			/* Process all non-walls */
-			if (cave->feat[y][x] < FEAT_SECRET)
+			if (!square_seemslikewall(c, y, x))
 			{
 				/* Scan all neighbors */
 				for (i = 0; i < 9; i++)
@@ -2274,21 +2124,22 @@ void wiz_light(bool full)
 					int xx = x + ddx_ddd[i];
 
 					/* Perma-light the grid */
-					cave->info[yy][xx] |= (CAVE_GLOW);
+					sqinfo_on(c->info[yy][xx], SQUARE_GLOW);
 
 					/* Memorize normal features */
-					if (cave->feat[yy][xx] > FEAT_INVIS)
-						cave->info[yy][xx] |= (CAVE_MARK);
+					if (!square_isfloor(c, yy, xx) || 
+						square_visible_trap(c, yy, xx))
+						sqinfo_on(c->info[yy][xx], SQUARE_MARK);
 				}
 			}
 		}
 	}
 
 	/* Fully update the visuals */
-	p_ptr->update |= (PU_FORGET_VIEW | PU_UPDATE_VIEW | PU_MONSTERS);
+	player->upkeep->update |= (PU_FORGET_VIEW | PU_UPDATE_VIEW | PU_MONSTERS);
 
 	/* Redraw whole map, monster list */
-	p_ptr->redraw |= (PR_MAP | PR_MONLIST | PR_ITEMLIST);
+	player->upkeep->redraw |= (PR_MAP | PR_MONLIST | PR_ITEMLIST);
 }
 
 
@@ -2306,15 +2157,16 @@ void wiz_dark(void)
 		for (x = 0; x < cave->width; x++)
 		{
 			/* Process the grid */
-			cave->info[y][x] &= ~(CAVE_MARK);
-			cave->info2[y][x] &= ~(CAVE2_DTRAP|CAVE2_DEDGE);
+			sqinfo_off(cave->info[y][x], SQUARE_MARK);
+			sqinfo_off(cave->info[y][x], SQUARE_DTRAP);
+			sqinfo_off(cave->info[y][x], SQUARE_DEDGE);
 		}
 	}
 
 	/* Forget all objects */
-	for (i = 1; i < o_max; i++)
+	for (i = 1; i < cave_object_max(cave); i++)
 	{
-		object_type *o_ptr = object_byid(i);
+		object_type *o_ptr = cave_object(cave, i);
 
 		/* Skip dead objects */
 		if (!o_ptr->kind) continue;
@@ -2327,10 +2179,10 @@ void wiz_dark(void)
 	}
 
 	/* Fully update the visuals */
-	p_ptr->update |= (PU_FORGET_VIEW | PU_UPDATE_VIEW | PU_MONSTERS);
+	player->upkeep->update |= (PU_FORGET_VIEW | PU_UPDATE_VIEW | PU_MONSTERS);
 
 	/* Redraw map, monster list */
-	p_ptr->redraw |= (PR_MAP | PR_MONLIST | PR_ITEMLIST);
+	player->upkeep->redraw |= (PR_MAP | PR_MONLIST | PR_ITEMLIST);
 }
 
 
@@ -2338,77 +2190,91 @@ void wiz_dark(void)
 /*
  * Light or Darken the town
  */
-void cave_illuminate(struct cave *c, bool daytime)
+void cave_illuminate(struct chunk *c, bool daytime)
 {
 	int y, x, i;
 
 	/* Apply light or darkness */
 	for (y = 0; y < c->height; y++)
-		for (x = 0; x < c->width; x++)
+		for (x = 0; x < c->width; x++) {
+			feature_type *f_ptr = &f_info[c->feat[y][x]];
+			
 			/* Only interesting grids at night */
-			if (daytime || c->feat[y][x] > FEAT_INVIS)
-				c->info[y][x] |= CAVE_GLOW | CAVE_MARK;
-			else
-				c->info[y][x] &= ~(CAVE_GLOW | CAVE_MARK);
-
-
+			if (daytime || !tf_has(f_ptr->flags, TF_FLOOR)) {
+				sqinfo_on(c->info[y][x], SQUARE_GLOW);
+				sqinfo_on(c->info[y][x], SQUARE_MARK);
+			}
+			else {
+				sqinfo_off(c->info[y][x], SQUARE_GLOW);
+				sqinfo_off(c->info[y][x], SQUARE_MARK);
+			}
+		}
+			
+			
 	/* Light shop doorways */
 	for (y = 0; y < c->height; y++) {
 		for (x = 0; x < c->width; x++) {
-			if (!cave_isshop(c, y, x))
+			if (!square_isshop(c, y, x))
 				continue;
 			for (i = 0; i < 8; i++) {
 				int yy = y + ddy_ddd[i];
 				int xx = x + ddx_ddd[i];
-				c->info[yy][xx] |= (CAVE_GLOW | CAVE_MARK);
+				sqinfo_on(c->info[yy][xx], SQUARE_GLOW);
+				sqinfo_on(c->info[yy][xx], SQUARE_MARK);
 			}
 		}
 	}
 
 
 	/* Fully update the visuals */
-	p_ptr->update |= (PU_FORGET_VIEW | PU_UPDATE_VIEW | PU_MONSTERS);
+	player->upkeep->update |= (PU_FORGET_VIEW | PU_UPDATE_VIEW | PU_MONSTERS);
 
 	/* Redraw map, monster list */
-	p_ptr->redraw |= (PR_MAP | PR_MONLIST | PR_ITEMLIST);
+	player->upkeep->redraw |= (PR_MAP | PR_MONLIST | PR_ITEMLIST);
 }
 
-struct feature *cave_feat(struct cave *c, int y, int x)
+struct feature *square_feat(struct chunk *c, int y, int x)
 {
 	assert(c);
-	assert(y >= 0 && y < DUNGEON_HGT);
-	assert(x >= 0 && x < DUNGEON_WID);
+	assert(y >= 0 && y < c->height);
+	assert(x >= 0 && x < c->width);
 
-	return &f_info[cave->feat[y][x]];
+	return &f_info[c->feat[y][x]];
 }
 
-void cave_set_feat(struct cave *c, int y, int x, int feat)
+void square_set_feat(struct chunk *c, int y, int x, int feat)
 {
-	assert(c);
-	assert(y >= 0 && y < DUNGEON_HGT);
-	assert(x >= 0 && x < DUNGEON_WID);
-	/* XXX: Check against c->height and c->width instead, once everywhere
-	 * honors those... */
+	int current_feat = c->feat[y][x];
 
+	assert(c);
+	assert(y >= 0 && y < c->height);
+	assert(x >= 0 && x < c->width);
+
+	/* Track changes */
+	if (current_feat) c->feat_count[current_feat]--;
+	if (feat) c->feat_count[feat]++;
+
+	/* Make the change */
 	c->feat[y][x] = feat;
 
-	if (feat >= FEAT_DOOR_HEAD)
-		c->info[y][x] |= CAVE_WALL;
-	else
-		c->info[y][x] &= ~CAVE_WALL;
-
+	/* Make the new terrain feel at home */
 	if (character_dungeon) {
-		cave_note_spot(c, y, x);
-		cave_light_spot(c, y, x);
+		square_note_spot(c, y, x);
+		square_light_spot(c, y, x);
+	} else {
+		/* Make sure no incorrect wall flags set for dungeon generation */
+		   sqinfo_off(c->info[y][x], SQUARE_WALL_INNER);
+		   sqinfo_off(c->info[y][x], SQUARE_WALL_OUTER);
+		   sqinfo_off(c->info[y][x], SQUARE_WALL_SOLID);
 	}
 }
 
-bool cave_in_bounds(struct cave *c, int y, int x)
+bool square_in_bounds(struct chunk *c, int y, int x)
 {
 	return x >= 0 && x < c->width && y >= 0 && y < c->height;
 }
 
-bool cave_in_bounds_fully(struct cave *c, int y, int x)
+bool square_in_bounds_fully(struct chunk *c, int y, int x)
 {
 	return x > 0 && x < c->width - 1 && y > 0 && y < c->height - 1;
 }
@@ -2541,7 +2407,7 @@ int project_path(u16b *gp, int range, int y1, int x1, int y2, int x2, int flg)
 			}
 
 			/* Always stop at non-initial wall grids */
-			if ((n > 0) && !cave_ispassable(cave, y, x)) break;
+			if ((n > 0) && !square_isprojectable(cave, y, x)) break;
 
 			/* Sometimes stop at non-initial monsters/players */
 			if (flg & (PROJECT_STOP))
@@ -2603,7 +2469,7 @@ int project_path(u16b *gp, int range, int y1, int x1, int y2, int x2, int flg)
 			}
 
 			/* Always stop at non-initial wall grids */
-			if ((n > 0) && !cave_ispassable(cave, y, x)) break;
+			if ((n > 0) && !square_isprojectable(cave, y, x)) break;
 
 			/* Sometimes stop at non-initial monsters/players */
 			if (flg & (PROJECT_STOP))
@@ -2659,7 +2525,7 @@ int project_path(u16b *gp, int range, int y1, int x1, int y2, int x2, int flg)
 			}
 
 			/* Always stop at non-initial wall grids */
-			if ((n > 0) && !cave_ispassable(cave, y, x)) break;
+			if ((n > 0) && !square_isprojectable(cave, y, x)) break;
 
 			/* Sometimes stop at non-initial monsters/players */
 			if (flg & (PROJECT_STOP))
@@ -2691,7 +2557,7 @@ int project_path(u16b *gp, int range, int y1, int x1, int y2, int x2, int flg)
  * This function is used to determine if the player can (easily) target
  * a given grid, and if a monster can target the player.
  */
-bool projectable(int y1, int x1, int y2, int x2, int flg)
+bool projectable(struct chunk *c, int y1, int x1, int y2, int x2, int flg)
 {
 	int y, x;
 
@@ -2709,7 +2575,7 @@ bool projectable(int y1, int x1, int y2, int x2, int flg)
 	x = GRID_X(grid_g[grid_n-1]);
 
 	/* May not end in a wall grid */
-	if (!cave_ispassable(cave, y, x)) return (FALSE);
+	if (!square_ispassable(c, y, x)) return (FALSE);
 
 	/* May not end in an unrequested grid */
 	if ((y != y2) || (x != x2)) return (FALSE);
@@ -2731,7 +2597,7 @@ bool projectable(int y1, int x1, int y2, int x2, int flg)
  *
  * need_los determines whether line of sight is needed
  */
-void scatter(int *yp, int *xp, int y, int x, int d, bool need_los)
+void scatter(struct chunk *c, int *yp, int *xp, int y, int x, int d, bool need_los)
 {
 	int nx, ny;
 
@@ -2744,7 +2610,7 @@ void scatter(int *yp, int *xp, int y, int x, int d, bool need_los)
 		nx = rand_spread(x, d);
 
 		/* Ignore annoying locations */
-		if (!cave_in_bounds_fully(cave, ny, nx)) continue;
+		if (!square_in_bounds_fully(c, ny, nx)) continue;
 
 		/* Ignore "excessively distant" locations */
 		if ((d > 1) && (distance(y, x, ny, nx) > d)) continue;
@@ -2753,7 +2619,7 @@ void scatter(int *yp, int *xp, int y, int x, int d, bool need_los)
 		if (!need_los) break;
 
 		/* Require "line of sight" if set */
-		if (need_los && (los(y, x, ny, nx))) break;
+		if (need_los && (los(c, y, x, ny, nx))) break;
 	}
 
 	/* Save the location */
@@ -2762,78 +2628,67 @@ void scatter(int *yp, int *xp, int y, int x, int d, bool need_los)
 }
 
 
-/*
- * Something has happened to disturb the player.
- *
- * The first arg indicates a major disturbance, which affects search.
- *
- * The second arg is currently unused, but could induce output flush.
- *
- * All disturbance cancels repeated commands, resting, and running.
- */
-void disturb(struct player *p, int stop_search, int unused_flag)
-{
-	/* Unused parameter */
-	(void)unused_flag;
+struct chunk *cave = NULL;
 
-	/* Cancel repeated commands */
-	cmd_cancel_repeat();
+struct chunk *cave_new(int height, int width) {
+	int y, x;
 
-	/* Cancel Resting */
-	if (p->resting) {
-		p->resting = 0;
-		p->redraw |= PR_STATE;
+	struct chunk *c = mem_zalloc(sizeof *c);
+	c->height = height;
+	c->width = width;
+	c->feat_count = mem_zalloc((z_info->f_max + 1) * sizeof(int));
+	c->info = mem_zalloc(c->height * sizeof(bitflag**));
+	c->feat = mem_zalloc(c->height * sizeof(byte*));
+	c->cost = mem_zalloc(c->height * sizeof(byte*));
+	c->when = mem_zalloc(c->height * sizeof(byte*));
+	c->m_idx = mem_zalloc(c->height * sizeof(s16b*));
+	c->o_idx = mem_zalloc(c->height * sizeof(s16b*));
+	for (y = 0; y < c->height; y++){
+		c->info[y] = mem_zalloc(c->width * sizeof(bitflag*));
+		for (x = 0; x < c->width; x++)
+			c->info[y][x] = mem_zalloc(SQUARE_SIZE * sizeof(bitflag));
+		c->feat[y] = mem_zalloc(c->width * sizeof(byte));
+		c->cost[y] = mem_zalloc(c->width * sizeof(byte));
+		c->when[y] = mem_zalloc(c->width * sizeof(byte));
+		c->m_idx[y] = mem_zalloc(c->width * sizeof(s16b));
+		c->o_idx[y] = mem_zalloc(c->width * sizeof(s16b));
 	}
 
-	/* Cancel running */
-	if (p->running) {
-		p_ptr->running = 0;
-
- 		/* Check for new panel if appropriate */
- 		if (OPT(center_player)) verify_panel();
-		p->update |= PU_TORCH;
-	}
-
-	/* Cancel searching if requested */
-	if (stop_search && p->searching)
-	{
-		p->searching = FALSE;
-		p->update |= PU_BONUS;
-		p->redraw |= PR_STATE;
-	}
-
-	/* Flush input */
-	flush();
-}
-
-struct cave *cave = NULL;
-
-struct cave *cave_new(void) {
-	struct cave *c = mem_zalloc(sizeof *c);
-	c->info = C_ZNEW(DUNGEON_HGT, byte_256);
-	c->info2 = C_ZNEW(DUNGEON_HGT, byte_256);
-	c->feat = C_ZNEW(DUNGEON_HGT, byte_wid);
-	c->cost = C_ZNEW(DUNGEON_HGT, byte_wid);
-	c->when = C_ZNEW(DUNGEON_HGT, byte_wid);
-	c->m_idx = C_ZNEW(DUNGEON_HGT, s16b_wid);
-	c->o_idx = C_ZNEW(DUNGEON_HGT, s16b_wid);
-
-	c->monsters = C_ZNEW(z_info->m_max, struct monster);
+	c->monsters = mem_zalloc(z_info->m_max * sizeof(struct monster));
 	c->mon_max = 1;
 
-	c->created_at = 1;
+	c->objects = mem_zalloc(z_info->o_max * sizeof(struct object));
+	c->obj_max = 1;
+
+	c->traps = mem_zalloc(z_info->l_max * sizeof(struct trap_type));
+	c->trap_max = 1;
+
+	c->created_at = turn;
 	return c;
 }
 
-void cave_free(struct cave *c) {
+void cave_free(struct chunk *c) {
+	int y, x;
+	for (y = 0; y < c->height; y++){
+		for (x = 0; x < c->width; x++)
+			mem_free(c->info[y][x]);
+		mem_free(c->info[y]);
+		mem_free(c->feat[y]);
+		mem_free(c->cost[y]);
+		mem_free(c->when[y]);
+		mem_free(c->m_idx[y]);
+		mem_free(c->o_idx[y]);
+	}
+	mem_free(c->feat_count);
 	mem_free(c->info);
-	mem_free(c->info2);
 	mem_free(c->feat);
 	mem_free(c->cost);
 	mem_free(c->when);
 	mem_free(c->m_idx);
 	mem_free(c->o_idx);
 	mem_free(c->monsters);
+	mem_free(c->objects);
+	mem_free(c->traps);
 	mem_free(c);
 }
 
@@ -2846,94 +2701,86 @@ void cave_free(struct cave *c) {
  *
  * It's often better to use feature behavior predicates (written in terms of
  * these functions) instead of these functions directly. For instance,
- * cave_isrock() will return false for a secret door, even though it will
+ * square_isrock() will return false for a secret door, even though it will
  * behave like a rock wall until the player determines it's a door.
  *
- * Use functions like cave_isdiggable, cave_iswall, etc. in these cases.
+ * Use functions like square_isdiggable, square_iswall, etc. in these cases.
  */
 
 /**
  * True if the square is normal open floor.
  */
-bool cave_isfloor(struct cave *c, int y, int x) {
-	return c->feat[y][x] == FEAT_FLOOR;
+bool square_isfloor(struct chunk *c, int y, int x) {
+	return tf_has(f_info[c->feat[y][x]].flags, TF_FLOOR);
 }
 
 /**
  * True if the square is a normal granite rock wall.
- *
- * FEAT_WALL_SOLID is the normal feature type. The others are weird byproducts
- * of cave generation (and should be avoided).
  */
-bool cave_isrock(struct cave *c, int y, int x) {
-	switch (c->feat[y][x]) {
-		case FEAT_WALL_EXTRA:
-		case FEAT_WALL_INNER:
-		case FEAT_WALL_OUTER:
-		case FEAT_WALL_SOLID: return TRUE;
-		default: return FALSE;
-	}
+bool square_isrock(struct chunk *c, int y, int x) {
+	return (tf_has(f_info[c->feat[y][x]].flags, TF_GRANITE) &&
+			!tf_has(f_info[c->feat[y][x]].flags, TF_DOOR_ANY));
 }
 
 /**
  * True if the square is a permanent wall.
- *
- * FEAT_PERM_SOLID is the normal feature type. The others are weird byproducts
- * of cave generation (and should be avoided).
  */
-bool cave_isperm(struct cave *c, int y, int x) {
-	switch (c->feat[y][x]) {
-		case FEAT_PERM_EXTRA:
-		case FEAT_PERM_INNER:
-		case FEAT_PERM_OUTER:
-		case FEAT_PERM_SOLID: return TRUE;
-		default: return FALSE;
-	}
+bool square_isperm(struct chunk *c, int y, int x) {
+	return (tf_has(f_info[c->feat[y][x]].flags, TF_PERMANENT) &&
+			tf_has(f_info[c->feat[y][x]].flags, TF_ROCK));
 }
 
 /**
  * True if the square is a magma wall.
  */
-bool cave_ismagma(struct cave *c, int y, int x) {
-	switch (c->feat[y][x]) {
-		case FEAT_MAGMA:
-		case FEAT_MAGMA_H:
-		case FEAT_MAGMA_K: return TRUE;
-		default: return FALSE;
-	}
+bool feat_is_magma(int feat)
+{
+	return tf_has(f_info[feat].flags, TF_MAGMA);
+}
+
+/**
+ * True if the square is a magma wall.
+ */
+bool square_ismagma(struct chunk *c, int y, int x) {
+	return feat_is_magma(c->feat[y][x]);
 }
 
 /**
  * True if the square is a quartz wall.
  */
-bool cave_isquartz(struct cave *c, int y, int x) {
-	switch (c->feat[y][x]) {
-		case FEAT_QUARTZ:
-		case FEAT_QUARTZ_H:
-		case FEAT_QUARTZ_K: return TRUE;
-		default: return FALSE;
-	}
+bool feat_is_quartz(int feat)
+{
+	return tf_has(f_info[feat].flags, TF_QUARTZ);
+}
+
+/**
+ * True if the square is a quartz wall.
+ */
+bool square_isquartz(struct chunk *c, int y, int x) {
+	return feat_is_quartz(c->feat[y][x]);
 }
 
 /**
  * True if the square is a mineral wall (magma/quartz).
  */
-bool cave_ismineral(struct cave *c, int y, int x) {
-	return cave_isrock(c, y, x) || cave_ismagma(c, y, x) || cave_isquartz(c, y, x);
+bool square_ismineral(struct chunk *c, int y, int x) {
+	return square_isrock(c, y, x) || square_ismagma(c, y, x) || square_isquartz(c, y, x);
 }
 
 /**
  * True if the square is a mineral wall with treasure (magma/quartz).
  */
 bool feat_is_treasure(int feat) {
-	return feat == FEAT_MAGMA_K || feat == FEAT_QUARTZ_K;
+	return (tf_has(f_info[feat].flags, TF_GOLD) &&
+			tf_has(f_info[feat].flags, TF_INTERESTING));
 }
 
 /**
  * True if the square is rubble.
  */
-bool cave_isrubble(struct cave *c, int y, int x) {
-	return c->feat[y][x] == FEAT_RUBBLE;
+bool square_isrubble(struct chunk *c, int y, int x) {
+    return (!tf_has(f_info[c->feat[y][x]].flags, TF_WALL) &&
+			tf_has(f_info[c->feat[y][x]].flags, TF_ROCK));
 }
 
 /**
@@ -2942,31 +2789,33 @@ bool cave_isrubble(struct cave *c, int y, int x) {
  * These squares appear as if they were granite--when detected a secret door
  * is replaced by a closed door.
  */
-bool cave_issecretdoor(struct cave *c, int y, int x) {
-    return c->feat[y][x] == FEAT_SECRET;
+bool square_issecretdoor(struct chunk *c, int y, int x) {
+    return (tf_has(f_info[c->feat[y][x]].flags, TF_DOOR_ANY) &&
+			tf_has(f_info[c->feat[y][x]].flags, TF_ROCK));
 }
 
 /**
  * True if the square is an open door.
  */
-bool cave_isopendoor(struct cave *c, int y, int x) {
-    return c->feat[y][x] == FEAT_OPEN;
+bool square_isopendoor(struct chunk *c, int y, int x) {
+    return (tf_has(f_info[c->feat[y][x]].flags, TF_CLOSABLE));
 }
 
 /**
  * True if the square is a closed door (possibly locked or jammed).
  */
-bool cave_iscloseddoor(struct cave *c, int y, int x) {
+bool square_iscloseddoor(struct chunk *c, int y, int x) {
 	int feat = c->feat[y][x];
-	return feat >= FEAT_DOOR_HEAD && feat <= FEAT_DOOR_TAIL;
+	return tf_has(f_info[feat].flags, TF_DOOR_CLOSED);
 }
 
 /**
  * True if the square is a closed, locked door.
  */
-bool cave_islockeddoor(struct cave *c, int y, int x) {
+bool square_islockeddoor(struct chunk *c, int y, int x) {
 	int feat = c->feat[y][x];
-	return feat >= FEAT_DOOR_HEAD + 0x01 && feat <= FEAT_DOOR_TAIL;
+	return (tf_has(f_info[feat].flags, TF_DOOR_LOCKED) ||
+			tf_has(f_info[feat].flags, TF_DOOR_JAMMED));
 }
 
 /**
@@ -2974,86 +2823,79 @@ bool cave_islockeddoor(struct cave *c, int y, int x) {
  *
  * This includes open, closed, and hidden doors.
  */
-bool cave_isdoor(struct cave *c, int y, int x) {
-	return (cave_isopendoor(c, y, x) ||
-		cave_issecretdoor(c, y, x) ||
-		cave_iscloseddoor(c, y, x) ||
-		cave_isbrokendoor(c, y, x));
+bool square_isdoor(struct chunk *c, int y, int x) {
+	int feat = c->feat[y][x];
+	return tf_has(f_info[feat].flags, TF_DOOR_ANY);
 }
 
 /**
  * True if the square is an unknown trap (it will appear as a floor tile).
  */
-bool cave_issecrettrap(struct cave *c, int y, int x) {
-    return c->feat[y][x] == FEAT_INVIS;
-}
-
-/**
- * True if the square is a known trap.
- */
-bool feat_is_known_trap(int feat) {
-	return feat >= FEAT_TRAP_HEAD && feat <= FEAT_TRAP_TAIL;
+bool square_issecrettrap(struct chunk *c, int y, int x) {
+    return square_invisible_trap(c, y, x);
 }
 
 /**
  * True is the feature is a solid wall (not rubble).
  */
 bool feat_is_wall(int feat) {
-	return feat >= FEAT_SECRET && feat <= FEAT_PERM_SOLID &&
-			feat != FEAT_RUBBLE;
+	return tf_has(f_info[feat].flags, TF_WALL);
 }
 
 /**
  * True if the square is a known trap.
  */
-bool cave_isknowntrap(struct cave *c, int y, int x) {
-	return feat_is_known_trap(c->feat[y][x]);
+bool square_isknowntrap(struct chunk *c, int y, int x) {
+	return square_visible_trap(c, y, x);
 }
 
 /**
  * True if the square contains a trap, known or unknown.
  */
-bool cave_istrap(struct cave *c, int y, int x) {
-	return cave_issecrettrap(cave, y, x) || cave_isknowntrap(cave, y, x);
+bool square_istrap(struct chunk *c, int y, int x) {
+	return square_issecrettrap(c, y, x) || square_isknowntrap(c, y, x);
 }
 
 /**
  * True if the feature is a shop entrance.
  */
 bool feature_isshop(int feat) {
-	return (feat >= FEAT_SHOP_HEAD && feat <= FEAT_SHOP_TAIL);
+	return tf_has(f_info[feat].flags, TF_SHOP);
 }
 
 /**
- * True if cave is an up or down stair
+ * True if square is any stair
  */
-bool cave_isstairs(struct cave*c, int y, int x) {
-    return cave_isupstairs(c, y, x) || cave_isdownstairs(c, y, x);
+bool square_isstairs(struct chunk*c, int y, int x) {
+	int feat = c->feat[y][x];
+	return tf_has(f_info[feat].flags, TF_STAIR);
 }
 
 /**
- * True if cave is an up stair.
+ * True if square is an up stair.
  */
-bool cave_isupstairs(struct cave*c, int y, int x) {
-    return c->feat[y][x] == FEAT_LESS;
+bool square_isupstairs(struct chunk*c, int y, int x) {
+	int feat = c->feat[y][x];
+	return tf_has(f_info[feat].flags, TF_UPSTAIR);
 }
 
 /**
- * True if cave is a down stair.
+ * True if square is a down stair.
  */
-bool cave_isdownstairs(struct cave *c, int y, int x) {
-    return c->feat[y][x] == FEAT_MORE;
+bool square_isdownstairs(struct chunk *c, int y, int x) {
+	int feat = c->feat[y][x];
+	return tf_has(f_info[feat].flags, TF_DOWNSTAIR);
 }
 
 /**
  * True if the square is a shop entrance.
  */
-bool cave_isshop(struct cave *c, int y, int x) {
+bool square_isshop(struct chunk *c, int y, int x) {
 	return feature_isshop(c->feat[y][x]);
 }
 
-int cave_shopnum(struct cave *c, int y, int x) {
-	if (cave_isshop(c, y, x))
+int square_shopnum(struct chunk *c, int y, int x) {
+	if (square_isshop(c, y, x))
 		return c->feat[y][x] - FEAT_SHOP_HEAD;
 	return -1;
 }
@@ -3071,66 +2913,93 @@ int cave_shopnum(struct cave *c, int y, int x) {
 /**
  * True if the square is open (a floor square not occupied by a monster).
  */
-bool cave_isopen(struct cave *c, int y, int x) {
-	return cave_isfloor(c, y, x) && !c->m_idx[y][x];
+bool square_isopen(struct chunk *c, int y, int x) {
+	return square_isfloor(c, y, x) && !c->m_idx[y][x];
 }
 
 /**
  * True if the square is empty (an open square without any items).
  */
-bool cave_isempty(struct cave *c, int y, int x) {
-	return cave_isopen(c, y, x) && !c->o_idx[y][x];
+bool square_isempty(struct chunk *c, int y, int x) {
+	return square_isopen(c, y, x) && !c->o_idx[y][x];
 }
 
 /**
  * True if the square is a floor square without items.
  */
-bool cave_canputitem(struct cave *c, int y, int x) {
-	return cave_isfloor(c, y, x) && !c->o_idx[y][x];
+bool square_canputitem(struct chunk *c, int y, int x) {
+	return square_isfloor(c, y, x) && !c->o_idx[y][x];
 }
 
 /**
  * True if the square can be dug: this includes rubble and non-permanent walls.
  */
-bool cave_isdiggable(struct cave *c, int y, int x) {
-	return (cave_ismineral(c, y, x) ||
-			cave_issecretdoor(c, y, x) || 
-			cave_isrubble(c, y, x));
+bool square_isdiggable(struct chunk *c, int y, int x) {
+	return (square_ismineral(c, y, x) ||
+			square_issecretdoor(c, y, x) || 
+			square_isrubble(c, y, x));
+}
+
+/**
+ * True if a monster can walk through the feature.
+ */
+bool feat_is_monster_walkable(feature_type *feature)
+{
+	return tf_has(feature->flags, TF_PASSABLE);
+}
+
+/**
+ * True if a monster can walk through the tile.
+ *
+ * This is needed for polymorphing. A monster may be on a feature that isn't
+ * an empty space, causing problems when it is replaced with a new monster.
+ */
+bool square_is_monster_walkable(struct chunk *c, int y, int x)
+{
+	assert(square_in_bounds(c, y, x));
+	return feat_is_monster_walkable(&f_info[c->feat[y][x]]);
 }
 
 /**
  * True if the feature is passable by the player.
  */
 bool feat_ispassable(feature_type *f_ptr) {
-	return ff_has(f_ptr->flags, FF_PWALK);
+	return tf_has(f_ptr->flags, TF_PASSABLE);
 }
 
 /**
  * True if the square is passable by the player.
- *
- * This function is the logical negation of cave_iswall().
  */
-bool cave_ispassable(struct cave *c, int y, int x) {
-	/*assert(cave_in_bounds(c, y, x));*/
-    if (!cave_in_bounds(c, y, x)) {
-        fprintf(stderr, "Point (%d, %d) is out of bounds\n",x,y);
-        return false;
-    }
+bool square_ispassable(struct chunk *c, int y, int x) {
+	assert(square_in_bounds(c, y, x));
 	return feat_ispassable(&f_info[c->feat[y][x]]);
+}
+
+/**
+ * True if any projectable can pass through the feature.
+ */
+bool feat_isprojectable(feature_type *f_ptr) {
+	return tf_has(f_ptr->flags, TF_PROJECT);
+}
+
+/**
+ * True if any projectable can pass through the square.
+ *
+ * This function is the logical negation of square_iswall().
+ */
+bool square_isprojectable(struct chunk *c, int y, int x) {
+	assert(square_in_bounds(c, y, x));
+	return feat_isprojectable(&f_info[c->feat[y][x]]);
 }
 
 /**
  * True if the square is a wall square (impedes the player).
  *
- * This function is the logical negation of cave_ispassable().
+ * This function is the logical negation of square_isprojectable().
  */
-bool cave_iswall(struct cave *c, int y, int x) {
-	/*assert(cave_in_bounds(c, y, x));*/
-    if (!cave_in_bounds(c, y, x)) {
-        fprintf(stderr, "Point (%d, %d) is out of bounds\n",x,y);
-        return true;
-    }
-	return c->info[y][x] & CAVE_WALL;
+bool square_iswall(struct chunk *c, int y, int x) {
+	assert(square_in_bounds(c, y, x));
+	return !square_isprojectable(c, y, x);
 }
 
 /**
@@ -3139,13 +3008,9 @@ bool cave_iswall(struct cave *c, int y, int x) {
  * The stronger walls are granite, magma and quartz. This excludes things like
  * secret doors and rubble.
  */
-bool cave_isstrongwall(struct cave *c, int y, int x) {
-	/*assert(cave_in_bounds(c, y, x));*/
-    if (!cave_in_bounds(c, y, x)) {
-        fprintf(stderr, "Point (%d, %d) is out of bounds\n",x,y);
-        return true;
-    }
-	return cave_ismineral(c, y, x) || cave_isperm(c, y, x);
+bool square_isstrongwall(struct chunk *c, int y, int x) {
+	assert(square_in_bounds(c, y, x));
+	return square_ismineral(c, y, x) || square_isperm(c, y, x);
 }
 
 /**
@@ -3153,284 +3018,304 @@ bool cave_isstrongwall(struct cave *c, int y, int x) {
  *
  * This doesn't say what kind of square it is, just that it is part of a vault.
  */
-bool cave_isvault(struct cave *c, int y, int x) {
-	/*assert(cave_in_bounds(c, y, x));*/
-    if (!cave_in_bounds(c, y, x)) {
-        fprintf(stderr, "Point (%d, %d) is out of bounds\n",x,y);
-        return false;
-    }
-	return c->info[y][x] & CAVE_VAULT;
+bool square_isvault(struct chunk *c, int y, int x) {
+	assert(square_in_bounds(c, y, x));
+	return sqinfo_has(c->info[y][x], SQUARE_VAULT);
 }
 
 /**
  * True if the square is part of a room.
  */
-bool cave_isroom(struct cave *c, int y, int x) {
-	/*assert(cave_in_bounds(c, y, x));*/
-    if (!cave_in_bounds(c, y, x)) {
-        fprintf(stderr, "Point (%d, %d) is out of bounds\n",x,y);
-        return false;
-    }
-	return c->info[y][x] & CAVE_ROOM;
-
+bool square_isroom(struct chunk *c, int y, int x) {
+	assert(square_in_bounds(c, y, x));
+	return sqinfo_has(c->info[y][x], SQUARE_ROOM);
 }
 
 /**
  * True if cave square is a feeling trigger square 
  */
-bool cave_isfeel(struct cave *c, int y, int x) {
-	/*assert(cave_in_bounds(c, y, x));*/
-    if (!cave_in_bounds(c, y, x)) {
-        fprintf(stderr, "Point (%d, %d) is out of bounds\n",x,y);
-        return false;
-    }
-	return c->info2[y][x] & CAVE2_FEEL;
+bool square_isfeel(struct chunk *c, int y, int x) {
+	assert(square_in_bounds(c, y, x));
+	return sqinfo_has(c->info[y][x], SQUARE_FEEL);
 }
 
 /* True if the cave square is viewable */
-bool cave_isview(struct cave *c, int y, int x) {
-	/*assert(cave_in_bounds(c, y, x));*/
-    if (!cave_in_bounds(c, y, x)) {
-        fprintf(stderr, "Point (%d, %d) is out of bounds\n",x,y);
-        return false;
-    }
-	return c->info[y][x] & CAVE_VIEW;
+bool square_isview(struct chunk *c, int y, int x) {
+	assert(square_in_bounds(c, y, x));
+	return sqinfo_has(c->info[y][x], SQUARE_VIEW);
 }
 
-bool cave_isseen(struct cave *c, int y, int x) {
-	/*assert(cave_in_bounds(c, y, x));*/
-    if (!cave_in_bounds(c, y, x)) {
-        fprintf(stderr, "Point (%d, %d) is out of bounds\n",x,y);
-        return false;
-    }
-	return c->info[y][x] & CAVE_SEEN;
+bool square_isseen(struct chunk *c, int y, int x) {
+	assert(square_in_bounds(c, y, x));
+	return sqinfo_has(c->info[y][x], SQUARE_SEEN);
 }
 
-bool cave_wasseen(struct cave *c, int y, int x) {
-	/*assert(cave_in_bounds(c, y, x));*/
-    if (!cave_in_bounds(c, y, x)) {
-        fprintf(stderr, "Point (%d, %d) is out of bounds\n",x,y);
-        return false;
-    }
-	return c->info[y][x] & CAVE_WASSEEN;
+bool square_wasseen(struct chunk *c, int y, int x) {
+	assert(square_in_bounds(c, y, x));
+	return sqinfo_has(c->info[y][x], SQUARE_WASSEEN);
 }
 
-bool cave_isglow(struct cave *c, int y, int x) {
-	/*assert(cave_in_bounds(c, y, x));*/
-    if (!cave_in_bounds(c, y, x)) {
-        fprintf(stderr, "Point (%d, %d) is out of bounds\n",x,y);
-        return false;
-    }
-	return c->info[y][x] & CAVE_GLOW;
+bool square_isglow(struct chunk *c, int y, int x) {
+	assert(square_in_bounds(c, y, x));
+	return sqinfo_has(c->info[y][x], SQUARE_GLOW);
+}
+
+bool square_is_no_teleport(struct chunk *c, int y, int x) {
+	assert(square_in_bounds(c, y, x));
+	return sqinfo_has(c->info[y][x], SQUARE_NO_TELEPORT);
+}
+
+bool square_is_no_map(struct chunk *c, int y, int x) {
+	assert(square_in_bounds(c, y, x));
+	return sqinfo_has(c->info[y][x], SQUARE_NO_MAP);
+}
+
+bool square_is_no_esp(struct chunk *c, int y, int x) {
+	assert(square_in_bounds(c, y, x));
+	return sqinfo_has(c->info[y][x], SQUARE_NO_ESP);
 }
 
 /**
  * True if the feature is "boring".
  */
 bool feat_isboring(feature_type *f_ptr) {
-	return ff_has(f_ptr->flags, FF_BORING);
+	return !tf_has(f_ptr->flags, TF_INTERESTING);
 }
 
 /**
  * True if the cave square is "boring".
  */
-bool cave_isboring(struct cave *c, int y, int x) {
-	/*assert(cave_in_bounds(c, y, x));*/
-    if (!cave_in_bounds(c, y, x)) {
-        fprintf(stderr, "Point (%d, %d) is out of bounds\n",x,y);
-    }
+bool square_isboring(struct chunk *c, int y, int x) {
+	assert(square_in_bounds(c, y, x));
 	return feat_isboring(&f_info[c->feat[y][x]]);
 }
 
 /**
  * Get a monster on the current level by its index.
  */
-struct monster *cave_monster(struct cave *c, int idx) {
+struct monster *cave_monster(struct chunk *c, int idx) {
 	return &c->monsters[idx];
 }
 
 /**
  * Get a monster on the current level by its position.
  */
-struct monster *cave_monster_at(struct cave *c, int y, int x) {
+struct monster *square_monster(struct chunk *c, int y, int x) {
+	if (c->m_idx[y][x] > 0) {
 	struct monster *mon = cave_monster(c, c->m_idx[y][x]);
 	return mon->race ? mon : NULL;
+	}
+
+	return NULL;
 }
 
 /**
  * The maximum number of monsters allowed in the level.
  */
-int cave_monster_max(struct cave *c) {
+int cave_monster_max(struct chunk *c) {
 	return c->mon_max;
 }
 
 /**
  * The current number of monsters present on the level.
  */
-int cave_monster_count(struct cave *c) {
+int cave_monster_count(struct chunk *c) {
 	return c->mon_cnt;
+}
+
+/**
+ * Get an object on the current level by its index.
+ */
+struct object *cave_object(struct chunk *c, int idx) {
+	assert(idx >= 0);
+	assert(idx <= z_info->o_max);
+	return &c->objects[idx];
+}
+
+/**
+ * Get the top object of a pile on the current level by its position.
+ */
+struct object *square_object(struct chunk *c, int y, int x) {
+	if (c->o_idx[y][x] > 0) {
+	struct object *obj = cave_object(c, c->o_idx[y][x]);
+	return obj->kind ? obj : NULL;
+	}
+
+	return NULL;
+}
+
+/**
+ * The maximum number of objects allowed in the level.
+ */
+int cave_object_max(struct chunk *c) {
+	return c->obj_max;
+}
+
+/**
+ * The current number of objects present on the level.
+ */
+int cave_object_count(struct chunk *c) {
+	return c->obj_cnt;
+}
+
+/**
+ * Get a trap on the current level by its index.
+ */
+struct trap_type *cave_trap(struct chunk *c, int idx) {
+	return &c->traps[idx];
+}
+
+/**
+ * The maximum number of traps allowed in the level.
+ */
+int cave_trap_max(struct chunk *c) {
+	return c->trap_max;
 }
 
 /**
  * Add visible treasure to a mineral square.
  */
-void upgrade_mineral(struct cave *c, int y, int x) {
+void upgrade_mineral(struct chunk *c, int y, int x) {
 	switch (c->feat[y][x]) {
-		case FEAT_MAGMA: cave_set_feat(c, y, x, FEAT_MAGMA_K); break;
-		case FEAT_QUARTZ: cave_set_feat(c, y, x, FEAT_QUARTZ_K); break;
+	case FEAT_MAGMA: square_set_feat(c, y, x, FEAT_MAGMA_K); break;
+	case FEAT_QUARTZ: square_set_feat(c, y, x, FEAT_QUARTZ_K); break;
 	}
 }
 
-int cave_door_power(struct cave *c, int y, int x) {
+int square_door_power(struct chunk *c, int y, int x) {
 	return (c->feat[y][x] - FEAT_DOOR_HEAD) & 0x07;
 }
 
-void cave_open_door(struct cave *c, int y, int x) {
-	cave_set_feat(c, y, x, FEAT_OPEN);
+void square_open_door(struct chunk *c, int y, int x) {
+	square_set_feat(c, y, x, FEAT_OPEN);
 }
 
-void cave_smash_door(struct cave *c, int y, int x) {
-	cave_set_feat(c, y, x, FEAT_BROKEN);
+void square_smash_door(struct chunk *c, int y, int x) {
+	square_set_feat(c, y, x, FEAT_BROKEN);
 }
 
-void cave_destroy_trap(struct cave *c, int y, int x) {
-	/* XXX: FEAT_TRAP check? */
-	cave_set_feat(cave, y, x, FEAT_FLOOR);
+void square_destroy_trap(struct chunk *c, int y, int x) {
+	square_remove_trap(c, y, x, FALSE, -1);
 }
 
-void cave_lock_door(struct cave *c, int y, int x, int power) {
-	cave_set_feat(c, y, x, FEAT_DOOR_HEAD + power);
+void square_lock_door(struct chunk *c, int y, int x, int power) {
+	square_set_feat(c, y, x, FEAT_DOOR_HEAD + power);
 }
 
-bool cave_hasgoldvein(struct cave *c, int y, int x) {
-	return c->feat[y][x] >= FEAT_MAGMA_H
-	    && c->feat[y][x] <= FEAT_QUARTZ_K;
+bool square_hasgoldvein(struct chunk *c, int y, int x) {
+	return tf_has(f_info[c->feat[y][x]].flags, TF_GOLD);
 }
 
-void cave_tunnel_wall(struct cave *c, int y, int x) {
-	cave_set_feat(c, y, x, FEAT_FLOOR);
+void square_tunnel_wall(struct chunk *c, int y, int x) {
+	square_set_feat(c, y, x, FEAT_FLOOR);
 }
 
-void cave_destroy_wall(struct cave *c, int y, int x) {
-	cave_set_feat(c, y, x, FEAT_FLOOR);
+void square_destroy_wall(struct chunk *c, int y, int x) {
+	square_set_feat(c, y, x, FEAT_FLOOR);
 }
 
-void cave_close_door(struct cave *c, int y, int x) {
-	cave_set_feat(c, y, x, FEAT_DOOR_HEAD);
+void square_close_door(struct chunk *c, int y, int x) {
+	square_set_feat(c, y, x, FEAT_DOOR_HEAD);
 }
 
-bool cave_isbrokendoor(struct cave *c, int y, int x) {
-	return c->feat[y][x] == FEAT_BROKEN;
+bool square_isbrokendoor(struct chunk *c, int y, int x) {
+	int feat = c->feat[y][x];
+    return (tf_has(f_info[feat].flags, TF_DOOR_ANY) &&
+			tf_has(f_info[feat].flags, TF_PASSABLE) &&
+			!tf_has(f_info[feat].flags, TF_CLOSABLE));
 }
 
-bool cave_isglyph(struct cave *c, int y, int x) {
-	return c->feat[y][x] == FEAT_GLYPH;
+void square_add_trap(struct chunk *c, int y, int x) {
+	place_trap(c, y, x, -1, c->depth);
 }
 
-void cave_show_trap(struct cave *c, int y, int x, int type) {
-	assert(cave_issecrettrap(c, y, x));
-	cave_set_feat(c, y, x, FEAT_TRAP_HEAD + type);
+bool square_iswarded(struct chunk *c, int y, int x) {
+	return square_trap_specific(c, y, x, RUNE_PROTECT);
 }
 
-void cave_add_trap(struct cave *c, int y, int x) {
-	cave_set_feat(c, y, x, FEAT_INVIS);
+void square_add_ward(struct chunk *c, int y, int x) {
+	place_trap(c, y, x, RUNE_PROTECT, 0);
 }
 
-bool cave_iswarded(struct cave *c, int y, int x) {
-	return c->feat[y][x] == FEAT_GLYPH;
+void square_remove_ward(struct chunk *c, int y, int x) {
+	assert(square_iswarded(c, y, x));
+	square_remove_trap_kind(c, y, x, TRUE, RUNE_PROTECT);
 }
 
-void cave_add_ward(struct cave *c, int y, int x) {
-	cave_set_feat(c, y, x, FEAT_GLYPH);
+bool square_canward(struct chunk *c, int y, int x) {
+	return square_isfloor(c, y, x);
 }
 
-void cave_remove_ward(struct cave *c, int y, int x) {
-	assert(cave_iswarded(c, y, x));
-	cave_set_feat(c, y, x, FEAT_FLOOR);
+bool square_seemslikewall(struct chunk *c, int y, int x) {
+	return tf_has(f_info[c->feat[y][x]].flags, TF_ROCK);
 }
 
-bool cave_canward(struct cave *c, int y, int x) {
-	return cave_isfloor(c, y, x);
-}
-
-bool cave_seemslikewall(struct cave *c, int y, int x) {
-	return c->feat[y][x] >= FEAT_SECRET;
-}
-
-bool cave_isinteresting(struct cave *c, int y, int x) {
+bool square_isinteresting(struct chunk *c, int y, int x) {
 	int f = c->feat[y][x];
-	return f != FEAT_FLOOR && f != FEAT_INVIS;
+	return tf_has(f_info[f].flags, TF_INTERESTING);
 }
 
-void cave_show_vein(struct cave *c, int y, int x) {
+void square_show_vein(struct chunk *c, int y, int x) {
 	if (c->feat[y][x] == FEAT_MAGMA_H)
-		cave_set_feat(c, y, x, FEAT_MAGMA_K);
+		square_set_feat(c, y, x, FEAT_MAGMA_K);
 	else if (c->feat[y][x] == FEAT_QUARTZ_H)
-		cave_set_feat(c, y, x, FEAT_QUARTZ_K);
+		square_set_feat(c, y, x, FEAT_QUARTZ_K);
 }
 
-void cave_add_stairs(struct cave *c, int y, int x, int depth) {
+void square_add_stairs(struct chunk *c, int y, int x, int depth) {
 	int down = randint0(100) < 50;
 	if (depth == 0)
 		down = 1;
 	else if (is_quest(depth) || depth >= MAX_DEPTH - 1)
 		down = 0;
-	cave_set_feat(c, y, x, down ? FEAT_MORE : FEAT_LESS);
+	square_set_feat(c, y, x, down ? FEAT_MORE : FEAT_LESS);
 }
 
-void cave_destroy(struct cave *c, int y, int x) {
+void square_destroy(struct chunk *c, int y, int x) {
 	int feat = FEAT_FLOOR;
 	int r = randint0(200);
 
 	if (r < 20)
-		feat = FEAT_WALL_EXTRA;
+		feat = FEAT_GRANITE;
 	else if (r < 70)
 		feat = FEAT_QUARTZ;
 	else if (r < 100)
 		feat = FEAT_MAGMA;
 
-	cave_set_feat(cave, y, x, feat);
+	square_set_feat(c, y, x, feat);
 }
 
-void cave_earthquake(struct cave *c, int y, int x) {
+void square_earthquake(struct chunk *c, int y, int x) {
 	int t = randint0(100);
 	int f;
 
-	if (!cave_ispassable(c, y, x)) {
-		cave_set_feat(c, y, x, FEAT_FLOOR);
+	if (!square_ispassable(c, y, x)) {
+		square_set_feat(c, y, x, FEAT_FLOOR);
 		return;
 	}
 
 	if (t < 20)
-		f = FEAT_WALL_EXTRA;
+		f = FEAT_GRANITE;
 	else if (t < 70)
 		f = FEAT_QUARTZ;
 	else
 		f = FEAT_MAGMA;
-	cave_set_feat(c, y, x, f);
+	square_set_feat(c, y, x, f);
 }
 
-bool cave_hassecretvein(struct cave *c, int y, int x) {
-	return c->feat[y][x] == FEAT_MAGMA_H || c->feat[y][x] == FEAT_QUARTZ_H;
+bool square_hassecretvein(struct chunk *c, int y, int x) {
+	return (tf_has(f_info[c->feat[y][x]].flags, TF_GOLD) &&
+			!tf_has(f_info[c->feat[y][x]].flags, TF_INTERESTING));
 }
 
-bool cave_noticeable(struct cave *c, int y, int x) {
-	if (cave_isfloor(c, y, x))
-		return FALSE;
-	if (cave_issecrettrap(c, y, x) || cave_issecretdoor(c, y, x))
-		return FALSE;
-	if (cave_ismagma(c, y, x) || cave_isquartz(c, y, x))
-		if (!cave_hasgoldvein(c, y, x) || cave_hassecretvein(c, y, x))
-			return FALSE;
-	if (cave_seemslikewall(c, y, x))
-		return FALSE;
-	return TRUE;
+bool square_noticeable(struct chunk *c, int y, int x) {
+	return tf_has(f_info[c->feat[y][x]].flags, TF_INTERESTING);
 }
 
-const char *cave_apparent_name(struct cave *c, struct player *p, int y, int x) {
+const char *square_apparent_name(struct chunk *c, struct player *p, int y, int x) {
 	int f = f_info[c->feat[y][x]].mimic;
 
-	if (!(c->info[y][x] & CAVE_MARK) && !player_can_see_bold(y, x))
+	if (!sqinfo_has(c->info[y][x], SQUARE_MARK) && !player_can_see_bold(y, x))
 		f = FEAT_NONE;
 
 	if (f == FEAT_NONE)
@@ -3439,25 +3324,65 @@ const char *cave_apparent_name(struct cave *c, struct player *p, int y, int x) {
 	return f_info[f].name;
 }
 
-void cave_unlock_door(struct cave *c, int y, int x) {
-	assert(cave_islockeddoor(c, y, x));
-	cave_set_feat(c, y, x, FEAT_DOOR_HEAD);
+void square_unlock_door(struct chunk *c, int y, int x) {
+	assert(square_islockeddoor(c, y, x));
+	square_set_feat(c, y, x, FEAT_DOOR_HEAD);
 }
 
-void cave_destroy_door(struct cave *c, int y, int x) {
-	assert(cave_isdoor(c, y, x));
-	cave_set_feat(c, y, x, FEAT_FLOOR);
+void square_destroy_door(struct chunk *c, int y, int x) {
+	assert(square_isdoor(c, y, x));
+	square_set_feat(c, y, x, FEAT_FLOOR);
 }
 
-void cave_destroy_rubble(struct cave *c, int y, int x) {
-	assert(cave_isrubble(c, y, x));
-	cave_set_feat(c, y, x, FEAT_FLOOR);
+void square_destroy_rubble(struct chunk *c, int y, int x) {
+	assert(square_isrubble(c, y, x));
+	square_set_feat(c, y, x, FEAT_FLOOR);
 }
 
-void cave_add_door(struct cave *c, int y, int x, bool closed) {
-	cave_set_feat(c, y, x, closed ? FEAT_DOOR_HEAD : FEAT_OPEN);
+void square_add_door(struct chunk *c, int y, int x, bool closed) {
+	square_set_feat(c, y, x, closed ? FEAT_DOOR_HEAD : FEAT_OPEN);
 }
 
-void cave_force_floor(struct cave *c, int y, int x) {
-	cave_set_feat(c, y, x, FEAT_FLOOR);
+void square_force_floor(struct chunk *c, int y, int x) {
+	square_set_feat(c, y, x, FEAT_FLOOR);
+}
+
+/*
+ * Return the number of doors/traps around (or under) the character.
+ */
+int count_feats(int *y, int *x, bool (*test)(struct chunk *c, int y, int x), bool under)
+{
+	int d;
+	int xx, yy;
+	int count = 0; /* Count how many matches */
+
+	/* Check around (and under) the character */
+	for (d = 0; d < 9; d++)
+	{
+		/* if not searching under player continue */
+		if ((d == 8) && !under) continue;
+
+		/* Extract adjacent (legal) location */
+		yy = player->py + ddy_ddd[d];
+		xx = player->px + ddx_ddd[d];
+
+		/* Paranoia */
+		if (!square_in_bounds_fully(cave, yy, xx)) continue;
+
+		/* Must have knowledge */
+		if (!sqinfo_has(cave->info[yy][xx], SQUARE_MARK)) continue;
+
+		/* Not looking for this feature */
+		if (!((*test)(cave, yy, xx))) continue;
+
+		/* Count it */
+		++count;
+
+		/* Remember the location of the last door found */
+		*y = yy;
+		*x = xx;
+	}
+
+	/* All done */
+	return count;
 }

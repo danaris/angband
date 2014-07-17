@@ -18,8 +18,6 @@
 
 #include "angband.h"
 #include "birth.h"
-#include "borg/borg1.h"
-#include "button.h"
 #include "cave.h"
 #include "cmds.h"
 #include "dungeon.h"
@@ -28,18 +26,54 @@
 #include "generate.h"
 #include "grafmode.h"
 #include "init.h"
-#include "monster/mon-make.h"
-#include "monster/mon-spell.h"
-#include "monster/mon-util.h"
-#include "monster/monster.h"
-#include "object/tvalsval.h"
+#include "mon-list.h"
+#include "mon-make.h"
+#include "mon-spell.h"
+#include "mon-util.h"
+#include "monster.h"
+#include "obj-desc.h"
+#include "obj-gear.h"
+#include "obj-identify.h"
+#include "obj-randart.h"
+#include "obj-tval.h"
+#include "obj-util.h"
+#include "object.h"
 #include "pathfind.h"
+#include "player-timed.h"
+#include "player-util.h"
 #include "prefs.h"
 #include "savefile.h"
 #include "spells.h"
+#include "store.h"
+#include "tables.h"
 #include "target.h"
+#include "ui-game.h"
+#include "ui-input.h"
+#include "ui.h"
+
+/* The minimum amount of energy a player has at the start of a new level */
+#define INITIAL_DUNGEON_ENERGY 100
 
 u16b daycount = 0;
+u32b seed_randart;		/* Hack -- consistent random artifacts */
+u32b seed_flavor;		/* Hack -- consistent object colors */
+s32b turn;				/* Current game turn */
+bool character_generated;	/* The character exists */
+bool character_dungeon;		/* The character has a dungeon */
+bool character_saved;		/* The character was just saved to a savefile */
+s16b character_xtra;		/* Depth of the game in startup mode */
+
+/*
+ * Say whether it's daytime or not
+ */
+bool is_daytime(void)
+{
+	if ((turn % (10L * TOWN_DAWN)) < ((10L * TOWN_DAWN) / 2)) 
+		return FALSE;
+
+	return TRUE;
+} 
+
 
 /*
  * Change dungeon level - e.g. by going up stairs or with WoR.
@@ -47,7 +81,7 @@ u16b daycount = 0;
 void dungeon_change_level(int dlev)
 {
 	/* New depth */
-	p_ptr->depth = dlev;
+	player->depth = dlev;
 
 	/* If we're returning to town, update the store contents
 	   according to how long we've been away */
@@ -90,10 +124,10 @@ void dungeon_change_level(int dlev)
 	}
 
 	/* Leaving */
-	p_ptr->leaving = TRUE;
+	player->upkeep->leaving = TRUE;
 
 	/* Save the game when we arrive on the new level. */
-	p_ptr->autosave = TRUE;
+	player->upkeep->autosave = TRUE;
 }
 
 
@@ -106,39 +140,39 @@ static void regenhp(int percent)
 	int old_chp;
 
 	/* Save the old hitpoints */
-	old_chp = p_ptr->chp;
+	old_chp = player->chp;
 
 	/* Extract the new hitpoints */
-	new_chp = ((long)p_ptr->mhp) * percent + PY_REGEN_HPBASE;
-	p_ptr->chp += (s16b)(new_chp >> 16);   /* div 65536 */
+	new_chp = ((long)player->mhp) * percent + PY_REGEN_HPBASE;
+	player->chp += (s16b)(new_chp >> 16);   /* div 65536 */
 
 	/* check for overflow */
-	if ((p_ptr->chp < 0) && (old_chp > 0)) p_ptr->chp = MAX_SHORT;
-	new_chp_frac = (new_chp & 0xFFFF) + p_ptr->chp_frac;	/* mod 65536 */
+	if ((player->chp < 0) && (old_chp > 0)) player->chp = MAX_SHORT;
+	new_chp_frac = (new_chp & 0xFFFF) + player->chp_frac;	/* mod 65536 */
 	if (new_chp_frac >= 0x10000L)
 	{
-		p_ptr->chp_frac = (u16b)(new_chp_frac - 0x10000L);
-		p_ptr->chp++;
+		player->chp_frac = (u16b)(new_chp_frac - 0x10000L);
+		player->chp++;
 	}
 	else
 	{
-		p_ptr->chp_frac = (u16b)new_chp_frac;
+		player->chp_frac = (u16b)new_chp_frac;
 	}
 
 	/* Fully healed */
-	if (p_ptr->chp >= p_ptr->mhp)
+	if (player->chp >= player->mhp)
 	{
-		p_ptr->chp = p_ptr->mhp;
-		p_ptr->chp_frac = 0;
+		player->chp = player->mhp;
+		player->chp_frac = 0;
 	}
 
 	/* Notice changes */
-	if (old_chp != p_ptr->chp)
+	if (old_chp != player->chp)
 	{
 		/* Redraw */
-		p_ptr->redraw |= (PR_HP);
-		wieldeds_notice_flag(p_ptr, OF_REGEN);
-		wieldeds_notice_flag(p_ptr, OF_IMPAIR_HP);
+		player->upkeep->redraw |= (PR_HP);
+		wieldeds_notice_flag(player, OF_REGEN);
+		wieldeds_notice_flag(player, OF_IMPAIR_HP);
 	}
 }
 
@@ -151,39 +185,39 @@ static void regenmana(int percent)
 	s32b new_mana, new_mana_frac;
 	int old_csp;
 
-	old_csp = p_ptr->csp;
-	new_mana = ((long)p_ptr->msp) * percent + PY_REGEN_MNBASE;
-	p_ptr->csp += (s16b)(new_mana >> 16);	/* div 65536 */
+	old_csp = player->csp;
+	new_mana = ((long)player->msp) * percent + PY_REGEN_MNBASE;
+	player->csp += (s16b)(new_mana >> 16);	/* div 65536 */
 	/* check for overflow */
-	if ((p_ptr->csp < 0) && (old_csp > 0))
+	if ((player->csp < 0) && (old_csp > 0))
 	{
-		p_ptr->csp = MAX_SHORT;
+		player->csp = MAX_SHORT;
 	}
-	new_mana_frac = (new_mana & 0xFFFF) + p_ptr->csp_frac;	/* mod 65536 */
+	new_mana_frac = (new_mana & 0xFFFF) + player->csp_frac;	/* mod 65536 */
 	if (new_mana_frac >= 0x10000L)
 	{
-		p_ptr->csp_frac = (u16b)(new_mana_frac - 0x10000L);
-		p_ptr->csp++;
+		player->csp_frac = (u16b)(new_mana_frac - 0x10000L);
+		player->csp++;
 	}
 	else
 	{
-		p_ptr->csp_frac = (u16b)new_mana_frac;
+		player->csp_frac = (u16b)new_mana_frac;
 	}
 
 	/* Must set frac to zero even if equal */
-	if (p_ptr->csp >= p_ptr->msp)
+	if (player->csp >= player->msp)
 	{
-		p_ptr->csp = p_ptr->msp;
-		p_ptr->csp_frac = 0;
+		player->csp = player->msp;
+		player->csp_frac = 0;
 	}
 
 	/* Redraw mana */
-	if (old_csp != p_ptr->csp)
+	if (old_csp != player->csp)
 	{
 		/* Redraw */
-		p_ptr->redraw |= (PR_MANA);
-		wieldeds_notice_flag(p_ptr, OF_REGEN);
-		wieldeds_notice_flag(p_ptr, OF_IMPAIR_MANA);
+		player->upkeep->redraw |= (PR_MANA);
+		wieldeds_notice_flag(player, OF_REGEN);
+		wieldeds_notice_flag(player, OF_IMPAIR_MANA);
 	}
 }
 
@@ -229,7 +263,8 @@ static void regen_monsters(void)
 			if (m_ptr->hp > m_ptr->maxhp) m_ptr->hp = m_ptr->maxhp;
 
 			/* Redraw (later) if needed */
-			if (p_ptr->health_who == m_ptr) p_ptr->redraw |= (PR_HEALTH);
+			if (player->upkeep->health_who == m_ptr) 
+				player->upkeep->redraw |= (PR_HEALTH);
 		}
 	}
 }
@@ -280,7 +315,7 @@ static void recharged_notice(const object_type *o_ptr, bool all)
 	object_desc(o_name, sizeof(o_name), o_ptr, ODESC_BASE);
 
 	/* Disturb the player */
-	disturb(p_ptr, 0, 0);
+	disturb(player, 0);
 
 	/* Notify the player */
 	if (o_ptr->number > 1)
@@ -308,84 +343,64 @@ static void recharge_objects(void)
 {
 	int i;
 
-	bool charged = FALSE, discharged_stack;
+	bool discharged_stack;
 
 	object_type *o_ptr;
 
-	/*** Recharge equipment ***/
-	for (i = INVEN_WIELD; i < INVEN_TOTAL; i++)
+	/* Recharge carried gear */
+	for (i = 0; i < player->max_gear; i++)
 	{
-		/* Get the object */
-		o_ptr = &p_ptr->inventory[i];
+		o_ptr = &player->gear[i];
 
 		/* Skip non-objects */
 		if (!o_ptr->kind) continue;
 
-		/* Recharge activatable objects */
-		if (recharge_timeout(o_ptr))
-		{
-			charged = TRUE;
-
-			/* Message if an item recharged */
-			recharged_notice(o_ptr, TRUE);
-		}
-	}
-
-	/* Notice changes */
-	if (charged)
-	{
-		/* Window stuff */
-		p_ptr->redraw |= (PR_EQUIP);
-	}
-
-	charged = FALSE;
-
-	/*** Recharge the inventory ***/
-	for (i = 0; i < INVEN_PACK; i++)
-	{
-		o_ptr = &p_ptr->inventory[i];
-
-		/* Skip non-objects */
-		if (!o_ptr->kind) continue;
-
-		discharged_stack = (number_charging(o_ptr) == o_ptr->number) ? TRUE : FALSE;
-
-		/* Recharge rods, and update if any rods are recharged */
-		if (o_ptr->tval == TV_ROD && recharge_timeout(o_ptr))
-		{
-			charged = TRUE;
-
-			/* Entire stack is recharged */
-			if (o_ptr->timeout == 0)
+		/* Recharge equipment */
+		if (item_is_equipped(player, i)) {
+			/* Recharge activatable objects */
+			if (recharge_timeout(o_ptr)) {
+				/* Message if an item recharged */
 				recharged_notice(o_ptr, TRUE);
 
-			/* Previously exhausted stack has acquired a charge */
-			else if (discharged_stack)
-				recharged_notice(o_ptr, FALSE);
+				/* Window stuff */
+				player->upkeep->redraw |= (PR_EQUIP);
+			}
+		}
+		/* Recharge the inventory */
+		else {
+			discharged_stack =
+				(number_charging(o_ptr) == o_ptr->number) ? TRUE : FALSE;
+
+			/* Recharge rods, and update if any rods are recharged */
+			if (tval_can_have_timeout(o_ptr) && recharge_timeout(o_ptr)) {
+				/* Entire stack is recharged */
+				if (o_ptr->timeout == 0)
+					recharged_notice(o_ptr, TRUE);
+
+				/* Previously exhausted stack has acquired a charge */
+				else if (discharged_stack)
+					recharged_notice(o_ptr, FALSE);
+
+				/* Combine pack */
+				player->upkeep->notice |= (PN_COMBINE);
+
+				/* Redraw stuff */
+				player->upkeep->redraw |= (PR_INVEN);
+			}
 		}
 	}
 
-	/* Notice changes */
-	if (charged)
-	{
-		/* Combine pack */
-		p_ptr->notice |= (PN_COMBINE);
-
-		/* Redraw stuff */
-		p_ptr->redraw |= (PR_INVEN);
-	}
-
-	/*** Recharge the ground ***/
-	for (i = 1; i < o_max; i++)
+	/* Recharge the ground */
+	for (i = 1; i < cave_object_max(cave); i++)
 	{
 		/* Get the object */
-		o_ptr = object_byid(i);
+		o_ptr = cave_object(cave, i);
 
 		/* Skip dead objects */
 		if (!o_ptr->kind) continue;
 
 		/* Recharge rods on the ground */
-		if (o_ptr->tval == TV_ROD)
+		if (tval_can_have_timeout(o_ptr))
 			recharge_timeout(o_ptr);
 	}
 }
@@ -394,7 +409,7 @@ static void recharge_objects(void)
 static void play_ambient_sound(void)
 {
 	/* Town sound */
-	if (p_ptr->depth == 0) 
+	if (player->depth == 0) 
 	{
 		/* Hack - is it daytime or nighttime? */
 		if (turn % (10L * TOWN_DAWN) < TOWN_DAWN / 2)
@@ -411,25 +426,25 @@ static void play_ambient_sound(void)
 	}
 
 	/* Dungeon level 1-20 */
-	else if (p_ptr->depth <= 20) 
+	else if (player->depth <= 20) 
 	{
 		sound(MSG_AMBIENT_DNG1);
 	}
 
 	/* Dungeon level 21-40 */
-	else if (p_ptr->depth <= 40) 
+	else if (player->depth <= 40) 
 	{
 		sound(MSG_AMBIENT_DNG2);
 	}
 
 	/* Dungeon level 41-60 */
-	else if (p_ptr->depth <= 60) 
+	else if (player->depth <= 60) 
 	{
 		sound(MSG_AMBIENT_DNG3);
 	}
 
 	/* Dungeon level 61-80 */
-	else if (p_ptr->depth <= 80)
+	else if (player->depth <= 80)
 	{
 		sound(MSG_AMBIENT_DNG4);
 	}
@@ -442,18 +457,18 @@ static void play_ambient_sound(void)
 }
 
 /*
- * Helper for process_world -- decrement p_ptr->timed[] fields.
+ * Helper for process_world -- decrement player->timed[] fields.
  */
 static void decrease_timeouts(void)
 {
-	int adjust = (adj_con_fix[p_ptr->state.stat_ind[A_CON]] + 1);
+	int adjust = (adj_con_fix[player->state.stat_ind[STAT_CON]] + 1);
 	int i;
 
 	/* Decrement all effects that can be done simply */
 	for (i = 0; i < TMD_MAX; i++)
 	{
 		int decr = 1;
-		if (!p_ptr->timed[i])
+		if (!player->timed[i])
 			continue;
 
 		switch (i)
@@ -461,7 +476,7 @@ static void decrease_timeouts(void)
 			case TMD_CUT:
 			{
 				/* Hack -- check for truly "mortal" wound */
-				decr = (p_ptr->timed[i] > 1000) ? 0 : adjust;
+				decr = (player->timed[i] > 1000) ? 0 : adjust;
 				break;
 			}
 
@@ -473,7 +488,7 @@ static void decrease_timeouts(void)
 			}
 		}
 		/* Decrement the effect */
-		player_dec_timed(p_ptr, i, decr, FALSE);
+		player_dec_timed(player, i, decr, FALSE);
 	}
 
 	return;
@@ -483,7 +498,7 @@ static void decrease_timeouts(void)
 /*
  * Handle certain things once every 10 game turns
  */
-static void process_world(struct cave *c)
+static void process_world(struct chunk *c)
 {
 	int i;
 
@@ -506,7 +521,7 @@ static void process_world(struct cave *c)
 	/*** Handle the "town" (stores and sunshine) ***/
 
 	/* While in town */
-	if (!p_ptr->depth)
+	if (!player->depth)
 	{
 		/* Hack -- Daybreak/Nighfall in town */
 		if (!(turn % ((10L * TOWN_DAWN) / 2)))
@@ -546,7 +561,7 @@ static void process_world(struct cave *c)
 	if (one_in_(MAX_M_ALLOC_CHANCE))
 	{
 		/* Make a new monster */
-		(void)pick_and_place_distant_monster(cave, loc(p_ptr->px, p_ptr->py), MAX_SIGHT + 5, TRUE, p_ptr->depth);
+		(void)pick_and_place_distant_monster(cave, loc(player->px, player->py), MAX_SIGHT + 5, TRUE, player->depth);
 	}
 
 	/* Hack -- Check for creature regeneration */
@@ -556,21 +571,21 @@ static void process_world(struct cave *c)
 	/*** Damage over Time ***/
 
 	/* Take damage from poison */
-	if (p_ptr->timed[TMD_POISONED])
+	if (player->timed[TMD_POISONED])
 	{
 		/* Take damage */
-		take_hit(p_ptr, 1, "poison");
+		take_hit(player, 1, "poison");
 	}
 
 	/* Take damage from cuts */
-	if (p_ptr->timed[TMD_CUT])
+	if (player->timed[TMD_CUT])
 	{
 		/* Mortal wound or Deep Gash */
-		if (p_ptr->timed[TMD_CUT] > 200)
+		if (player->timed[TMD_CUT] > 200)
 			i = 3;
 
 		/* Severe cut */
-		else if (p_ptr->timed[TMD_CUT] > 100)
+		else if (player->timed[TMD_CUT] > 100)
 			i = 2;
 
 		/* Other cuts */
@@ -578,7 +593,7 @@ static void process_world(struct cave *c)
 			i = 1;
 
 		/* Take damage */
-		take_hit(p_ptr, i, "a fatal wound");
+		take_hit(player, i, "a fatal wound");
 	}
 
 
@@ -588,77 +603,77 @@ static void process_world(struct cave *c)
 	if (!(turn % 100))
 	{
 		/* Basic digestion rate based on speed */
-		i = extract_energy[p_ptr->state.speed] * 2;
+		i = extract_energy[player->state.speed] * 2;
 
 		/* Regeneration takes more food */
-		if (check_state(p_ptr, OF_REGEN, p_ptr->state.flags)) i += 30;
+		if (player_of_has(player, OF_REGEN)) i += 30;
 
 		/* Slow digestion takes less food */
-		if (check_state(p_ptr, OF_SLOW_DIGEST, p_ptr->state.flags)) i /= 5;
+		if (player_of_has(player, OF_SLOW_DIGEST)) i /= 5;
 
 		/* Minimal digestion */
 		if (i < 1) i = 1;
 
 		/* Digest some food */
-		player_set_food(p_ptr, p_ptr->food - i);
+		player_set_food(player, player->food - i);
 	}
 
 	/* Getting Faint */
-	if (p_ptr->food < PY_FOOD_FAINT)
+	if (player->food < PY_FOOD_FAINT)
 	{
 		/* Faint occasionally */
-		if (!p_ptr->timed[TMD_PARALYZED] && one_in_(10))
+		if (!player->timed[TMD_PARALYZED] && one_in_(10))
 		{
 			/* Message */
 			msg("You faint from the lack of food.");
-			disturb(p_ptr, 1, 0);
+			disturb(player, 1);
 
 			/* Faint (bypass free action) */
-			(void)player_inc_timed(p_ptr, TMD_PARALYZED, 1 + randint0(5), TRUE, FALSE);
+			(void)player_inc_timed(player, TMD_PARALYZED, 1 + randint0(5), TRUE, FALSE);
 		}
 	}
 
 
 	/* Starve to death (slowly) */
-	if (p_ptr->food < PY_FOOD_STARVE)
+	if (player->food < PY_FOOD_STARVE)
 	{
 		/* Calculate damage */
-		i = (PY_FOOD_STARVE - p_ptr->food) / 10;
+		i = (PY_FOOD_STARVE - player->food) / 10;
 
 		/* Take damage */
-		take_hit(p_ptr, i, "starvation");
+		take_hit(player, i, "starvation");
 	}
 
 	/** Regenerate HP **/
 
 	/* Default regeneration */
-	if (p_ptr->food >= PY_FOOD_WEAK)
+	if (player->food >= PY_FOOD_WEAK)
 		regen_amount = PY_REGEN_NORMAL;
-	else if (p_ptr->food < PY_FOOD_STARVE)
+	else if (player->food < PY_FOOD_STARVE)
 		regen_amount = 0;
-	else if (p_ptr->food < PY_FOOD_FAINT)
+	else if (player->food < PY_FOOD_FAINT)
 		regen_amount = PY_REGEN_FAINT;
-	else /* if (p_ptr->food < PY_FOOD_WEAK) */
+	else /* if (player->food < PY_FOOD_WEAK) */
 		regen_amount = PY_REGEN_WEAK;
 
 	/* Various things speed up regeneration */
-	if (check_state(p_ptr, OF_REGEN, p_ptr->state.flags))
+	if (player_of_has(player, OF_REGEN))
 		regen_amount *= 2;
-	if (p_ptr->searching || p_ptr->resting)
+	if (player->searching || player_resting_can_regenerate(player))
 		regen_amount *= 2;
 
 	/* Some things slow it down */
-	if (check_state(p_ptr, OF_IMPAIR_HP, p_ptr->state.flags))
+	if (player_of_has(player, OF_IMPAIR_HP))
 		regen_amount /= 2;
 
 	/* Various things interfere with physical healing */
-	if (p_ptr->timed[TMD_PARALYZED]) regen_amount = 0;
-	if (p_ptr->timed[TMD_POISONED]) regen_amount = 0;
-	if (p_ptr->timed[TMD_STUN]) regen_amount = 0;
-	if (p_ptr->timed[TMD_CUT]) regen_amount = 0;
+	if (player->timed[TMD_PARALYZED]) regen_amount = 0;
+	if (player->timed[TMD_POISONED]) regen_amount = 0;
+	if (player->timed[TMD_STUN]) regen_amount = 0;
+	if (player->timed[TMD_CUT]) regen_amount = 0;
 
 	/* Regenerate Hit Points if needed */
-	if (p_ptr->chp < p_ptr->mhp)
+	if (player->chp < player->mhp)
 		regenhp(regen_amount);
 
 
@@ -668,17 +683,17 @@ static void process_world(struct cave *c)
 	regen_amount = PY_REGEN_NORMAL;
 
 	/* Various things speed up regeneration */
-	if (check_state(p_ptr, OF_REGEN, p_ptr->state.flags))
+	if (player_of_has(player, OF_REGEN))
 		regen_amount *= 2;
-	if (p_ptr->searching || p_ptr->resting)
+	if (player->searching || player_resting_can_regenerate(player))
 		regen_amount *= 2;
 
 	/* Some things slow it down */
-	if (check_state(p_ptr, OF_IMPAIR_MANA, p_ptr->state.flags))
+	if (player_of_has(player, OF_IMPAIR_MANA))
 		regen_amount /= 2;
 
 	/* Regenerate mana */
-	if (p_ptr->csp < p_ptr->msp)
+	if (player->csp < player->msp)
 		regenmana(regen_amount);
 
 
@@ -692,22 +707,18 @@ static void process_world(struct cave *c)
 	/*** Process Light ***/
 
 	/* Check for light being wielded */
-	o_ptr = &p_ptr->inventory[INVEN_LIGHT];
+	o_ptr = equipped_item_by_slot_name(player, "light");;
 
 	/* Burn some fuel in the current light */
-	if (o_ptr->tval == TV_LIGHT) {
-		bitflag f[OF_SIZE];
+	if (tval_is_light(o_ptr)) {
 		bool burn_fuel = TRUE;
 
-		/* Get the object flags */
-		object_flags(o_ptr, f);
-
 		/* Turn off the wanton burning of light during the day in the town */
-		if (!p_ptr->depth && ((turn % (10L * TOWN_DAWN)) < ((10L * TOWN_DAWN) / 2)))
+		if (!player->depth && ((turn % (10L * TOWN_DAWN)) < ((10L * TOWN_DAWN) / 2)))
 			burn_fuel = FALSE;
 
 		/* If the light has the NO_FUEL flag, well... */
-		if (of_has(f, OF_NO_FUEL))
+		if (of_has(o_ptr->flags, OF_NO_FUEL))
 		    burn_fuel = FALSE;
 
 		/* Use some fuel (except on artifacts, or during the day) */
@@ -718,48 +729,48 @@ static void process_world(struct cave *c)
 			/* Hack -- notice interesting fuel steps */
 			if ((o_ptr->timeout < 100) || (!(o_ptr->timeout % 100)))
 				/* Redraw stuff */
-				p_ptr->redraw |= (PR_EQUIP);
+				player->upkeep->redraw |= (PR_EQUIP);
 
 			/* Hack -- Special treatment when blind */
-			if (p_ptr->timed[TMD_BLIND]) {
+			if (player->timed[TMD_BLIND]) {
 				/* Hack -- save some light for later */
 				if (o_ptr->timeout == 0) o_ptr->timeout++;
 
 			/* The light is now out */
 			} else if (o_ptr->timeout == 0) {
-				disturb(p_ptr, 0, 0);
+				disturb(player, 0);
 				msg("Your light has gone out!");
 
 				/* If it's a torch, now is the time to delete it */
-				if (o_ptr->sval == SV_LIGHT_TORCH) {
-					inven_item_increase(INVEN_LIGHT, -1);
-					inven_item_optimize(INVEN_LIGHT);
+				if (of_has(o_ptr->flags, OF_BURNS_OUT)) {
+					inven_item_increase(object_gear_index(player, o_ptr), -1);
+					inven_item_optimize(object_gear_index(player, o_ptr));
 				}
 			}
 
 			/* The light is getting dim */
 			else if ((o_ptr->timeout < 50) && (!(o_ptr->timeout % 20))) {
-				disturb(p_ptr, 0, 0);
+				disturb(player, 0);
 				msg("Your light is growing faint.");
 			}
 		}
 	}
 
 	/* Calculate torch radius */
-	p_ptr->update |= (PU_TORCH);
+	player->upkeep->update |= (PU_TORCH);
 
 
 	/*** Process Inventory ***/
 
 	/* Handle experience draining */
-	if (check_state(p_ptr, OF_DRAIN_EXP, p_ptr->state.flags))
+	if (player_of_has(player, OF_DRAIN_EXP))
 	{
-		if ((p_ptr->exp > 0) && one_in_(10)) {
-			s32b d = damroll(10, 6) + (p_ptr->exp/100) * MON_DRAIN_LIFE;
-			player_exp_lose(p_ptr, d / 10, FALSE);
+		if ((player->exp > 0) && one_in_(10)) {
+			s32b d = damroll(10, 6) + (player->exp/100) * MON_DRAIN_LIFE;
+			player_exp_lose(player, d / 10, FALSE);
 		}
 
-		wieldeds_notice_flag(p_ptr, OF_DRAIN_EXP);
+		wieldeds_notice_flag(player, OF_DRAIN_EXP);
 	}
 
 	/* Recharge activatable objects and rods */
@@ -772,27 +783,27 @@ static void process_world(struct cave *c)
 	/*** Involuntary Movement ***/
 
 	/* Random teleportation */
-	if (check_state(p_ptr, OF_TELEPORT, p_ptr->state.flags) && one_in_(50))
+	if (player_of_has(player, OF_TELEPORT) && one_in_(50))
 	{
-		wieldeds_notice_flag(p_ptr, OF_TELEPORT);
+		wieldeds_notice_flag(player, OF_TELEPORT);
 		teleport_player(40);
-		disturb(p_ptr, 0, 0);
+		disturb(player, 0);
 	}
 
 	/* Delayed Word-of-Recall */
-	if (p_ptr->word_recall)
+	if (player->word_recall)
 	{
 		/* Count down towards recall */
-		p_ptr->word_recall--;
+		player->word_recall--;
 
 		/* Activate the recall */
-		if (!p_ptr->word_recall)
+		if (!player->word_recall)
 		{
 			/* Disturbing! */
-			disturb(p_ptr, 0, 0);
+			disturb(player, 0);
 
 			/* Determine the level */
-			if (p_ptr->depth)
+			if (player->depth)
 			{
 				msgt(MSG_TPLEVEL, "You feel yourself yanked upwards!");
 				dungeon_change_level(0);
@@ -802,26 +813,26 @@ static void process_world(struct cave *c)
 				msgt(MSG_TPLEVEL, "You feel yourself yanked downwards!");
                 
                 /* Force descent to a lower level if allowed */
-                if (OPT(birth_force_descend) && p_ptr->max_depth < MAX_DEPTH - 1
-                  && !is_quest(p_ptr->max_depth)){
+                if (OPT(birth_force_descend) && player->max_depth < MAX_DEPTH - 1
+                  && !is_quest(player->max_depth)){
 
-                    p_ptr->max_depth = p_ptr->max_depth + 1;
+                    player->max_depth = player->max_depth + 1;
                 }
 
 				/* New depth - back to max depth or 1, whichever is deeper */
-				dungeon_change_level(p_ptr->max_depth < 1 ? 1: p_ptr->max_depth);
+				dungeon_change_level(player->max_depth < 1 ? 1: player->max_depth);
 			}
 		}
 	}
 
 	/* Delayed Deep Descent */
-	if (p_ptr->deep_descent) {
+	if (player->deep_descent) {
 		/* Count down towards recall */
-		p_ptr->deep_descent--;
+		player->deep_descent--;
 
 		/* Activate the recall */
-		if (p_ptr->deep_descent == 0) {
-			int target_depth = p_ptr->max_depth;
+		if (player->deep_descent == 0) {
+			int target_depth = player->max_depth;
 
 			/* Calculate target depth */
 			for (i = 5; i > 0; i--) {
@@ -831,16 +842,16 @@ static void process_world(struct cave *c)
 				target_depth++;
 			}
 
-			disturb(p_ptr, 0, 0);
+			disturb(player, 0);
 
 			/* Determine the level */
-			if (target_depth > p_ptr->depth) {
+			if (target_depth > player->depth) {
 				msgt(MSG_TPLEVEL, "The floor opens beneath you!");
 				dungeon_change_level(target_depth);
 			} else {
 				/* Otherwise do something disastrous */
 				msgt(MSG_TPLEVEL, "You are thrown back in an explosion!");
-				destroy_area(p_ptr->py, p_ptr->px, 5, TRUE);
+				destroy_area(player->py, player->px, 5, TRUE);
 			}		
 		}
 	}
@@ -870,10 +881,10 @@ static void process_player_aux(void)
 	static byte	old_cast_spell = 0;
 
 	/* Tracking a monster */
-	if (p_ptr->monster_race)
+	if (player->upkeep->monster_race)
 	{
 		/* Get the monster lore */
-		monster_lore *l_ptr = get_lore(p_ptr->monster_race);
+		monster_lore *l_ptr = get_lore(player->upkeep->monster_race);
 
 		for (i = 0; i < MONSTER_BLOW_MAX; i++)
 		{
@@ -886,14 +897,14 @@ static void process_player_aux(void)
 
 		/* Check for change of any kind */
 		if (changed ||
-		    (old_monster_race != p_ptr->monster_race) ||
+		    (old_monster_race != player->upkeep->monster_race) ||
 		    !rf_is_equal(old_flags, l_ptr->flags) ||
 		    !rsf_is_equal(old_spell_flags, l_ptr->spell_flags) ||
 		    (old_cast_innate != l_ptr->cast_innate) ||
 		    (old_cast_spell != l_ptr->cast_spell))
 		{
 			/* Memorize old race */
-			old_monster_race = p_ptr->monster_race;
+			old_monster_race = player->upkeep->monster_race;
 
 			/* Memorize flags */
 			rf_copy(old_flags, l_ptr->flags);
@@ -907,8 +918,8 @@ static void process_player_aux(void)
 			old_cast_spell = l_ptr->cast_spell;
 
 			/* Redraw stuff */
-			p_ptr->redraw |= (PR_MONSTER);
-			redraw_stuff(p_ptr);
+			player->upkeep->redraw |= (PR_MONSTER);
+			redraw_stuff(player->upkeep);
 		}
 	}
 }
@@ -950,53 +961,12 @@ static void process_player(void)
 
 	/*** Check for interrupts ***/
 
-	/* Complete resting */
-	if (p_ptr->resting < 0)
-	{
-		/* Basic resting */
-		if (p_ptr->resting == REST_ALL_POINTS)
-		{
-			/* Stop resting */
-			if ((p_ptr->chp == p_ptr->mhp) &&
-			    (p_ptr->csp == p_ptr->msp))
-			{
-				disturb(p_ptr, 0, 0);
-			}
-		}
-
-		/* Complete resting */
-		else if (p_ptr->resting == REST_COMPLETE)
-		{
-			/* Stop resting */
-			if ((p_ptr->chp == p_ptr->mhp) &&
-			    (p_ptr->csp == p_ptr->msp) &&
-			    !p_ptr->timed[TMD_BLIND] && !p_ptr->timed[TMD_CONFUSED] &&
-			    !p_ptr->timed[TMD_POISONED] && !p_ptr->timed[TMD_AFRAID] &&
-			    !p_ptr->timed[TMD_TERROR] &&
-			    !p_ptr->timed[TMD_STUN] && !p_ptr->timed[TMD_CUT] &&
-			    !p_ptr->timed[TMD_SLOW] && !p_ptr->timed[TMD_PARALYZED] &&
-			    !p_ptr->timed[TMD_IMAGE] && !p_ptr->word_recall)
-			{
-				disturb(p_ptr, 0, 0);
-			}
-		}
-		
-		/* Rest until HP or SP are filled */
-		else if (p_ptr->resting == REST_SOME_POINTS)
-		{
-			/* Stop resting */
-			if ((p_ptr->chp == p_ptr->mhp) ||
-			    (p_ptr->csp == p_ptr->msp))
-			{
-				disturb(p_ptr, 0, 0);
-			}
-		}
-	}
+	player_resting_complete_special(player);
 
 	/* Check for "player abort" */
-	if (p_ptr->running ||
+	if (player->upkeep->running ||
 	    cmd_get_nrepeats() > 0 ||
-	    (p_ptr->resting && !(turn & 0x7F)))
+	    (player_is_resting(player) && !(turn & 0x7F)))
 	{
 		ui_event e;
 
@@ -1008,7 +978,7 @@ static void process_player(void)
 		if (e.type != EVT_NONE) {
 			/* Flush and disturb */
 			flush();
-			disturb(p_ptr, 0, 0);
+			disturb(player, 0);
 			msg("Cancelled.");
 		}
 	}
@@ -1020,13 +990,13 @@ static void process_player(void)
 	do
 	{
 		/* Notice stuff (if needed) */
-		if (p_ptr->notice) notice_stuff(p_ptr);
+		if (player->upkeep->notice) notice_stuff(player->upkeep);
 
 		/* Update stuff (if needed) */
-		if (p_ptr->update) update_stuff(p_ptr);
+		if (player->upkeep->update) update_stuff(player->upkeep);
 
 		/* Redraw stuff (if needed) */
-		if (p_ptr->redraw) redraw_stuff(p_ptr);
+		if (player->upkeep->redraw) redraw_stuff(player->upkeep);
 
 
 		/* Place cursor on player/target */
@@ -1040,63 +1010,49 @@ static void process_player(void)
 		pack_overflow();
 
 		/* Assume free turn */
-		p_ptr->energy_use = 0;
+		player->upkeep->energy_use = 0;
 
 		/* Dwarves detect treasure */
 		if (player_has(PF_SEE_ORE))
 		{
 			/* Only if they are in good shape */
-			if (!p_ptr->timed[TMD_IMAGE] &&
-					!p_ptr->timed[TMD_CONFUSED] &&
-					!p_ptr->timed[TMD_AMNESIA] &&
-					!p_ptr->timed[TMD_STUN] &&
-					!p_ptr->timed[TMD_PARALYZED] &&
-					!p_ptr->timed[TMD_TERROR] &&
-					!p_ptr->timed[TMD_AFRAID])
+			if (!player->timed[TMD_IMAGE] &&
+					!player->timed[TMD_CONFUSED] &&
+					!player->timed[TMD_AMNESIA] &&
+					!player->timed[TMD_STUN] &&
+					!player->timed[TMD_PARALYZED] &&
+					!player->timed[TMD_TERROR] &&
+					!player->timed[TMD_AFRAID])
 				detect_close_buried_treasure();
 		}
 
 		/* Paralyzed or Knocked Out */
-		if ((p_ptr->timed[TMD_PARALYZED]) || (p_ptr->timed[TMD_STUN] >= 100))
+		if ((player->timed[TMD_PARALYZED]) || (player->timed[TMD_STUN] >= 100))
 		{
 			/* Take a turn */
-			p_ptr->energy_use = 100;
+			player->upkeep->energy_use = 100;
 		}
 
 		/* Picking up objects */
-		else if (p_ptr->notice & PN_PICKUP)
+		else if (player->upkeep->notice & PN_PICKUP)
 		{
-			p_ptr->energy_use = do_autopickup() * 10;
-			if (p_ptr->energy_use > 100)
-				p_ptr->energy_use = 100;
-			p_ptr->notice &= ~(PN_PICKUP);
+			player->upkeep->energy_use = do_autopickup() * 10;
+			if (player->upkeep->energy_use > 100)
+				player->upkeep->energy_use = 100;
+			player->upkeep->notice &= ~(PN_PICKUP);
 			
 			/* Appropriate time for the player to see objects */
 			event_signal(EVENT_SEEFLOOR);
 		}
 
 		/* Resting */
-		else if (p_ptr->resting)
+		else if (player_is_resting(player))
 		{
-			/* Timed rest */
-			if (p_ptr->resting > 0)
-			{
-				/* Reduce rest count */
-				p_ptr->resting--;
-
-				/* Redraw the state */
-				p_ptr->redraw |= (PR_STATE);
-			}
-
-			/* Take a turn */
-			p_ptr->energy_use = 100;
-
-			/* Increment the resting counter */
-			p_ptr->resting_turn++;
+			player_resting_step_turn(player);
 		}
 
 		/* Running */
-		else if (p_ptr->running)
+		else if (player->upkeep->running)
 		{
 			/* Take a step */
 			run_step(0);
@@ -1129,25 +1085,25 @@ static void process_player(void)
 
 			/* Mega hack - redraw if big graphics - sorry NRM */
 			if ((tile_width > 1) || (tile_height > 1)) 
-			        p_ptr->redraw |= (PR_MAP);
+			        player->upkeep->redraw |= (PR_MAP);
 		}
 
 
 		/*** Clean up ***/
 
 		/* Significant */
-		if (p_ptr->energy_use)
+		if (player->upkeep->energy_use)
 		{
 			/* Use some energy */
-			p_ptr->energy -= p_ptr->energy_use;
+			player->energy -= player->upkeep->energy_use;
 
 			/* Increment the total energy counter */
-			p_ptr->total_energy += p_ptr->energy_use;
+			player->total_energy += player->upkeep->energy_use;
 
 			/* Hack -- constant hallucination */
-			if (p_ptr->timed[TMD_IMAGE])
+			if (player->timed[TMD_IMAGE])
 			{
-				p_ptr->redraw |= (PR_MAP);
+				player->upkeep->redraw |= (PR_MAP);
 			}
 
 			/* Shimmer multi-hued monsters */
@@ -1158,7 +1114,7 @@ static void process_player(void)
 					continue;
 				if (!rf_has(mon->race->flags, RF_ATTR_MULTI))
 					continue;
-				cave_light_spot(cave, mon->fy, mon->fx);
+				square_light_spot(cave, mon->fy, mon->fx);
 			}
 
 			/* Clear NICE flag, and show marked monsters */
@@ -1184,13 +1140,13 @@ static void process_player(void)
 
 		/* HACK: This will redraw the itemlist too frequently, but I'm don't
 		   know all the individual places it should go. */
-		p_ptr->redraw |= PR_ITEMLIST;
+		player->upkeep->redraw |= PR_ITEMLIST;
 	}
 
-	while (!p_ptr->energy_use && !p_ptr->leaving);
+	while (!player->upkeep->energy_use && !player->upkeep->leaving);
 
 	/* Notice stuff (if needed) */
-	if (p_ptr->notice) notice_stuff(p_ptr);
+	if (player->upkeep->notice) notice_stuff(player->upkeep);
 }
 
 static byte flicker = 0;
@@ -1258,7 +1214,7 @@ static void do_animation(void)
 			continue;
 
 		m_ptr->attr = attr;
-		p_ptr->redraw |= (PR_MAP | PR_MONLIST);
+		player->upkeep->redraw |= (PR_MAP | PR_MONLIST);
 	}
 
 	flicker++;
@@ -1277,7 +1233,7 @@ void idle_update(void)
 
 	/* Animate and redraw if necessary */
 	do_animation();
-	redraw_stuff(p_ptr);
+	redraw_stuff(player->upkeep);
 
 	/* Refresh the main screen */
 	Term_fresh();
@@ -1290,7 +1246,7 @@ void idle_update(void)
  * This function will not exit until the level is completed,
  * the user dies, or the game is terminated.
  */
-static void dungeon(struct cave *c)
+static void dungeon(struct chunk *c)
 {
 	monster_type *m_ptr;
 	int i;
@@ -1303,45 +1259,42 @@ static void dungeon(struct cave *c)
 
 
 	/* Not leaving */
-	p_ptr->leaving = FALSE;
+	player->upkeep->leaving = FALSE;
 
 
 	/* Cancel the target */
 	target_set_monster(0);
 
 	/* Cancel the health bar */
-	health_track(p_ptr, NULL);
+	health_track(player->upkeep, NULL);
 
 	/* Disturb */
-	disturb(p_ptr, 1, 0);
+	disturb(player, 1);
 
+	/*
+	 * Because changing levels doesn't take a turn and PR_MONLIST might not be
+	 * set for a few game turns, manually force an update on level change.
+	 */
+	monster_list_force_subwindow_update();
 
 	/* Track maximum player level */
-	if (p_ptr->max_lev < p_ptr->lev)
+	if (player->max_lev < player->lev)
 	{
-		p_ptr->max_lev = p_ptr->lev;
+		player->max_lev = player->lev;
 	}
 
 
 	/* Track maximum dungeon level */
-	if (p_ptr->max_depth < p_ptr->depth)
+	if (player->max_depth < player->depth)
 	{
-		p_ptr->max_depth = p_ptr->depth;
+		player->max_depth = player->depth;
 	}
 
 	/* If autosave is pending, do it now. */
-	if (p_ptr->autosave)
+	if (player->upkeep->autosave)
 	{
-/* The borg runs so quickly that this is a bad idea. */
-#ifndef ALLOW_BORG
 		save_game();
-#endif
-#ifdef ALLOW_BORG
-        if (!borg_active){
-            save_game();
-        }
-#endif
-		p_ptr->autosave = FALSE;
+		player->upkeep->autosave = FALSE;
 	}
 
 	/* Choose panel */
@@ -1361,32 +1314,32 @@ static void dungeon(struct cave *c)
 
 
 	/* Update stuff */
-	p_ptr->update |= (PU_BONUS | PU_HP | PU_MANA | PU_SPELLS);
+	player->upkeep->update |= (PU_BONUS | PU_HP | PU_MANA | PU_SPELLS);
 
 	/* Calculate torch radius */
-	p_ptr->update |= (PU_TORCH);
+	player->upkeep->update |= (PU_TORCH);
 
 	/* Update stuff */
-	update_stuff(p_ptr);
+	update_stuff(player->upkeep);
 
 
 	/* Fully update the visuals (and monster distances) */
-	p_ptr->update |= (PU_FORGET_VIEW | PU_UPDATE_VIEW | PU_DISTANCE);
+	player->upkeep->update |= (PU_FORGET_VIEW | PU_UPDATE_VIEW | PU_DISTANCE);
 
 	/* Fully update the flow */
-	p_ptr->update |= (PU_FORGET_FLOW | PU_UPDATE_FLOW);
+	player->upkeep->update |= (PU_FORGET_FLOW | PU_UPDATE_FLOW);
 
 	/* Redraw dungeon */
-	p_ptr->redraw |= (PR_BASIC | PR_EXTRA | PR_MAP);
+	player->upkeep->redraw |= (PR_BASIC | PR_EXTRA | PR_MAP);
 
 	/* Redraw "statusy" things */
-	p_ptr->redraw |= (PR_INVEN | PR_EQUIP | PR_MONSTER | PR_MONLIST | PR_ITEMLIST);
+	player->upkeep->redraw |= (PR_INVEN | PR_EQUIP | PR_MONSTER | PR_MONLIST | PR_ITEMLIST);
 
 	/* Update stuff */
-	update_stuff(p_ptr);
+	update_stuff(player->upkeep);
 
 	/* Redraw stuff */
-	redraw_stuff(p_ptr);
+	redraw_stuff(player->upkeep);
 
 
 	/* Hack -- Decrease "xtra" depth */
@@ -1394,42 +1347,32 @@ static void dungeon(struct cave *c)
 
 
 	/* Update stuff */
-	p_ptr->update |= (PU_BONUS | PU_HP | PU_MANA | PU_SPELLS);
+	player->upkeep->update |= (PU_BONUS | PU_HP | PU_MANA | PU_SPELLS | PU_INVEN);
 
-	/* Combine / Reorder the pack */
-	p_ptr->notice |= (PN_COMBINE | PN_REORDER | PN_SORT_QUIVER);
-
-	/* Make basic mouse buttons */
-	(void) button_add("[ESC]", ESCAPE);
-	(void) button_add("[Ret]", KC_ENTER);
-	(void) button_add("[Spc]", ' ');
-	(void) button_add("[Rpt]", 'n');
-	(void) button_add("[Std]", ',');
-
-	/* Redraw buttons */
-	p_ptr->redraw |= (PR_BUTTONS);
+	/* Combine the pack */
+	player->upkeep->notice |= (PN_COMBINE);
 
 	/* Notice stuff */
-	notice_stuff(p_ptr);
+	notice_stuff(player->upkeep);
 
 	/* Update stuff */
-	update_stuff(p_ptr);
+	update_stuff(player->upkeep);
 
 	/* Redraw stuff */
-	redraw_stuff(p_ptr);
+	redraw_stuff(player->upkeep);
 
 	/* Refresh */
 	Term_fresh();
 
 	/* Handle delayed death */
-	if (p_ptr->is_dead) return;
+	if (player->is_dead) return;
 
 	/* Announce (or repeat) the feeling */
-	if (p_ptr->depth) display_feeling(FALSE);
+	if (player->depth) display_feeling(FALSE);
 
 	/* Give player minimum energy to start a new level, but do not reduce higher value from savefile for level in progress */
-	if (p_ptr->energy < INITIAL_DUNGEON_ENERGY)
-		p_ptr->energy = INITIAL_DUNGEON_ENERGY;
+	if (player->energy < INITIAL_DUNGEON_ENERGY)
+		player->energy = INITIAL_DUNGEON_ENERGY;
 
 
 	/*** Process this dungeon level ***/
@@ -1438,32 +1381,36 @@ static void dungeon(struct cave *c)
 	while (TRUE)
 	{
 		/* Hack -- Compact the monster list occasionally */
-		if (cave_monster_count(cave) + 32 > z_info->m_max) compact_monsters(64);
+		if (cave_monster_count(cave) + 32 > z_info->m_max) 
+			compact_monsters(64);
 
 		/* Hack -- Compress the monster list occasionally */
-		if (cave_monster_count(cave) + 32 < cave_monster_max(cave)) compact_monsters(0);
+		if (cave_monster_count(cave) + 32 < cave_monster_max(cave)) 
+			compact_monsters(0);
 
 		/* Hack -- Compact the object list occasionally */
-		if (o_cnt + 32 > z_info->o_max) compact_objects(64);
+		if (cave_object_count(cave) + 32 > z_info->o_max) 
+			compact_objects(64);
 
 		/* Hack -- Compress the object list occasionally */
-		if (o_cnt + 32 < o_max) compact_objects(0);
+		if (cave_object_count(cave) + 32 < cave_object_max(cave)) 
+			compact_objects(0);
 
 		/* Can the player move? */
-		while ((p_ptr->energy >= 100) && !p_ptr->leaving)
+		while ((player->energy >= 100) && !player->upkeep->leaving)
 		{
     		/* Do any necessary animations */
     		do_animation(); 
 
 			/* process monster with even more energy first */
-			process_monsters(c, (byte)(p_ptr->energy + 1));
+			process_monsters(c, (byte)(player->energy + 1));
 
 			/* if still alive */
-			if (!p_ptr->leaving)
+			if (!player->upkeep->leaving)
 			{
 			        /* Mega hack -redraw big graphics - sorry NRM */
 			        if ((tile_width > 1) || (tile_height > 1)) 
-				        p_ptr->redraw |= (PR_MAP);
+				        player->upkeep->redraw |= (PR_MAP);
 
 				/* Process the player */
 				process_player();
@@ -1471,62 +1418,62 @@ static void dungeon(struct cave *c)
 		}
 
 		/* Notice stuff */
-		if (p_ptr->notice) notice_stuff(p_ptr);
+		if (player->upkeep->notice) notice_stuff(player->upkeep);
 
 		/* Update stuff */
-		if (p_ptr->update) update_stuff(p_ptr);
+		if (player->upkeep->update) update_stuff(player->upkeep);
 
 		/* Redraw stuff */
-		if (p_ptr->redraw) redraw_stuff(p_ptr);
+		if (player->upkeep->redraw) redraw_stuff(player->upkeep);
 
 		/* Place cursor on player/target */
 		place_cursor();
 
 		/* Handle "leaving" */
-		if (p_ptr->leaving) break;
+		if (player->upkeep->leaving) break;
 
 
 		/* Process all of the monsters */
 		process_monsters(c, 100);
 
 		/* Notice stuff */
-		if (p_ptr->notice) notice_stuff(p_ptr);
+		if (player->upkeep->notice) notice_stuff(player->upkeep);
 
 		/* Update stuff */
-		if (p_ptr->update) update_stuff(p_ptr);
+		if (player->upkeep->update) update_stuff(player->upkeep);
 
 		/* Redraw stuff */
-		if (p_ptr->redraw) redraw_stuff(p_ptr);
+		if (player->upkeep->redraw) redraw_stuff(player->upkeep);
 
 		/* Place cursor on player/target */
 		place_cursor();
 
 		/* Handle "leaving" */
-		if (p_ptr->leaving) break;
+		if (player->upkeep->leaving) break;
 
 
 		/* Process the world */
 		process_world(c);
 
 		/* Notice stuff */
-		if (p_ptr->notice) notice_stuff(p_ptr);
+		if (player->upkeep->notice) notice_stuff(player->upkeep);
 
 		/* Update stuff */
-		if (p_ptr->update) update_stuff(p_ptr);
+		if (player->upkeep->update) update_stuff(player->upkeep);
 
 		/* Redraw stuff */
-		if (p_ptr->redraw) redraw_stuff(p_ptr);
+		if (player->upkeep->redraw) redraw_stuff(player->upkeep);
 
 		/* Place cursor on player/target */
 		place_cursor();
 
 		/* Handle "leaving" */
-		if (p_ptr->leaving) break;
+		if (player->upkeep->leaving) break;
 
 		/*** Apply energy ***/
 
 		/* Give the player some energy */
-		p_ptr->energy += extract_energy[p_ptr->state.speed];
+		player->energy += extract_energy[player->state.speed];
 
 		/* Give energy to all monsters */
 		for (i = cave_monster_max(cave) - 1; i >= 1; i--)
@@ -1567,7 +1514,7 @@ static void process_some_user_pref_files(void)
 	process_pref_file("user.prf", TRUE, TRUE);
 
 	/* Get the "PLAYER.prf" filename */
-	strnfmt(buf, sizeof(buf), "%s.prf", player_safe_name(p_ptr));
+	strnfmt(buf, sizeof(buf), "%s.prf", player_safe_name(player, TRUE));
 
 	/* Process the "PLAYER.prf" file, using the character name */
 	found = process_pref_file(buf, TRUE, TRUE);
@@ -1612,7 +1559,7 @@ static void process_some_user_pref_files(void)
  */
 void play_game(void)
 {
-	u32b window_flag[ANGBAND_TERM_MAX];
+	u32b default_window_flag[ANGBAND_TERM_MAX];
 	/* Initialize */
 	bool new_game = init_angband();
 
@@ -1637,34 +1584,35 @@ void play_game(void)
 
 	/* initialize window options that will be overridden by the savefile */
 	memset(window_flag, 0, sizeof(u32b)*ANGBAND_TERM_MAX);
-	if (ANGBAND_TERM_MAX > 1) window_flag[1] = (PW_MESSAGE);
-	if (ANGBAND_TERM_MAX > 2) window_flag[2] = (PW_INVEN);
-	if (ANGBAND_TERM_MAX > 3) window_flag[3] = (PW_MONLIST);
-	if (ANGBAND_TERM_MAX > 4) window_flag[4] = (PW_ITEMLIST);
-	if (ANGBAND_TERM_MAX > 5) window_flag[5] = (PW_MONSTER | PW_OBJECT);
-	if (ANGBAND_TERM_MAX > 6) window_flag[6] = (PW_OVERHEAD);
-	if (ANGBAND_TERM_MAX > 7) window_flag[7] = (PW_PLAYER_2);
+	memset(default_window_flag, 0, sizeof default_window_flag);
+	if (ANGBAND_TERM_MAX > 1) default_window_flag[1] = (PW_MESSAGE);
+	if (ANGBAND_TERM_MAX > 2) default_window_flag[2] = (PW_INVEN);
+	if (ANGBAND_TERM_MAX > 3) default_window_flag[3] = (PW_MONLIST);
+	if (ANGBAND_TERM_MAX > 4) default_window_flag[4] = (PW_ITEMLIST);
+	if (ANGBAND_TERM_MAX > 5) default_window_flag[5] = (PW_MONSTER | PW_OBJECT);
+	if (ANGBAND_TERM_MAX > 6) default_window_flag[6] = (PW_OVERHEAD);
+	if (ANGBAND_TERM_MAX > 7) default_window_flag[7] = (PW_PLAYER_2);
 
 	/* Set up the subwindows */
-	subwindows_set_flags(window_flag, ANGBAND_TERM_MAX);
+	subwindows_set_flags(default_window_flag, ANGBAND_TERM_MAX);
 
 	/*** Try to load the savefile ***/
 
-	p_ptr->is_dead = TRUE;
+	player->is_dead = TRUE;
 
 	if (savefile[0] && file_exists(savefile)) {
 		if (!savefile_load(savefile))
 			quit("broken savefile");
 
-		if (p_ptr->is_dead && arg_wizard) {
-				p_ptr->is_dead = FALSE;
-				p_ptr->chp = p_ptr->mhp;
-				p_ptr->noscore |= NOSCORE_WIZARD;
+		if (player->is_dead && arg_wizard) {
+				player->is_dead = FALSE;
+				player->chp = player->mhp;
+				player->noscore |= NOSCORE_WIZARD;
 		}
 	}
 
 	/* No living character loaded */
-	if (p_ptr->is_dead)
+	if (player->is_dead)
 	{
 		/* Make new player */
 		new_game = TRUE;
@@ -1703,16 +1651,13 @@ void play_game(void)
 		character_dungeon = FALSE;
 
 		/* Start in town */
-		p_ptr->depth = 0;
+		player->depth = 0;
 
 		/* Seed for flavors */
 		seed_flavor = randint0(0x10000000);
 
-		/* Seed for town layout */
-		seed_town = randint0(0x10000000);
-
 		/* Roll up a new character. Quickstart is allowed if ht_birth is set */
-		player_birth(p_ptr->ht_birth ? TRUE : FALSE);
+		player_birth(player->ht_birth ? TRUE : FALSE);
 	}
 
 	/* Seed for random artifacts */
@@ -1724,16 +1669,16 @@ void play_game(void)
 		do_randart(seed_randart, TRUE);
 
 	/* Initialize temporary fields sensibly */
-	p_ptr->object_idx = NO_OBJECT;
-	p_ptr->object_kind = NULL;
-	p_ptr->monster_race = NULL;
+	player->upkeep->object_idx = NO_OBJECT;
+	player->upkeep->object_kind = NULL;
+	player->upkeep->monster_race = NULL;
 
 	/* Set the savefile name if it's not already set */
 	if (!savefile[0])
-		savefile_set_name(player_safe_name(p_ptr));
+		savefile_set_name(player_safe_name(player, TRUE));
 
 	/* Stop the player being quite so dead */
-	p_ptr->is_dead = FALSE;
+	player->is_dead = FALSE;
 
 	/* Flash a message */
 	prt("Please wait...", 0, 0);
@@ -1754,8 +1699,8 @@ void play_game(void)
 	event_signal(EVENT_ENTER_GAME);
 
 	/* Redraw stuff */
-	p_ptr->redraw |= (PR_INVEN | PR_EQUIP | PR_MONSTER | PR_MESSAGE);
-	redraw_stuff(p_ptr);
+	player->upkeep->redraw |= (PR_INVEN | PR_EQUIP | PR_MONSTER | PR_MESSAGE);
+	redraw_stuff(player->upkeep);
 
 
 	/* Process some user pref files */
@@ -1768,7 +1713,7 @@ void play_game(void)
 
 	/* Generate a dungeon level if needed */
 	if (!character_dungeon)
-		cave_generate(cave, p_ptr);
+		cave_generate(cave , player);
 
 
 	/* Character is now "complete" */
@@ -1780,13 +1725,13 @@ void play_game(void)
 
 
 	/* Start playing */
-	p_ptr->playing = TRUE;
+	player->upkeep->playing = TRUE;
 
 	/* Save not required yet. */
-	p_ptr->autosave = FALSE;
+	player->upkeep->autosave = FALSE;
 
 	/* Hack -- Enforce "delayed death" */
-	if (p_ptr->chp < 0) p_ptr->is_dead = TRUE;
+	if (player->chp < 0) player->is_dead = TRUE;
 
 	/* Process */
 	while (TRUE)
@@ -1798,20 +1743,20 @@ void play_game(void)
 		dungeon(cave);
 
 		/* Notice stuff */
-		if (p_ptr->notice) notice_stuff(p_ptr);
+		if (player->upkeep->notice) notice_stuff(player->upkeep);
 
 		/* Update stuff */
-		if (p_ptr->update) update_stuff(p_ptr);
+		if (player->upkeep->update) update_stuff(player->upkeep);
 
 		/* Redraw stuff */
-		if (p_ptr->redraw) redraw_stuff(p_ptr);
+		if (player->upkeep->redraw) redraw_stuff(player->upkeep);
 
 
 		/* Cancel the target */
 		target_set_monster(0);
 
 		/* Cancel the health bar */
-		health_track(p_ptr, NULL);
+		health_track(player->upkeep, NULL);
 
 
 		/* Forget the view */
@@ -1819,81 +1764,81 @@ void play_game(void)
 
 
 		/* Handle "quit and save" */
-		if (!p_ptr->playing && !p_ptr->is_dead) break;
+		if (!player->upkeep->playing && !player->is_dead) break;
 
 
 		/* XXX XXX XXX */
 		message_flush();
 
 		/* Accidental Death */
-		if (p_ptr->playing && p_ptr->is_dead) {
+		if (player->upkeep->playing && player->is_dead) {
 			/* XXX-elly: this does not belong here. Refactor or
 			 * remove. Very similar to do_cmd_wiz_cure_all(). */
-			if ((p_ptr->wizard || OPT(cheat_live)) && !get_check("Die? ")) {
+			if ((player->wizard || OPT(cheat_live)) && !get_check("Die? ")) {
 				/* Mark social class, reset age, if needed */
-				p_ptr->age = 0;
+				player->age = 0;
 
 				/* Increase age */
-				p_ptr->age++;
+				player->age++;
 
 				/* Mark savefile */
-				p_ptr->noscore |= NOSCORE_WIZARD;
+				player->noscore |= NOSCORE_WIZARD;
 
 				/* Message */
 				msg("You invoke wizard mode and cheat death.");
 				message_flush();
 
 				/* Cheat death */
-				p_ptr->is_dead = FALSE;
+				player->is_dead = FALSE;
 
 				/* Restore hit points */
-				p_ptr->chp = p_ptr->mhp;
-				p_ptr->chp_frac = 0;
+				player->chp = player->mhp;
+				player->chp_frac = 0;
 
 				/* Restore spell points */
-				p_ptr->csp = p_ptr->msp;
-				p_ptr->csp_frac = 0;
+				player->csp = player->msp;
+				player->csp_frac = 0;
 
 				/* Hack -- Healing */
-				(void)player_clear_timed(p_ptr, TMD_BLIND, TRUE);
-				(void)player_clear_timed(p_ptr, TMD_CONFUSED, TRUE);
-				(void)player_clear_timed(p_ptr, TMD_POISONED, TRUE);
-				(void)player_clear_timed(p_ptr, TMD_AFRAID, TRUE);
-				(void)player_clear_timed(p_ptr, TMD_PARALYZED, TRUE);
-				(void)player_clear_timed(p_ptr, TMD_IMAGE, TRUE);
-				(void)player_clear_timed(p_ptr, TMD_STUN, TRUE);
-				(void)player_clear_timed(p_ptr, TMD_CUT, TRUE);
+				(void)player_clear_timed(player, TMD_BLIND, TRUE);
+				(void)player_clear_timed(player, TMD_CONFUSED, TRUE);
+				(void)player_clear_timed(player, TMD_POISONED, TRUE);
+				(void)player_clear_timed(player, TMD_AFRAID, TRUE);
+				(void)player_clear_timed(player, TMD_PARALYZED, TRUE);
+				(void)player_clear_timed(player, TMD_IMAGE, TRUE);
+				(void)player_clear_timed(player, TMD_STUN, TRUE);
+				(void)player_clear_timed(player, TMD_CUT, TRUE);
 
 				/* Hack -- Prevent starvation */
-				player_set_food(p_ptr, PY_FOOD_MAX - 1);
+				player_set_food(player, PY_FOOD_MAX - 1);
 
 				/* Hack -- cancel recall */
-				if (p_ptr->word_recall)
+				if (player->word_recall)
 				{
 					/* Message */
 					msg("A tension leaves the air around you...");
 					message_flush();
 
 					/* Hack -- Prevent recall */
-					p_ptr->word_recall = 0;
+					player->word_recall = 0;
 				}
 
 				/* Note cause of death XXX XXX XXX */
-				my_strcpy(p_ptr->died_from, "Cheating death", sizeof(p_ptr->died_from));
+				my_strcpy(player->died_from, "Cheating death", sizeof(player->died_from));
 
 				/* New depth */
-				p_ptr->depth = 0;
+				player->depth = 0;
 
 				/* Leaving */
-				p_ptr->leaving = TRUE;
+				player->upkeep->leaving = TRUE;
 			}
 		}
 
 		/* Handle "death" */
-		if (p_ptr->is_dead) break;
+		if (player->is_dead) break;
 
 		/* Make a new level */
-		cave_generate(cave, p_ptr);
+		cave_generate(cave, player);
 	}
 
 	/* Disallow big cursor */

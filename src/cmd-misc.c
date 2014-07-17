@@ -19,14 +19,16 @@
 #include "angband.h"
 #include "cave.h"
 #include "cmds.h"
-#include "game-cmd.h"
-#include "monster/mon-util.h"
+#include "cmd-core.h"
+#include "init.h"
+#include "mon-util.h"
 #include "wizard.h"
 #include "target.h"
 #include "prefs.h"
 #include "files.h"
 #include "buildid.h"
 #include "history.h"
+#include "obj-util.h"
 
 
 /*
@@ -35,7 +37,7 @@
 void do_cmd_wizard(void)
 {
 	/* Verify first time */
-	if (!(p_ptr->noscore & NOSCORE_WIZARD))
+	if (!(player->noscore & NOSCORE_WIZARD))
 	{
 		/* Mention effects */
 		msg("You are about to enter 'wizard' mode for the very first time!");
@@ -47,32 +49,30 @@ void do_cmd_wizard(void)
 			return;
 
 		/* Mark savefile */
-		p_ptr->noscore |= NOSCORE_WIZARD;
+		player->noscore |= NOSCORE_WIZARD;
 	}
 
 	/* Toggle mode */
-	if (p_ptr->wizard)
+	if (player->wizard)
 	{
-		p_ptr->wizard = FALSE;
+		player->wizard = FALSE;
 		msg("Wizard mode off.");
 	}
 	else
 	{
-		p_ptr->wizard = TRUE;
+		player->wizard = TRUE;
 		msg("Wizard mode on.");
 	}
 
 	/* Update monsters */
-	p_ptr->update |= (PU_MONSTERS);
+	player->upkeep->update |= (PU_MONSTERS);
 
 	/* Redraw "title" */
-	p_ptr->redraw |= (PR_TITLE);
+	player->upkeep->redraw |= (PR_TITLE);
 }
 
 
 
-
-#ifdef ALLOW_DEBUG
 
 /*
  * Verify use of "debug" mode
@@ -80,7 +80,7 @@ void do_cmd_wizard(void)
 void do_cmd_try_debug(void)
 {
 	/* Ask first time */
-	if (!(p_ptr->noscore & NOSCORE_DEBUG))
+	if (!(player->noscore & NOSCORE_DEBUG))
 	{
 		/* Mention effects */
 		msg("You are about to use the dangerous, unsupported, debug commands!");
@@ -92,57 +92,24 @@ void do_cmd_try_debug(void)
 			return;
 
 		/* Mark savefile */
-		p_ptr->noscore |= NOSCORE_DEBUG;
+		player->noscore |= NOSCORE_DEBUG;
 	}
 
 	/* Okay */
 	do_cmd_debug();
 }
 
-#endif /* ALLOW_DEBUG */
-
-
-
-#ifdef ALLOW_BORG
-
-/*
- * Verify use of "borg" mode
- */
-void do_cmd_try_borg(void)
-{
-	/* Ask first time */
-	if (!(p_ptr->noscore & NOSCORE_BORG))
-	{
-		/* Mention effects */
-		msg("You are about to use the dangerous, unsupported, borg commands!");
-		msg("Your machine may crash, and your savefile may become corrupted!");
-		message_flush();
-
-		/* Verify request */
-		if (!get_check("Are you sure you want to use the borg commands? "))
-			return;
-
-		/* Mark savefile */
-		p_ptr->noscore |= NOSCORE_BORG;
-	}
-
-	/* Okay */
-	do_cmd_borg();
-}
-
-#endif /* ALLOW_BORG */
-
 
 /*
  * Quit the game.
  */
-void do_cmd_quit(cmd_code code, cmd_arg args[])
+void do_cmd_quit(struct command *cmd)
 {
 	/* Stop playing */
-	p_ptr->playing = FALSE;
+	player->upkeep->playing = FALSE;
 
 	/* Leaving */
-	p_ptr->leaving = TRUE;
+	player->upkeep->leaving = TRUE;
 }
 
 
@@ -168,19 +135,19 @@ void do_cmd_unknown(void)
 /*
  * Hack -- commit suicide
  */
-void do_cmd_suicide(cmd_code code, cmd_arg args[])
+void do_cmd_suicide(struct command *cmd)
 {
 	/* Commit suicide */
-	p_ptr->is_dead = TRUE;
+	player->is_dead = TRUE;
 
 	/* Stop playing */
-	p_ptr->playing = FALSE;
+	player->upkeep->playing = FALSE;
 
 	/* Leaving */
-	p_ptr->leaving = TRUE;
+	player->upkeep->leaving = TRUE;
 
 	/* Cause of death */
-	my_strcpy(p_ptr->died_from, "Quitting", sizeof(p_ptr->died_from));
+	my_strcpy(player->died_from, "Quitting", sizeof(player->died_from));
 }
 
 
@@ -190,7 +157,7 @@ void textui_cmd_suicide(void)
 	flush();
 
 	/* Verify Retirement */
-	if (p_ptr->total_winner)
+	if (player->total_winner)
 	{
 		/* Verify */
 		if (!get_check("Do you want to retire? ")) return;
@@ -212,10 +179,10 @@ void textui_cmd_suicide(void)
 		if (ch.code != '@') return;
 	}
 
-	cmd_insert(CMD_SUICIDE);
+	cmdq_push(CMD_SUICIDE);
 }
 
-void do_cmd_save_game(cmd_code code, cmd_arg args[])
+void do_cmd_save_game(struct command *cmd)
 {
 	save_game();
 }
@@ -291,7 +258,7 @@ void do_cmd_load_screen(void)
 		/* Show each row */
 		for (x = 0; x < 79; x++)
 		{
-			Term_mbstowcs(&c, &buf[x], 1);
+			text_mbstowcs(&c, &buf[x], 1);
 			/* Put the attr/char */
 			Term_draw(x, y, TERM_WHITE, c);
 		}
