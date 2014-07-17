@@ -15,6 +15,8 @@
 #define PY_MAX_GOLD	999999999L	/* Maximum gold */
 #define PY_MAX_LEVEL	50		/* Maximum level */
 
+#define PY_MAX_MONMEM   10		/* Maximum monsters to remember */
+
 /* Player "food" values */
 #define PY_FOOD_MAX 	17000	/* Food value (Bloated) */
 #define PY_FOOD_FULL	10000	/* Food value (Normal) */
@@ -37,6 +39,7 @@
 #define PY_SPELL_LEARNED    0x01 /* Spell has been learned */
 #define PY_SPELL_WORKED     0x02 /* Spell has been successfully tried */
 #define PY_SPELL_FORGOTTEN  0x04 /* Spell has been forgotten */
+
 
 /** Inventory **/
 
@@ -338,7 +341,8 @@ typedef struct player {
 	bool is_dead;			/* Player is dead */
 
 	bool wizard;			/* Player is in wizard mode */
-
+	
+	struct monster *monster_memory[PY_MAX_MONMEM];
 
 	/*** Temporary fields ***/
 

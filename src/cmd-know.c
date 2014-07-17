@@ -567,6 +567,12 @@ void do_cmd_look(void)
 
 
 
+void do_cmd_monmem(void) {
+	//if (p_ptr->monster_memory[0] != 0) {
+    monmem_rotate(p_ptr);
+	//}
+}
+
 /*
  * Allow the player to examine other sectors on the map
  */
