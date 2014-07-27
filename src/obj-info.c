@@ -1355,7 +1355,7 @@ static bool obj_known_effect(const object_type *o_ptr, int *effect, bool *aimed,
 		/* Don't know much - be vague */
 		*effect = OBJ_KNOWN_PRESENT;
 
-		if (!o_ptr->artifact && effect_aim(object_effect(o_ptr)))
+		if (!o_ptr->artifact && effect_aim(o_ptr->effect))
 			*aimed = TRUE;
 					
 		return TRUE;
@@ -1385,6 +1385,7 @@ static bool describe_effect(textblock *tb, const object_type *o_ptr,
 		bool only_artifacts, bool subjective)
 {
 	const char *desc;
+	struct effect *e;
 
 	int effect = 0;
 	bool aimed = FALSE;
@@ -1413,7 +1414,8 @@ static bool describe_effect(textblock *tb, const object_type *o_ptr,
 	}
 
 	/* Obtain the description */
-	desc = effect_desc(effect);
+	e = o_ptr->effect;
+	desc = effect_desc(e);
 	if (!desc) return FALSE;
 
 	if (aimed)
@@ -1428,12 +1430,22 @@ static bool describe_effect(textblock *tb, const object_type *o_ptr,
 	    textblock_append(tb, "When activated, it ");
 
 	/* Print a colourised description */
-	do {
-		if (isdigit((unsigned char) *desc))
-			textblock_append_c(tb, TERM_L_GREEN, "%c", *desc);
-		else
-			textblock_append(tb, "%c", *desc);
-	} while (*desc++);
+	while (e) {
+		do {
+			if (isdigit((unsigned char) *desc))
+				textblock_append_c(tb, TERM_L_GREEN, "%c", *desc);
+			else
+				textblock_append(tb, "%c", *desc);
+		} while (*desc++);
+		if (e->next) {
+			if (e->next->next)
+				textblock_append(tb, ", ", *desc);
+			else
+				textblock_append(tb, " and ", *desc);
+		}
+		e = e->next;
+		desc = effect_desc(e);
+	}
 
 	textblock_append(tb, ".\n");
 

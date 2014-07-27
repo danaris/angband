@@ -197,12 +197,8 @@ static int rd_item(object_type *o_ptr)
 
 	/* Activation */
 	rd_u16b(&tmp16u);
-	if (tmp16u) {
-		o_ptr->effect = mem_zalloc(sizeof(*o_ptr->effect));
-		o_ptr->effect->index = tmp16u;
-		o_ptr->effect->params[0] = effect_param(tmp16u, 0);
-		o_ptr->effect->params[1] = effect_param(tmp16u, 1);
-	}
+	if (tmp16u)
+		o_ptr->activation = &activations[tmp16u];
 	rd_u16b(&tmp16u);
 	o_ptr->time.base = tmp16u;
 	rd_u16b(&tmp16u);
@@ -221,6 +217,10 @@ static int rd_item(object_type *o_ptr)
 		return 0;
 
 	o_ptr->ego = lookup_ego(ego_idx);
+	if (o_ptr->ego)
+		o_ptr->effect = o_ptr->ego->effect;
+	else
+		o_ptr->effect = o_ptr->kind ? o_ptr->kind->effect : NULL;
 
 	if (art_idx >= z_info->a_max)
 		return -1;
@@ -1080,8 +1080,6 @@ static int rd_gear_aux(rd_item_t rd_item_version)
 		}
 
 		/* Free object */
-		free_brand(i_ptr->brands);
-		free_slay(i_ptr->slays);
 		object_wipe(i_ptr);
 	}
 	calc_inventory(player->upkeep, player->gear, player->body,

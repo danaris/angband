@@ -140,7 +140,7 @@ static art_tag_t art_tag_lookup(const char *tag)
  * always singular in the current code (gloves are "Set of" and boots
  * are "Pair of")
  */
-static void activation_message(object_type *o_ptr, const char *message)
+static void activation_message(object_type *o_ptr)
 {
 	char buf[1024] = "\0";
 	const char *next;
@@ -149,24 +149,26 @@ static void activation_message(object_type *o_ptr, const char *message)
 	const char *in_cursor;
 	size_t end = 0;
 
-	in_cursor = message;
+	/* See if we have a message */
+	if (!o_ptr->activation) return;
+	if (!o_ptr->activation->message) return;
+	in_cursor = o_ptr->activation->message;
 
 	next = strchr(in_cursor, '{');
-	while (next)
-	{
+	while (next) {
 		/* Copy the text leading up to this { */
 		strnfcat(buf, 1024, &end, "%.*s", next - in_cursor, in_cursor); 
 
 		s = next + 1;
 		while (*s && isalpha((unsigned char) *s)) s++;
 
-		if (*s == '}')		/* Valid tag */
-		{
-			tag = next + 1; /* Start the tag after the { */
+		/* Valid tag */
+		if (*s == '}') {
+			/* Start the tag after the { */
+			tag = next + 1;
 			in_cursor = s + 1;
 
-			switch(art_tag_lookup(tag))
-			{
+			switch(art_tag_lookup(tag)) {
 			case ART_TAG_NAME:
 				end += object_desc(buf, 1024, o_ptr, ODESC_PREFIX | ODESC_BASE); 
 				break;
@@ -185,11 +187,9 @@ static void activation_message(object_type *o_ptr, const char *message)
 			default:
 				break;
 			}
-		}
-		else    /* An invalid tag, skip it */
-		{
+		} else
+			/* An invalid tag, skip it */
 			in_cursor = next + 1;
-		}
 
 		next = strchr(in_cursor, '{');
 	}
@@ -557,7 +557,7 @@ enum use {
 static void use_aux(struct command *cmd, int item, enum use use, int snd)
 {
 	object_type *o_ptr;
-	int effect;
+	struct effect *effect;
 	bool ident = FALSE, used = FALSE;
 	bool was_aware;
 	int dir = 5;
@@ -582,29 +582,25 @@ static void use_aux(struct command *cmd, int item, enum use use, int snd)
 	track_object(player->upkeep, item);
 
 	/* Figure out effect to use */
-	effect = object_effect(o_ptr);
+	effect = o_ptr->effect;
 
 	/* Check for unknown objects to prevent wasted player turns. */
-	if (effect == EF_IDENTIFY && !spell_identify_unknown_available()) {
+	if (effect->index == AEF_ATOMIC_IDENTIFY &&
+		!spell_identify_unknown_available()) {
 		msg("You have nothing to identify.");
 		return;
 	}
 
 	/* Check for use if necessary, and execute the effect */
-	if ((use != USE_CHARGE && use != USE_TIMEOUT) || check_devices(o_ptr))
-	{
+	if ((use != USE_CHARGE && use != USE_TIMEOUT) || check_devices(o_ptr)) {
 		int beam = beam_chance(o_ptr->tval);
 
 		/* Special message for artifacts */
-		if (o_ptr->artifact)
-		{
+		if (o_ptr->artifact) {
 			msgt(snd, "You activate it.");
-			if (o_ptr->artifact->effect_msg)
-				activation_message(o_ptr, o_ptr->artifact->effect_msg);
+			activation_message(o_ptr);
 			level = o_ptr->artifact->level;
-		}
-		else
-		{
+		} else {
 			/* Make a noise! */
 			sound(snd);
 			level = o_ptr->kind->level;
@@ -612,13 +608,13 @@ static void use_aux(struct command *cmd, int item, enum use use, int snd)
 
 		/* A bit of a hack to make ID work better.
 			-- Check for "obvious" effects beforehand. */
-		if (effect_obvious(effect)) object_flavor_aware(o_ptr);
+		if (effect->index == AEF_ATOMIC_IDENTIFY) object_flavor_aware(o_ptr);
 
 		/* Boost damage effects if skill > difficulty */
 		boost = MAX(player->state.skills[SKILL_DEVICE] - level, 0);
 
 		/* Do effect */
-		used = effect_do(effect, &ident, was_aware, dir, beam, boost);
+		used = atomic_effect_do(effect, &ident, was_aware, dir, beam, boost);
 
 		/* Quit if the item wasn't used and no knowledge was gained */
 		if (!used && (was_aware || !ident)) return;
@@ -628,10 +624,6 @@ static void use_aux(struct command *cmd, int item, enum use use, int snd)
 	if (!o_ptr || !o_ptr->kind) return;
 
 	if (ident) object_notice_effect(o_ptr);
-
-	/* Food feeds the player */
-	if (tval_can_have_nourishment(o_ptr))
-		player_set_food(player, player->food + o_ptr->pval);
 
 	/* Use the turn */
 	player->upkeep->energy_use = 100;

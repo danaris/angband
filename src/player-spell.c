@@ -1118,6 +1118,9 @@ static bool player_spell_effect(int spell, int dir)
 	/* Usually radius for ball spells, or some other modifier. */
 	int p2 = sp->effect->params[1];
 
+	/* Usually radius increments for player level. */
+	int p3 = sp->effect->params[2];
+
 	if (sp->effect->dice != NULL)
 		dice_roll(sp->effect->dice, &value);
 
@@ -1131,7 +1134,7 @@ static bool player_spell_effect(int spell, int dir)
 			dir,
 			beam_chance(),
 			value,
-			p1, p2
+			p1, p2, p3
 		};
 
 		return spell_handler(&context);
@@ -1233,6 +1236,11 @@ static int spell_value_base_player_level(void)
 	return player->lev;
 }
 
+static int spell_value_base_max_sight(void)
+{
+	return MAX_SIGHT;
+}
+
 expression_base_value_f spell_value_base_by_name(const char *name)
 {
 	static const struct value_base_s {
@@ -1240,6 +1248,7 @@ expression_base_value_f spell_value_base_by_name(const char *name)
 		expression_base_value_f function;
 	} value_bases[] = {
 		{ "PLAYER_LEVEL", spell_value_base_player_level },
+		{ "MAX_SIGHT", spell_value_base_max_sight },
 		{ NULL, NULL },
 	};
 	const struct value_base_s *current = value_bases;

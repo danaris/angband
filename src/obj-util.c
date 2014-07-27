@@ -764,7 +764,6 @@ void object_free(struct object *obj)
 {
 	free_brand(obj->brands);
 	free_slay(obj->slays);
-	free_effect(obj->effect);
 	object_wipe(obj);
 }
 
@@ -2012,7 +2011,7 @@ object_type *object_from_item_idx(int item)
  */ 
 bool obj_needs_aim(object_type *o_ptr)
 {
-	int effect = object_effect(o_ptr);
+	struct effect *effect = o_ptr->effect;
 
 	/* If the effect needs aiming, or if the object type needs
 	   aiming, this object needs aiming. */
