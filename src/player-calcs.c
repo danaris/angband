@@ -2293,6 +2293,7 @@ static void update_bonuses(void)
 void health_track(struct player_upkeep *upkeep, struct monster *m_ptr)
 {
 	upkeep->health_who = m_ptr;
+	monmem_push(upkeep, m_ptr);
 	upkeep->redraw |= PR_HEALTH;
 }
 

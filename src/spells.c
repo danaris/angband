@@ -16,6 +16,7 @@
  *    are included in all such copies.  Other copyrights may also apply.
  */
 
+#include <math.h>
 #include "angband.h"
 #include "cave.h"
 #include "dungeon.h"
@@ -838,6 +839,64 @@ bool detect_treasure(bool aware, bool full)
 		msg("You sense no treasure or objects.");
 
 	return gold_buried || objects;
+}
+
+
+/*
+ * Quietly detect all traps near the player.
+ */
+bool detect_close_traps(void)
+{
+	int y, x;
+	int x1, x2, y1, y2;
+	int rad;
+
+	bool trap_found = FALSE;
+
+	rad = (int)floor(player->lev/5);
+	
+	if (rad == 0) {
+		return (trap_found);
+	}
+	
+	/* Pick a small area to map */
+	y1 = player->py - rad;
+	y2 = player->py + rad;
+	x1 = player->px - rad;
+	x2 = player->px + rad;
+
+	if (y1 < 0) y1 = 0;
+	if (x1 < 0) x1 = 0;
+
+
+	/* Scan the dungeon */
+	for (y = y1; y < y2; y++)
+	{
+		for (x = x1; x < x2; x++)
+		{
+			if (!square_in_bounds_fully(cave, y, x)) continue;
+			if (!player_has_los_bold(y, x)) continue;
+
+			/* Detect traps */
+			if (square_player_trap(cave, y, x)) 
+			{
+				/* Reveal trap */
+				if (square_reveal_trap(cave, y, x, 100, FALSE))
+				{
+					/* We found something to detect */
+					trap_found = TRUE;
+				}
+			}
+
+			/* Detect secret doors */
+			if (square_issecretdoor(cave, y, x)) {
+				place_closed_door(cave, y, x);
+				trap_found = TRUE;
+			}
+		}
+	}
+
+	return (trap_found);
 }
 
 

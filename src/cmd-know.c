@@ -539,7 +539,7 @@ void do_cmd_look(void)
 
 void do_cmd_monmem(void) {
 	//if (p_ptr->monster_memory[0] != 0) {
-    monmem_rotate(player);
+    monmem_rotate(player->upkeep);
 	//}
 }
 

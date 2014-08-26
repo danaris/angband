@@ -7,6 +7,19 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		0A97A71417D2A295008FF7CA /* init.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A97A71217D2A286008FF7CA /* init.c */; };
+		0A97A71517D2A295008FF7CA /* quest.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A97A71317D2A286008FF7CA /* quest.c */; };
+		0A97A71617D2A295008FF7CA /* cmd-cave.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A97A70E17D2A23C008FF7CA /* cmd-cave.c */; };
+		0A97A71717D2A295008FF7CA /* cmd-know.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A97A70F17D2A23C008FF7CA /* cmd-know.c */; };
+		0A97A71817D2A295008FF7CA /* cmd-pickup.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A97A71017D2A23C008FF7CA /* cmd-pickup.c */; };
+		0A97A71917D2A295008FF7CA /* cmd-process.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A97A71117D2A23C008FF7CA /* cmd-process.c */; };
+		0AE5278F17D2C25A004F0CC8 /* Angband-Cocoa.xml in Resources */ = {isa = PBXBuildFile; fileRef = 0A28675B172DCD4B004FD64D /* Angband-Cocoa.xml */; };
+		0AE5279017D2C276004F0CC8 /* Angband_Icons.icns in Resources */ = {isa = PBXBuildFile; fileRef = 0A28675C172DCD4B004FD64D /* Angband_Icons.icns */; };
+		0AE5279117D2C276004F0CC8 /* Data.icns in Resources */ = {isa = PBXBuildFile; fileRef = 0A28675D172DCD4B004FD64D /* Data.icns */; };
+		0AE5279217D2C276004F0CC8 /* Edit.icns in Resources */ = {isa = PBXBuildFile; fileRef = 0A28675E172DCD4B004FD64D /* Edit.icns */; };
+		0AE5279317D2C276004F0CC8 /* Save.icns in Resources */ = {isa = PBXBuildFile; fileRef = 0A286766172DCD4B004FD64D /* Save.icns */; };
+		0AE5279A17D2C477004F0CC8 /* MainMenu.nib in Resources */ = {isa = PBXBuildFile; fileRef = 0AE5279417D2C477004F0CC8 /* MainMenu.nib */; };
+		0AE5279B17D2C477004F0CC8 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 0AE5279617D2C477004F0CC8 /* InfoPlist.strings */; };
 		0AE77CD517346EC9000EF250 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0AE77CD417346EC9000EF250 /* Cocoa.framework */; };
 		0AE77CE517346EC9000EF250 /* Credits.rtf in Resources */ = {isa = PBXBuildFile; fileRef = 0AE77CE317346EC9000EF250 /* Credits.rtf */; };
 		0AE77CEF1734815A000EF250 /* main-cocoa.m in Sources */ = {isa = PBXBuildFile; fileRef = 0A28679B172DCD4B004FD64D /* main-cocoa.m */; };
@@ -17,11 +30,6 @@
 		0AE77CF417348236000EF250 /* cmd-context.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A286749172DCD4B004FD64D /* cmd-context.c */; };
 		0AE77CF517348236000EF250 /* cmd-misc.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A28674B172DCD4B004FD64D /* cmd-misc.c */; };
 		0AE77CF617348236000EF250 /* cmd-obj.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A28674D172DCD4B004FD64D /* cmd-obj.c */; };
-		0AE77CF717348236000EF250 /* cmd0.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A28674F172DCD4B004FD64D /* cmd0.c */; };
-		0AE77CF817348236000EF250 /* cmd1.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A286751172DCD4B004FD64D /* cmd1.c */; };
-		0AE77CF917348236000EF250 /* cmd2.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A286753172DCD4B004FD64D /* cmd2.c */; };
-		0AE77CFA17348236000EF250 /* cmd3.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A286755172DCD4B004FD64D /* cmd3.c */; };
-		0AE77CFB17348236000EF250 /* cmd4.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A286757172DCD4B004FD64D /* cmd4.c */; };
 		0AE77CFC17348236000EF250 /* death.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A286768172DCD4B004FD64D /* death.c */; };
 		0AE77CFD17348236000EF250 /* debug.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A28676B172DCD4B004FD64D /* debug.c */; };
 		0AE77CFE17348236000EF250 /* dungeon.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A286771172DCD4B004FD64D /* dungeon.c */; };
@@ -33,7 +41,6 @@
 		0AE77D0417348236000EF250 /* grafmode.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A286785172DCD4B004FD64D /* grafmode.c */; };
 		0AE77D0517348236000EF250 /* guid.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A286788172DCD4B004FD64D /* guid.c */; };
 		0AE77D0617348236000EF250 /* history.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A28678D172DCD4B004FD64D /* history.c */; };
-		0AE77D0717348236000EF250 /* init2.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A286791172DCD4B004FD64D /* init2.c */; };
 		0AE77D0817348236000EF250 /* keymap.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A286793172DCD4B004FD64D /* keymap.c */; };
 		0AE77D0917348236000EF250 /* load.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A286799172DCD4B004FD64D /* load.c */; };
 		0AE77D0A17348236000EF250 /* melee1.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A2867B9172DCD4C004FD64D /* melee1.c */; };
@@ -119,13 +126,6 @@
 		0AE77D5A1734833B000EF250 /* borg8.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A286739172DCD4A004FD64D /* borg8.c */; };
 		0AE77D5B1734833B000EF250 /* borg9.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A28673C172DCD4B004FD64D /* borg9.c */; };
 		0AE77D5D173486FA000EF250 /* buildid.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A286740172DCD4B004FD64D /* buildid.c */; };
-		0AE77D5E173493A0000EF250 /* MainMenu.nib in Resources */ = {isa = PBXBuildFile; fileRef = 0A286761172DCD4B004FD64D /* MainMenu.nib */; };
-		0AE77D60173493B0000EF250 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 0A28675F172DCD4B004FD64D /* InfoPlist.strings */; };
-		0AE77D61173493DF000EF250 /* TGCAngband.icns in Resources */ = {isa = PBXBuildFile; fileRef = 0A286807172DCD4C004FD64D /* TGCAngband.icns */; };
-		0AE77D62173493DF000EF250 /* Angband.xml in Resources */ = {isa = PBXBuildFile; fileRef = 0A286808172DCD4C004FD64D /* Angband.xml */; };
-		0AE77D63173493DF000EF250 /* Data.icns in Resources */ = {isa = PBXBuildFile; fileRef = 0A286809172DCD4C004FD64D /* Data.icns */; };
-		0AE77D64173493DF000EF250 /* Edit.icns in Resources */ = {isa = PBXBuildFile; fileRef = 0A28680A172DCD4C004FD64D /* Edit.icns */; };
-		0AE77D65173493DF000EF250 /* Save.icns in Resources */ = {isa = PBXBuildFile; fileRef = 0A286815172DCD4C004FD64D /* Save.icns */; };
 		0AE77ED517380A1B000EF250 /* scores.raw in Lib files: Apex */ = {isa = PBXBuildFile; fileRef = 0AE77ED417380A14000EF250 /* scores.raw */; };
 		0AE77ED717380A4A000EF250 /* artifact.txt in Lib files: Edit */ = {isa = PBXBuildFile; fileRef = 0AE77D6E173809AB000EF250 /* artifact.txt */; };
 		0AE77ED817380A4A000EF250 /* ego_item.txt in Lib files: Edit */ = {isa = PBXBuildFile; fileRef = 0AE77D6F173809AC000EF250 /* ego_item.txt */; };
@@ -143,7 +143,6 @@
 		0AE77EE417380A4A000EF250 /* pain.txt in Lib files: Edit */ = {isa = PBXBuildFile; fileRef = 0AE77D7C173809AC000EF250 /* pain.txt */; };
 		0AE77EE517380A4A000EF250 /* pit.txt in Lib files: Edit */ = {isa = PBXBuildFile; fileRef = 0AE77D7D173809AC000EF250 /* pit.txt */; };
 		0AE77EE617380A4A000EF250 /* room_template.txt in Lib files: Edit */ = {isa = PBXBuildFile; fileRef = 0AE77D7E173809AC000EF250 /* room_template.txt */; };
-		0AE77EE717380A4A000EF250 /* shop_own.txt in Lib files: Edit */ = {isa = PBXBuildFile; fileRef = 0AE77D7F173809AC000EF250 /* shop_own.txt */; };
 		0AE77EE817380A4A000EF250 /* spell.txt in Lib files: Edit */ = {isa = PBXBuildFile; fileRef = 0AE77D80173809AC000EF250 /* spell.txt */; };
 		0AE77EE917380A4A000EF250 /* store.txt in Lib files: Edit */ = {isa = PBXBuildFile; fileRef = 0AE77D81173809AC000EF250 /* store.txt */; };
 		0AE77EEA17380A4A000EF250 /* terrain.txt in Lib files: Edit */ = {isa = PBXBuildFile; fileRef = 0AE77D82173809AC000EF250 /* terrain.txt */; };
@@ -485,7 +484,6 @@
 				0AE77EE417380A4A000EF250 /* pain.txt in Lib files: Edit */,
 				0AE77EE517380A4A000EF250 /* pit.txt in Lib files: Edit */,
 				0AE77EE617380A4A000EF250 /* room_template.txt in Lib files: Edit */,
-				0AE77EE717380A4A000EF250 /* shop_own.txt in Lib files: Edit */,
 				0AE77EE817380A4A000EF250 /* spell.txt in Lib files: Edit */,
 				0AE77EE917380A4A000EF250 /* store.txt in Lib files: Edit */,
 				0AE77EEA17380A4A000EF250 /* terrain.txt in Lib files: Edit */,
@@ -945,19 +943,11 @@
 		0A286749172DCD4B004FD64D /* cmd-context.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "cmd-context.c"; sourceTree = "<group>"; };
 		0A28674B172DCD4B004FD64D /* cmd-misc.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "cmd-misc.c"; sourceTree = "<group>"; };
 		0A28674D172DCD4B004FD64D /* cmd-obj.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "cmd-obj.c"; sourceTree = "<group>"; };
-		0A28674F172DCD4B004FD64D /* cmd0.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = cmd0.c; sourceTree = "<group>"; };
-		0A286751172DCD4B004FD64D /* cmd1.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = cmd1.c; sourceTree = "<group>"; };
-		0A286753172DCD4B004FD64D /* cmd2.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = cmd2.c; sourceTree = "<group>"; };
-		0A286755172DCD4B004FD64D /* cmd3.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = cmd3.c; sourceTree = "<group>"; };
-		0A286757172DCD4B004FD64D /* cmd4.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = cmd4.c; sourceTree = "<group>"; };
 		0A286759172DCD4B004FD64D /* cmds.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = cmds.h; sourceTree = "<group>"; };
 		0A28675B172DCD4B004FD64D /* Angband-Cocoa.xml */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xml; path = "Angband-Cocoa.xml"; sourceTree = "<group>"; };
 		0A28675C172DCD4B004FD64D /* Angband_Icons.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = Angband_Icons.icns; sourceTree = "<group>"; };
 		0A28675D172DCD4B004FD64D /* Data.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = Data.icns; sourceTree = "<group>"; };
 		0A28675E172DCD4B004FD64D /* Edit.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = Edit.icns; sourceTree = "<group>"; };
-		0A286760172DCD4B004FD64D /* English */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = English; path = English.lproj/InfoPlist.strings; sourceTree = "<group>"; };
-		0A286762172DCD4B004FD64D /* English */ = {isa = PBXFileReference; lastKnownFileType = wrapper.nib; name = English; path = English.lproj/MainMenu.nib; sourceTree = "<group>"; };
-		0A286764172DCD4B004FD64D /* English */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.make; name = English; path = English.lproj/Makefile; sourceTree = "<group>"; };
 		0A286765172DCD4B004FD64D /* Makefile */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.make; path = Makefile; sourceTree = "<group>"; };
 		0A286766172DCD4B004FD64D /* Save.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = Save.icns; sourceTree = "<group>"; };
 		0A286767172DCD4B004FD64D /* config.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = config.h; sourceTree = "<group>"; };
@@ -990,7 +980,6 @@
 		0A28678D172DCD4B004FD64D /* history.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = history.c; sourceTree = "<group>"; };
 		0A28678E172DCD4B004FD64D /* history.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = history.h; sourceTree = "<group>"; };
 		0A286790172DCD4B004FD64D /* init.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = init.h; sourceTree = "<group>"; };
-		0A286791172DCD4B004FD64D /* init2.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = init2.c; sourceTree = "<group>"; };
 		0A286793172DCD4B004FD64D /* keymap.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = keymap.c; sourceTree = "<group>"; };
 		0A286794172DCD4B004FD64D /* keymap.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = keymap.h; sourceTree = "<group>"; };
 		0A286796172DCD4B004FD64D /* list-effects.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "list-effects.h"; sourceTree = "<group>"; };
@@ -1180,7 +1169,6 @@
 		0A286892172DCD4D004FD64D /* textui.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = textui.h; sourceTree = "<group>"; };
 		0A286895172DCD4D004FD64D /* trap.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = trap.c; sourceTree = "<group>"; };
 		0A286896172DCD4D004FD64D /* trap.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = trap.h; sourceTree = "<group>"; };
-		0A286898172DCD4D004FD64D /* types.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = types.h; sourceTree = "<group>"; };
 		0A286899172DCD4D004FD64D /* ui-birth.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "ui-birth.c"; sourceTree = "<group>"; };
 		0A28689A172DCD4D004FD64D /* ui-birth.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "ui-birth.h"; sourceTree = "<group>"; };
 		0A28689C172DCD4D004FD64D /* ui-event.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "ui-event.c"; sourceTree = "<group>"; };
@@ -1248,6 +1236,15 @@
 		0A2868F8172DCD4F004FD64D /* z-util.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "z-util.h"; sourceTree = "<group>"; };
 		0A2868FA172DCD4F004FD64D /* z-virt.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "z-virt.c"; sourceTree = "<group>"; };
 		0A2868FB172DCD4F004FD64D /* z-virt.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "z-virt.h"; sourceTree = "<group>"; };
+		0A97A70E17D2A23C008FF7CA /* cmd-cave.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "cmd-cave.c"; sourceTree = "<group>"; };
+		0A97A70F17D2A23C008FF7CA /* cmd-know.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "cmd-know.c"; sourceTree = "<group>"; };
+		0A97A71017D2A23C008FF7CA /* cmd-pickup.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "cmd-pickup.c"; sourceTree = "<group>"; };
+		0A97A71117D2A23C008FF7CA /* cmd-process.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "cmd-process.c"; sourceTree = "<group>"; };
+		0A97A71217D2A286008FF7CA /* init.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = init.c; sourceTree = "<group>"; };
+		0A97A71317D2A286008FF7CA /* quest.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = quest.c; sourceTree = "<group>"; };
+		0AE5279517D2C477004F0CC8 /* en */ = {isa = PBXFileReference; lastKnownFileType = wrapper.nib; name = en; path = en.lproj/MainMenu.nib; sourceTree = "<group>"; };
+		0AE5279717D2C477004F0CC8 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		0AE5279917D2C477004F0CC8 /* en */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.make; name = en; path = en.lproj/Makefile; sourceTree = "<group>"; };
 		0AE77CD117346EC9000EF250 /* TGCAngband-Cocoa.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "TGCAngband-Cocoa.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		0AE77CD417346EC9000EF250 /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = System/Library/Frameworks/Cocoa.framework; sourceTree = SDKROOT; };
 		0AE77CD717346EC9000EF250 /* AppKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppKit.framework; path = System/Library/Frameworks/AppKit.framework; sourceTree = SDKROOT; };
@@ -1282,7 +1279,6 @@
 		0AE77D7C173809AC000EF250 /* pain.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = pain.txt; sourceTree = "<group>"; };
 		0AE77D7D173809AC000EF250 /* pit.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = pit.txt; sourceTree = "<group>"; };
 		0AE77D7E173809AC000EF250 /* room_template.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = room_template.txt; sourceTree = "<group>"; };
-		0AE77D7F173809AC000EF250 /* shop_own.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = shop_own.txt; sourceTree = "<group>"; };
 		0AE77D80173809AC000EF250 /* spell.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = spell.txt; sourceTree = "<group>"; };
 		0AE77D81173809AC000EF250 /* store.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = store.txt; sourceTree = "<group>"; };
 		0AE77D82173809AC000EF250 /* terrain.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = terrain.txt; sourceTree = "<group>"; };
@@ -1641,6 +1637,8 @@
 		0A286713172DCD4A004FD64D /* src */ = {
 			isa = PBXGroup;
 			children = (
+				0A97A71217D2A286008FF7CA /* init.c */,
+				0A97A71317D2A286008FF7CA /* quest.c */,
 				0A286714172DCD4A004FD64D /* .gitignore */,
 				0A286715172DCD4A004FD64D /* .splintrc */,
 				0A286717172DCD4A004FD64D /* angband.h */,
@@ -1656,14 +1654,13 @@
 				0A286744172DCD4B004FD64D /* button.h */,
 				0A286746172DCD4B004FD64D /* cave.c */,
 				0A286747172DCD4B004FD64D /* cave.h */,
+				0A97A70E17D2A23C008FF7CA /* cmd-cave.c */,
+				0A97A70F17D2A23C008FF7CA /* cmd-know.c */,
+				0A97A71017D2A23C008FF7CA /* cmd-pickup.c */,
+				0A97A71117D2A23C008FF7CA /* cmd-process.c */,
 				0A286749172DCD4B004FD64D /* cmd-context.c */,
 				0A28674B172DCD4B004FD64D /* cmd-misc.c */,
 				0A28674D172DCD4B004FD64D /* cmd-obj.c */,
-				0A28674F172DCD4B004FD64D /* cmd0.c */,
-				0A286751172DCD4B004FD64D /* cmd1.c */,
-				0A286753172DCD4B004FD64D /* cmd2.c */,
-				0A286755172DCD4B004FD64D /* cmd3.c */,
-				0A286757172DCD4B004FD64D /* cmd4.c */,
 				0A286759172DCD4B004FD64D /* cmds.h */,
 				0A28675A172DCD4B004FD64D /* cocoa */,
 				0A286767172DCD4B004FD64D /* config.h */,
@@ -1696,7 +1693,6 @@
 				0A28678D172DCD4B004FD64D /* history.c */,
 				0A28678E172DCD4B004FD64D /* history.h */,
 				0A286790172DCD4B004FD64D /* init.h */,
-				0A286791172DCD4B004FD64D /* init2.c */,
 				0A286793172DCD4B004FD64D /* keymap.c */,
 				0A286794172DCD4B004FD64D /* keymap.h */,
 				0A286796172DCD4B004FD64D /* list-effects.h */,
@@ -1760,7 +1756,6 @@
 				0A286892172DCD4D004FD64D /* textui.h */,
 				0A286895172DCD4D004FD64D /* trap.c */,
 				0A286896172DCD4D004FD64D /* trap.h */,
-				0A286898172DCD4D004FD64D /* types.h */,
 				0A286899172DCD4D004FD64D /* ui-birth.c */,
 				0A28689A172DCD4D004FD64D /* ui-birth.h */,
 				0A28689C172DCD4D004FD64D /* ui-event.c */,
@@ -1848,9 +1843,9 @@
 				0A28675C172DCD4B004FD64D /* Angband_Icons.icns */,
 				0A28675D172DCD4B004FD64D /* Data.icns */,
 				0A28675E172DCD4B004FD64D /* Edit.icns */,
-				0A28675F172DCD4B004FD64D /* InfoPlist.strings */,
-				0A286761172DCD4B004FD64D /* MainMenu.nib */,
-				0A286763172DCD4B004FD64D /* Makefile */,
+				0AE5279417D2C477004F0CC8 /* MainMenu.nib */,
+				0AE5279617D2C477004F0CC8 /* InfoPlist.strings */,
+				0AE5279817D2C477004F0CC8 /* Makefile */,
 				0A286765172DCD4B004FD64D /* Makefile */,
 				0A286766172DCD4B004FD64D /* Save.icns */,
 			);
@@ -2295,7 +2290,6 @@
 				0AE77D7C173809AC000EF250 /* pain.txt */,
 				0AE77D7D173809AC000EF250 /* pit.txt */,
 				0AE77D7E173809AC000EF250 /* room_template.txt */,
-				0AE77D7F173809AC000EF250 /* shop_own.txt */,
 				0AE77D80173809AC000EF250 /* spell.txt */,
 				0AE77D81173809AC000EF250 /* store.txt */,
 				0AE77D82173809AC000EF250 /* terrain.txt */,
@@ -2791,14 +2785,14 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				0AE77D61173493DF000EF250 /* TGCAngband.icns in Resources */,
-				0AE77D62173493DF000EF250 /* Angband.xml in Resources */,
-				0AE77D63173493DF000EF250 /* Data.icns in Resources */,
-				0AE77D64173493DF000EF250 /* Edit.icns in Resources */,
-				0AE77D65173493DF000EF250 /* Save.icns in Resources */,
+				0AE5278F17D2C25A004F0CC8 /* Angband-Cocoa.xml in Resources */,
+				0AE5279017D2C276004F0CC8 /* Angband_Icons.icns in Resources */,
+				0AE5279117D2C276004F0CC8 /* Data.icns in Resources */,
+				0AE5279217D2C276004F0CC8 /* Edit.icns in Resources */,
+				0AE5279317D2C276004F0CC8 /* Save.icns in Resources */,
 				0AE77CE517346EC9000EF250 /* Credits.rtf in Resources */,
-				0AE77D5E173493A0000EF250 /* MainMenu.nib in Resources */,
-				0AE77D60173493B0000EF250 /* InfoPlist.strings in Resources */,
+				0AE5279A17D2C477004F0CC8 /* MainMenu.nib in Resources */,
+				0AE5279B17D2C477004F0CC8 /* InfoPlist.strings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2809,6 +2803,12 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				0A97A71417D2A295008FF7CA /* init.c in Sources */,
+				0A97A71517D2A295008FF7CA /* quest.c in Sources */,
+				0A97A71617D2A295008FF7CA /* cmd-cave.c in Sources */,
+				0A97A71717D2A295008FF7CA /* cmd-know.c in Sources */,
+				0A97A71817D2A295008FF7CA /* cmd-pickup.c in Sources */,
+				0A97A71917D2A295008FF7CA /* cmd-process.c in Sources */,
 				0AE77D5D173486FA000EF250 /* buildid.c in Sources */,
 				0AE77CEF1734815A000EF250 /* main-cocoa.m in Sources */,
 				0AE77CF017348236000EF250 /* attack.c in Sources */,
@@ -2818,11 +2818,6 @@
 				0AE77CF417348236000EF250 /* cmd-context.c in Sources */,
 				0AE77CF517348236000EF250 /* cmd-misc.c in Sources */,
 				0AE77CF617348236000EF250 /* cmd-obj.c in Sources */,
-				0AE77CF717348236000EF250 /* cmd0.c in Sources */,
-				0AE77CF817348236000EF250 /* cmd1.c in Sources */,
-				0AE77CF917348236000EF250 /* cmd2.c in Sources */,
-				0AE77CFA17348236000EF250 /* cmd3.c in Sources */,
-				0AE77CFB17348236000EF250 /* cmd4.c in Sources */,
 				0AE77CFC17348236000EF250 /* death.c in Sources */,
 				0AE77CFD17348236000EF250 /* debug.c in Sources */,
 				0AE77CFE17348236000EF250 /* dungeon.c in Sources */,
@@ -2834,7 +2829,6 @@
 				0AE77D0417348236000EF250 /* grafmode.c in Sources */,
 				0AE77D0517348236000EF250 /* guid.c in Sources */,
 				0AE77D0617348236000EF250 /* history.c in Sources */,
-				0AE77D0717348236000EF250 /* init2.c in Sources */,
 				0AE77D0817348236000EF250 /* keymap.c in Sources */,
 				0AE77D0917348236000EF250 /* load.c in Sources */,
 				0AE77D0A17348236000EF250 /* melee1.c in Sources */,
@@ -2925,30 +2919,6 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXVariantGroup section */
-		0A28675F172DCD4B004FD64D /* InfoPlist.strings */ = {
-			isa = PBXVariantGroup;
-			children = (
-				0A286760172DCD4B004FD64D /* English */,
-			);
-			name = InfoPlist.strings;
-			sourceTree = "<group>";
-		};
-		0A286761172DCD4B004FD64D /* MainMenu.nib */ = {
-			isa = PBXVariantGroup;
-			children = (
-				0A286762172DCD4B004FD64D /* English */,
-			);
-			name = MainMenu.nib;
-			sourceTree = "<group>";
-		};
-		0A286763172DCD4B004FD64D /* Makefile */ = {
-			isa = PBXVariantGroup;
-			children = (
-				0A286764172DCD4B004FD64D /* English */,
-			);
-			name = Makefile;
-			sourceTree = "<group>";
-		};
 		0A28680B172DCD4C004FD64D /* ._main.nib */ = {
 			isa = PBXVariantGroup;
 			children = (
@@ -2977,6 +2947,30 @@
 			isa = PBXVariantGroup;
 			children = (
 				0A286812172DCD4C004FD64D /* English */,
+			);
+			name = Makefile;
+			sourceTree = "<group>";
+		};
+		0AE5279417D2C477004F0CC8 /* MainMenu.nib */ = {
+			isa = PBXVariantGroup;
+			children = (
+				0AE5279517D2C477004F0CC8 /* en */,
+			);
+			name = MainMenu.nib;
+			sourceTree = "<group>";
+		};
+		0AE5279617D2C477004F0CC8 /* InfoPlist.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				0AE5279717D2C477004F0CC8 /* en */,
+			);
+			name = InfoPlist.strings;
+			sourceTree = "<group>";
+		};
+		0AE5279817D2C477004F0CC8 /* Makefile */ = {
+			isa = PBXVariantGroup;
+			children = (
+				0AE5279917D2C477004F0CC8 /* en */,
 			);
 			name = Makefile;
 			sourceTree = "<group>";
@@ -3149,6 +3143,7 @@
 				0AE77CED17346EC9000EF250 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 	};

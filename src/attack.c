@@ -116,8 +116,8 @@ static int critical_shot(int weight, int plus, int dam, u32b *msg_type) {
  * Factor in item weight, total plusses, and player level.
  */
 static int critical_shot_sneak(int weight, int plus, int dam, u32b *msg_type) {
-	int chance = weight + (p_ptr->state.to_h + plus) * 4 + p_ptr->lev * 2 + p_ptr->state.skills[SKILL_STEALTH] * 1000;
-	int power = weight + randint1(500) + p_ptr->lev * 20;
+	int chance = weight + (player->state.to_h + plus) * 4 + player->lev * 2 + player->state.skills[SKILL_STEALTH] * 1000;
+	int power = weight + randint1(500) + player->lev * 20;
     
 	if (randint1(5000) > chance) {
 		*msg_type = MSG_SHOOT_HIT;
@@ -179,8 +179,8 @@ static int critical_norm(int weight, int plus, int dam, u32b *msg_type) {
  * Factor in weapon weight, total plusses, player level.
  */
 static int critical_sneak(int weight, int plus, int dam, u32b *msg_type) {
-	int chance = weight + (p_ptr->state.to_h + plus) * 5 + p_ptr->lev * 3 + p_ptr->state.skills[SKILL_STEALTH] * 1000;
-	int power = weight + randint1(650) + p_ptr->lev * 20;
+	int chance = weight + (player->state.to_h + plus) * 5 + player->lev * 3 + player->state.skills[SKILL_STEALTH] * 1000;
+	int power = weight + randint1(650) + player->lev * 20;
 
 	if (randint1(5000) > chance) {
 		*msg_type = MSG_HIT;
@@ -279,7 +279,7 @@ static bool py_attack_real(int y, int x, bool *fear) {
 	}
 	
 	if (m_ptr->m_timed[MON_TMD_SLEEP]) {
-		chance += p_ptr->state.skills[SKILL_STEALTH] * p_ptr->lev;
+		chance += player->state.skills[SKILL_STEALTH] * player->lev;
 		if (player_has(PF_SNEAK_ATTACK)) {
 			sneak_attack = TRUE;
 		}
@@ -325,7 +325,7 @@ static bool py_attack_real(int y, int x, bool *fear) {
 
 		dmg += o_ptr->to_d;
 		if (sneak_attack) {
-			hit_verb = "sneak attack";
+			my_strcpy(hit_verb, "sneak attack", sizeof(hit_verb));
 			dmg = critical_sneak(o_ptr->weight, o_ptr->to_h, dmg, &msg_type);
 		} else {
 			dmg = critical_norm(o_ptr->weight, o_ptr->to_h, dmg, &msg_type);

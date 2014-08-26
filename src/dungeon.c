@@ -1026,6 +1026,20 @@ static void process_player(void)
 				detect_close_buried_treasure();
 		}
 
+		/* Rogues detect traps */
+		if (player_has(PF_SEE_TRAPS))
+		{
+			/* Only if they are in good shape */
+			if (!player->timed[TMD_IMAGE] &&
+					!player->timed[TMD_CONFUSED] &&
+					!player->timed[TMD_AMNESIA] &&
+					!player->timed[TMD_STUN] &&
+					!player->timed[TMD_PARALYZED] &&
+					!player->timed[TMD_TERROR] &&
+					!player->timed[TMD_AFRAID])
+				detect_close_traps();
+		}
+
 		/* Paralyzed or Knocked Out */
 		if ((player->timed[TMD_PARALYZED]) || (player->timed[TMD_STUN] >= 100))
 		{

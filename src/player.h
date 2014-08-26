@@ -413,6 +413,11 @@ extern player_type *player;
 extern struct player_class *player_id2class(guid id);
 
 /* player.c */
+
+extern void monmem_push(struct player_upkeep *upkeep, struct monster *m_ptr);
+extern void monmem_remove(struct player_upkeep *upkeep, struct monster *m_ptr);
+extern void monmem_rotate(struct player_upkeep *upkeep);
+
 int stat_name_to_idx(const char *name);
 const char *stat_idx_to_name(int type);
 extern bool player_stat_inc(struct player *p, int stat);

@@ -25,9 +25,7 @@
          startingColumnNumber = "9223372036854775807"
          endingColumnNumber = "9223372036854775807"
          startingLineNumber = "3135"
-         endingLineNumber = "3135"
-         landmarkName = "cave_ispassable()"
-         landmarkType = "7">
+         endingLineNumber = "3135">
       </FileBreakpoint>
       <FileBreakpoint
          shouldBeEnabled = "Yes"
@@ -39,11 +37,11 @@
          endingColumnNumber = "9223372036854775807"
          startingLineNumber = "3149"
          endingLineNumber = "3149"
-         landmarkName = "cave_iswall()"
+         landmarkName = "cave_isstrongwall()"
          landmarkType = "7">
       </FileBreakpoint>
       <FileBreakpoint
-         shouldBeEnabled = "Yes"
+         shouldBeEnabled = "No"
          ignoreCount = "0"
          continueAfterRunningActions = "No"
          filePath = "../src/cave.c"
@@ -52,11 +50,11 @@
          endingColumnNumber = "9223372036854775807"
          startingLineNumber = "3213"
          endingLineNumber = "3213"
-         landmarkName = "cave_isview()"
+         landmarkName = "cave_wasseen()"
          landmarkType = "7">
       </FileBreakpoint>
       <FileBreakpoint
-         shouldBeEnabled = "Yes"
+         shouldBeEnabled = "No"
          ignoreCount = "0"
          continueAfterRunningActions = "No"
          filePath = "../src/cave.c"
@@ -65,11 +63,11 @@
          endingColumnNumber = "9223372036854775807"
          startingLineNumber = "3222"
          endingLineNumber = "3222"
-         landmarkName = "cave_isseen()"
+         landmarkName = "cave_isglow()"
          landmarkType = "7">
       </FileBreakpoint>
       <FileBreakpoint
-         shouldBeEnabled = "Yes"
+         shouldBeEnabled = "No"
          ignoreCount = "0"
          continueAfterRunningActions = "No"
          filePath = "../src/cave.c"
@@ -78,7 +76,7 @@
          endingColumnNumber = "9223372036854775807"
          startingLineNumber = "3231"
          endingLineNumber = "3231"
-         landmarkName = "cave_wasseen()"
+         landmarkName = "feat_isboring()"
          landmarkType = "7">
       </FileBreakpoint>
       <FileBreakpoint

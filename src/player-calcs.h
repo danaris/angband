@@ -146,6 +146,10 @@ enum
 #define NO_OBJECT		0
 
 
+
+#define PY_MAX_MONMEM   10		/* Maximum monsters to remember */
+
+
 /*** Structures ***/
 
 struct equip_slot {
@@ -246,6 +250,9 @@ typedef struct player_upkeep {
 	int inven_cnt;				/* Number of items in inventory */
 	int equip_cnt;				/* Number of items in equipment */
 	int quiver_cnt;				/* Number of items in the quiver */
+	
+	struct monster *monster_memory[PY_MAX_MONMEM];
+	
 } player_upkeep;
 
 
