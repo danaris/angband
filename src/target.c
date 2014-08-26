@@ -32,6 +32,7 @@
 #include "tables.h"
 #include "target.h"
 #include "trap.h"
+#include "ui-map.h"
 
 /*
  * Height of the help screen; any higher than 4 will overlap the health
@@ -406,7 +407,7 @@ static bool target_set_interactive_accept(int y, int x)
 	}
 
 	/* Interesting memorized features */
-	if (sqinfo_has(cave->info[y][x], SQUARE_MARK) && !square_isboring(cave, y, x))
+	if (square_ismark(cave, y, x) && !square_isboring(cave, y, x))
 		return (TRUE);
 
 	/* Nope */
@@ -631,8 +632,8 @@ static ui_event target_recall_loop_object(object_type *o_ptr, int y, int x, char
 			if (player->wizard)
 			{
 				strnfmt(out_val, TARGET_OUT_VAL_SIZE,
-						"%s%s%s%s, %s (%d:%d).",
-						s1, s2, s3, o_name, coords, y, x);
+						"%s%s%s%s, %s (%d:%d, cost=%d, when=%d).",
+						s1, s2, s3, o_name, coords, y, x, (int)cave->cost[y][x], (int)cave->when[y][x]);
 			}
 			else
 			{
@@ -735,8 +736,8 @@ static ui_event target_set_interactive_aux(int y, int x, int mode)
 
 			/* Display a message */
 			if (player->wizard)
-				strnfmt(out_val, sizeof(out_val), "%s%s%s%s, %s (%d:%d).",
-						s1, s2, s3, name, coords, y, x);
+				strnfmt(out_val, sizeof(out_val), "%s%s%s%s, %s (%d:%d, cost=%d, when=%d).",
+						s1, s2, s3, name, coords, y, x, (int)cave->cost[y][x], (int)cave->when[y][x]);
 			else
 				strnfmt(out_val, sizeof(out_val), "%s%s%s%s, %s.",
 						s1, s2, s3, name, coords);
@@ -804,8 +805,8 @@ static ui_event target_set_interactive_aux(int y, int x, int mode)
 						if (player->wizard)
 						{
 							strnfmt(out_val, sizeof(out_val),
-									"%s%s%s%s (%s), %s (%d:%d).",
-									s1, s2, s3, m_name, buf, coords, y, x);
+									"%s%s%s%s (%s), %s (%d:%d, cost=%d, when=%d).",
+									s1, s2, s3, m_name, buf, coords, y, x, (int)cave->cost[y][x], (int)cave->when[y][x]);
 						}
 						else
 						{
@@ -878,8 +879,8 @@ static ui_event target_set_interactive_aux(int y, int x, int mode)
 					if (player->wizard)
 					{
 						strnfmt(out_val, sizeof(out_val),
-								"%s%s%s%s, %s (%d:%d).",
-								s1, s2, s3, o_name, coords, y, x);
+								"%s%s%s%s, %s (%d:%d, cost=%d, when=%d).",
+								s1, s2, s3, o_name, coords, y, x, (int)cave->cost[y][x], (int)cave->when[y][x]);
 					}
 					/* Disabled since monsters now carry their drops
 					else
@@ -950,8 +951,8 @@ static ui_event target_set_interactive_aux(int y, int x, int mode)
 				if (player->wizard) 
 				{
 					strnfmt(out_val, sizeof(out_val),
-							"%s%s%s%s, %s (%d:%d).", s1, s2, s3,
-							t_ptr->kind->name, coords, y, x);
+							"%s%s%s%s, %s (%d:%d, cost=%d, when=%d).", s1, s2, s3,
+							t_ptr->kind->name, coords, y, x, (int)cave->cost[y][x], (int)cave->when[y][x]);
 				} 
 				else 
 				{
@@ -1001,8 +1002,8 @@ static ui_event target_set_interactive_aux(int y, int x, int mode)
 				if (player->wizard)
 				{
 					strnfmt(out_val, sizeof(out_val),
-							"%s%s%sa pile of %d objects, %s (%d:%d).",
-							s1, s2, s3, floor_num, coords, y, x);
+							"%s%s%sa pile of %d objects, %s (%d:%d, cost=%d, when=%d).",
+							s1, s2, s3, floor_num, coords, y, x, (int)cave->cost[y][x], (int)cave->when[y][x]);
 				}
 				else
 				{
@@ -1108,7 +1109,7 @@ static ui_event target_set_interactive_aux(int y, int x, int mode)
 			if (player->wizard)
 			{
 				strnfmt(out_val, sizeof(out_val),
-						"%s%s%s%s, %s (%d:%d).", s1, s2, s3, name, coords, y, x);
+						"%s%s%s%s, %s (%d:%d, cost=%d, when=%d).", s1, s2, s3, name, coords, y, x, (int)cave->cost[y][x], (int)cave->when[y][x]);
 			}
 			else
 			{
@@ -1278,11 +1279,11 @@ static int draw_path(u16b path_n, u16b *path_g, wchar_t *c, int *a, int y1, int 
 			colour = TERM_YELLOW;
 
 		else if ((!square_isprojectable(cave, y,x) &&
-				  sqinfo_has(cave->info[y][x], SQUARE_MARK)) || player_can_see_bold(y,x))
+				  square_ismark(cave, y, x)) || player_can_see_bold(y,x))
 			/* Known walls are blue. */
 			colour = TERM_BLUE;
 
-		else if (!sqinfo_has(cave->info[y][x], SQUARE_MARK) && !player_can_see_bold(y,x))
+		else if (!square_ismark(cave, y, x) && !player_can_see_bold(y,x))
 			/* Unknown squares are grey. */
 			colour = TERM_L_DARK;
 

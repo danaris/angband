@@ -19,6 +19,7 @@
 #include "angband.h"
 #include "cave.h"
 #include "dungeon.h"
+#include "game-event.h"
 #include "generate.h"
 #include "grafmode.h"
 #include "mon-make.h"
@@ -40,12 +41,289 @@
 #include "spells.h"
 #include "tables.h"
 #include "trap.h"
+#include "ui-map.h"
 
 /*
  * Specify attr/char pairs for visual special effects for project()
+ * Ideally move these and GF-type colors to the UI - NRM
  */
 byte gf_to_attr[GF_MAX][BOLT_MAX];
 wchar_t gf_to_char[GF_MAX][BOLT_MAX];
+
+/**
+ * Determine the path taken by a projection.
+ *
+ * The projection will always start from the grid (y1,x1), and will travel
+ * towards the grid (y2,x2), touching one grid per unit of distance along
+ * the major axis, and stopping when it enters the destination grid or a
+ * wall grid, or has travelled the maximum legal distance of "range".
+ *
+ * Note that "distance" in this function (as in the "update_view()" code)
+ * is defined as "MAX(dy,dx) + MIN(dy,dx)/2", which means that the player
+ * actually has an "octagon of projection" not a "circle of projection".
+ *
+ * The path grids are saved into the grid array pointed to by "gp", and
+ * there should be room for at least "range" grids in "gp".  Note that
+ * due to the way in which distance is calculated, this function normally
+ * uses fewer than "range" grids for the projection path, so the result
+ * of this function should never be compared directly to "range".  Note
+ * that the initial grid (y1,x1) is never saved into the grid array, not
+ * even if the initial grid is also the final grid.  XXX XXX XXX
+ *
+ * The "flg" flags can be used to modify the behavior of this function.
+ *
+ * In particular, the "PROJECT_STOP" and "PROJECT_THRU" flags have the same
+ * semantics as they do for the "project" function, namely, that the path
+ * will stop as soon as it hits a monster, or that the path will continue
+ * through the destination grid, respectively.
+ *
+ * The "PROJECT_JUMP" flag, which for the "project()" function means to
+ * start at a special grid (which makes no sense in this function), means
+ * that the path should be "angled" slightly if needed to avoid any wall
+ * grids, allowing the player to "target" any grid which is in "view".
+ * This flag is non-trivial and has not yet been implemented, but could
+ * perhaps make use of the "vinfo" array (above).  XXX XXX XXX
+ *
+ * This function returns the number of grids (if any) in the path.  This
+ * function will return zero if and only if (y1,x1) and (y2,x2) are equal.
+ *
+ * This algorithm is similar to, but slightly different from, the one used
+ * by "update_view_los()", and very different from the one used by "los()".
+ */
+int project_path(u16b *gp, int range, int y1, int x1, int y2, int x2, int flg)
+{
+	int y, x;
+
+	int n = 0;
+	int k = 0;
+
+	/* Absolute */
+	int ay, ax;
+
+	/* Offsets */
+	int sy, sx;
+
+	/* Fractions */
+	int frac;
+
+	/* Scale factors */
+	int full, half;
+
+	/* Slope */
+	int m;
+
+
+	/* No path necessary (or allowed) */
+	if ((x1 == x2) && (y1 == y2)) return (0);
+
+
+	/* Analyze "dy" */
+	if (y2 < y1) {
+		ay = (y1 - y2);
+		sy = -1;
+	} else {
+		ay = (y2 - y1);
+		sy = 1;
+	}
+
+	/* Analyze "dx" */
+	if (x2 < x1) {
+		ax = (x1 - x2);
+		sx = -1;
+	} else {
+		ax = (x2 - x1);
+		sx = 1;
+	}
+
+
+	/* Number of "units" in one "half" grid */
+	half = (ay * ax);
+
+	/* Number of "units" in one "full" grid */
+	full = half << 1;
+
+
+	/* Vertical */
+	if (ay > ax) {
+		/* Start at tile edge */
+		frac = ax * ax;
+
+		/* Let m = ((dx/dy) * full) = (dx * dx * 2) = (frac * 2) */
+		m = frac << 1;
+
+		/* Start */
+		y = y1 + sy;
+		x = x1;
+
+		/* Create the projection path */
+		while (1) {
+			/* Save grid */
+			gp[n++] = GRID(y,x);
+
+			/* Hack -- Check maximum range */
+			if ((n + (k >> 1)) >= range) break;
+
+			/* Sometimes stop at destination grid */
+			if (!(flg & (PROJECT_THRU)))
+				if ((x == x2) && (y == y2)) break;
+
+			/* Always stop at non-initial wall grids */
+			if ((n > 0) && !square_isprojectable(cave, y, x)) break;
+
+			/* Sometimes stop at non-initial monsters/players */
+			if (flg & (PROJECT_STOP))
+				if ((n > 0) && (cave->m_idx[y][x] != 0)) break;
+
+			/* Slant */
+			if (m) {
+				/* Advance (X) part 1 */
+				frac += m;
+
+				/* Horizontal change */
+				if (frac >= half) {
+					/* Advance (X) part 2 */
+					x += sx;
+
+					/* Advance (X) part 3 */
+					frac -= full;
+
+					/* Track distance */
+					k++;
+				}
+			}
+
+			/* Advance (Y) */
+			y += sy;
+		}
+	}
+
+	/* Horizontal */
+	else if (ax > ay) {
+		/* Start at tile edge */
+		frac = ay * ay;
+
+		/* Let m = ((dy/dx) * full) = (dy * dy * 2) = (frac * 2) */
+		m = frac << 1;
+
+		/* Start */
+		y = y1;
+		x = x1 + sx;
+
+		/* Create the projection path */
+		while (1) {
+			/* Save grid */
+			gp[n++] = GRID(y,x);
+
+			/* Hack -- Check maximum range */
+			if ((n + (k >> 1)) >= range) break;
+
+			/* Sometimes stop at destination grid */
+			if (!(flg & (PROJECT_THRU)))
+				if ((x == x2) && (y == y2)) break;
+
+			/* Always stop at non-initial wall grids */
+			if ((n > 0) && !square_isprojectable(cave, y, x)) break;
+
+			/* Sometimes stop at non-initial monsters/players */
+			if (flg & (PROJECT_STOP))
+				if ((n > 0) && (cave->m_idx[y][x] != 0)) break;
+
+			/* Slant */
+			if (m) {
+				/* Advance (Y) part 1 */
+				frac += m;
+
+				/* Vertical change */
+				if (frac >= half) {
+					/* Advance (Y) part 2 */
+					y += sy;
+
+					/* Advance (Y) part 3 */
+					frac -= full;
+
+					/* Track distance */
+					k++;
+				}
+			}
+
+			/* Advance (X) */
+			x += sx;
+		}
+	}
+
+	/* Diagonal */
+	else {
+		/* Start */
+		y = y1 + sy;
+		x = x1 + sx;
+
+		/* Create the projection path */
+		while (1) {
+			/* Save grid */
+			gp[n++] = GRID(y,x);
+
+			/* Hack -- Check maximum range */
+			if ((n + (n >> 1)) >= range) break;
+
+			/* Sometimes stop at destination grid */
+			if (!(flg & (PROJECT_THRU)))
+				if ((x == x2) && (y == y2)) break;
+
+			/* Always stop at non-initial wall grids */
+			if ((n > 0) && !square_isprojectable(cave, y, x)) break;
+
+			/* Sometimes stop at non-initial monsters/players */
+			if (flg & (PROJECT_STOP))
+				if ((n > 0) && (cave->m_idx[y][x] != 0)) break;
+
+			/* Advance */
+			y += sy;
+			x += sx;
+		}
+	}
+
+	/* Length */
+	return (n);
+}
+
+
+/**
+ * Determine if a bolt spell cast from (y1,x1) to (y2,x2) will arrive
+ * at the final destination, assuming that no monster gets in the way,
+ * using the project_path() function to check the projection path.
+ *
+ * Note that no grid is ever projectable() from itself.
+ *
+ * This function is used to determine if the player can (easily) target
+ * a given grid, and if a monster can target the player.
+ */
+bool projectable(struct chunk *c, int y1, int x1, int y2, int x2, int flg)
+{
+	int y, x;
+
+	int grid_n = 0;
+	u16b grid_g[512];
+
+	/* Check the projection path */
+	grid_n = project_path(grid_g, MAX_RANGE, y1, x1, y2, x2, flg);
+
+	/* No grid is ever projectable from itself */
+	if (!grid_n) return (FALSE);
+
+	/* Final grid */
+	y = GRID_Y(grid_g[grid_n - 1]);
+	x = GRID_X(grid_g[grid_n - 1]);
+
+	/* May not end in a wall grid */
+	if (!square_ispassable(c, y, x)) return (FALSE);
+
+	/* May not end in an unrequested grid */
+	if ((y != y2) || (x != x2)) return (FALSE);
+
+	/* Assume okay */
+	return (TRUE);
+}
+
 
 // feature handlers
 
@@ -1313,7 +1591,7 @@ static void project_player_handler_DISEN(project_player_handler_context_t *conte
 	}
 
 	/* Disenchant gear */
-	(void)apply_disenchant(0);
+	effect_simple(EF_DISENCHANT, "0", 0, 0, 0, NULL);
 }
 
 static void project_player_handler_WATER(project_player_handler_context_t *context)
@@ -1425,8 +1703,8 @@ static const struct gf_type {
 	project_monster_handler_f monster_handler;
 	project_player_handler_f player_handler;
 } gf_table[] = {
-	#define ELEM(a, b, c, d, e, col, f, fh, oh, mh, ph)	\
-		{ GF_##a, b, c, d, e, FALSE, col, f, fh, oh, mh, ph },
+	#define ELEM(a, b, c, d, e, f, g, col, h, fh, oh, mh, ph)	\
+		{ GF_##a, b, c, d, e, FALSE, col, h, fh, oh, mh, ph },
 	#define RV(b, x, y, m) {b, x, y, m}
 	#define FH(x) project_feature_handler_##x
 	#define OH(x) project_object_handler_##x
@@ -1452,7 +1730,7 @@ static const struct gf_type {
 
 static const char *gf_name_list[] =
 {
-	#define ELEM(a, b, c, d, e, col, f, fh, oh, mh, ph) #a,
+	#define ELEM(a, b, c, d, e, f, g, col, h, fh, oh, mh, ph) #a,
 	#include "list-elements.h"
 	#undef ELEM
 	#define PROJ_ENV(a, col, fh, oh, mh) #a,
@@ -1708,47 +1986,9 @@ const char *gf_idx_to_name(int type)
 /*
  * Return a color to use for the bolt/ball spells
  */
-static byte spell_color(int type)
+int spell_color(int type)
 {
 	return gf_color(type);
-}
-
-/*
- * Find the attr/char pair to use for a spell effect
- *
- * It is moving (or has moved) from (x,y) to (nx,ny).
- *
- * If the distance is not "one", we (may) return "*".
- */
-static void bolt_pict(int y, int x, int ny, int nx, int typ, byte *a, wchar_t *c)
-{
-	int motion;
-
-	/* Convert co-ordinates into motion */
-	if ((ny == y) && (nx == x))
-		motion = BOLT_NO_MOTION;
-	else if (nx == x)
-		motion = BOLT_0;
-	else if ((ny-y) == (x-nx))
-		motion = BOLT_45;
-	else if (ny == y)
-		motion = BOLT_90;
-	else if ((ny-y) == (nx-x))
-		motion = BOLT_135;
-	else
-		motion = BOLT_NO_MOTION;
-
-	/* Decide on output char */
-	if (use_graphics == GRAPHICS_NONE) {
-		/* ASCII is simple */
-		wchar_t chars[] = L"*|/-\\";
-
-		*c = chars[motion];
-		*a = spell_color(typ);
-	} else {
-		*a = gf_to_attr[typ][motion];
-		*c = gf_to_char[typ][motion];
-	}
 }
 
 /**
@@ -2606,16 +2846,10 @@ bool project(int who, int rad, int y, int x, int dam, int typ, int flg,
 	int n1y = 0;
 	int n1x = 0;
 
-	int msec = op_ptr->delay_factor * op_ptr->delay_factor;
+	int msec = op_ptr->delay_factor;
 
 	/* Assume the player sees nothing */
 	bool notice = FALSE;
-
-	/* Assume the player has seen nothing */
-	bool visual = FALSE;
-
-	/* Assume the player has seen no blast grids */
-	bool drawn = FALSE;
 
 	/* Is the player blind? */
 	bool blind = (player->timed[TMD_BLIND] ? TRUE : FALSE);
@@ -2635,6 +2869,9 @@ bool project(int who, int rad, int y, int x, int dam, int typ, int flg,
 
 	/* Distance to each of the affected grids. */
 	int distance_to_grid[256];
+
+	/* Player visibility of each of the affected grids. */
+	bool player_sees_grid[256];
 
 	/* Precalculated damage values for each distance. */
 	int *dam_at_dist = malloc((MAX_RANGE + 1) * sizeof(*dam_at_dist));
@@ -2744,46 +2981,11 @@ bool project(int who, int rad, int y, int x, int dam, int typ, int flg,
 
 				/* Only do visuals if requested and within range limit. */
 				if (!blind && !(flg & (PROJECT_HIDE))) {
+					bool seen = player_has_los_bold(y, x);
+					bool beam = flg & (PROJECT_BEAM);
 
-					/* Only do visuals if the player can "see" the bolt */
-					if (player_has_los_bold(y, x)) {
-						byte a;
-						wchar_t c;
-
-						/* Obtain the bolt pict */
-						bolt_pict(oy, ox, y, x, typ, &a, &c);
-
-						/* Visual effects */
-						print_rel(c, a, y, x);
-						move_cursor_relative(y, x);
-						Term_fresh();
-						if (player->upkeep->redraw)
-							redraw_stuff(player->upkeep);
-						Term_xtra(TERM_XTRA_DELAY, msec);
-						square_light_spot(cave, y, x);
-						Term_fresh();
-						if (player->upkeep->redraw)
-							redraw_stuff(player->upkeep);
-
-						/* Display "beam" grids */
-						if (flg & (PROJECT_BEAM)) {
-
-							/* Obtain the explosion pict */
-							bolt_pict(y, x, y, x, typ, &a, &c);
-
-							/* Visual effects */
-							print_rel(c, a, y, x);
-						}
-
-						/* Hack -- Activate delay */
-						visual = TRUE;
-					}
-
-					/* Hack -- delay anyway for consistency */
-					else if (visual) {
-						/* Delay for consistency */
-						Term_xtra(TERM_XTRA_DELAY, msec);
-					}
+					/* Tell the UI to display the bolt */
+					event_signal_bolt(EVENT_BOLT, msec, typ, seen, beam, oy, ox, y, x);
 				}
 			}
 	}
@@ -2979,82 +3181,20 @@ bool project(int who, int rad, int y, int x, int dam, int typ, int flg,
 		}
 	}
 
-	/* Display the blast area if allowed. */
+	/* Establish which grids are visible - no blast visuals with PROJECT_HIDE */
 	if (!blind && !(flg & (PROJECT_HIDE))) {
-		/* Do the blast from inside out */
 		for (i = 0; i <= num_grids; i++) {
-			/* Extract the location */
-			y = blast_grid[i].y;
-			x = blast_grid[i].x;
-
-			/* Only do visuals if the player can "see" the blast */
-			if (panel_contains(y, x) && player_has_los_bold(y, x)) {
-				byte a;
-				wchar_t c;
-
-				drawn = TRUE;
-
-				/* Obtain the explosion pict */
-				bolt_pict(y, x, y, x, typ, &a, &c);
-
-				/* Visual effects -- Display */
-				print_rel(c, a, y, x);
-			}
-
-			/* Hack -- center the cursor */
-			move_cursor_relative(centre.y, centre.x);
-
-			/* New radius is about to be drawn */
-			if (i == num_grids) {
-				/* Flush each radius seperately */
-				Term_fresh();
-				if (player->upkeep->redraw)
-					redraw_stuff(player->upkeep);
-
-				/* Delay (efficiently) */
-				if (visual || drawn) {
-					Term_xtra(TERM_XTRA_DELAY, msec);
-				}
-			}
-
-			/* Hack - repeat to avoid using uninitialised array element */
-			else if (distance_to_grid[i + 1] > distance_to_grid[i]) {
-				/* Flush each radius seperately */
-				Term_fresh();
-				if (player->upkeep->redraw)
-					redraw_stuff(player->upkeep);
-
-				/* Delay (efficiently) */
-				if (visual || drawn) {
-					Term_xtra(TERM_XTRA_DELAY, msec);
-				}
-			}
-		}
-
-		/* Flush the erasing */
-		if (drawn) {
-			/* Erase the explosion drawn above */
-			for (i = 0; i < num_grids; i++) {
-				/* Extract the location */
-				y = blast_grid[i].y;
-				x = blast_grid[i].x;
-
-				/* Hack -- Erase if needed */
-				if (panel_contains(y, x) && player_has_los_bold(y, x)) {
-					square_light_spot(cave, y, x);
-				}
-			}
-
-			/* Hack -- center the cursor */
-			move_cursor_relative(centre.y, centre.x);
-
-			/* Flush the explosion */
-			Term_fresh();
-			if (player->upkeep->redraw)
-				redraw_stuff(player->upkeep);
+			if (panel_contains(blast_grid[i].y, blast_grid[i].x) &&
+				player_has_los_bold(blast_grid[i].y, blast_grid[i].x))
+				player_sees_grid[i] = TRUE;
+			else
+				player_sees_grid[i] = FALSE;
 		}
 	}
 
+	/* Tell the UI to display the blast */
+	event_signal_blast(EVENT_EXPLOSION, msec, typ, num_grids, distance_to_grid,
+					   player_sees_grid, blast_grid, centre);
 
 	/* Check features */
 	if (flg & (PROJECT_GRID)) {

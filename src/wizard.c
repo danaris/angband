@@ -42,6 +42,7 @@
 #include "ui-event.h"
 #include "ui-game.h"
 #include "ui-input.h"
+#include "ui-map.h"
 #include "ui-menu.h"
 #include "wizard.h"
 
@@ -1168,14 +1169,14 @@ static void do_cmd_wiz_cure_all(void)
 	(void)remove_all_curse();
 
 	/* Restore stats */
-	(void)res_stat(STAT_STR);
-	(void)res_stat(STAT_INT);
-	(void)res_stat(STAT_WIS);
-	(void)res_stat(STAT_CON);
-	(void)res_stat(STAT_DEX);
+	effect_simple(EF_RESTORE_STAT, "0", STAT_STR, 0, 0, NULL);
+	effect_simple(EF_RESTORE_STAT, "0", STAT_INT, 0, 0, NULL);
+	effect_simple(EF_RESTORE_STAT, "0", STAT_WIS, 0, 0, NULL);
+	effect_simple(EF_RESTORE_STAT, "0", STAT_DEX, 0, 0, NULL);
+	effect_simple(EF_RESTORE_STAT, "0", STAT_CON, 0, 0, NULL);
 
 	/* Restore the level */
-	(void)restore_level();
+	effect_simple(EF_RESTORE_EXP, "0", 1, 0, 0, NULL);
 
 	/* Heal the player */
 	player->chp = player->mhp;
@@ -1465,7 +1466,7 @@ static void do_cmd_wiz_query(void)
 			if (!sqinfo_has(cave->info[y][x], flag)) continue;
 
 			/* Given no flag, show unknown grids */
-			if (!flag && (!sqinfo_has(cave->info[y][x], SQUARE_MARK))) continue;
+			if (!flag && (!square_ismark(cave, y, x))) continue;
 
 			/* Color */
 			if (square_ispassable(cave, y, x)) a = TERM_YELLOW;
@@ -1504,7 +1505,7 @@ static void do_cmd_wiz_features(void)
 	struct keypress cmd;
 
 	/* OMG hax */
-	int *feat;
+	int *feat = NULL;
 	int featf[] = {FEAT_FLOOR};
 	int feato[] = {FEAT_OPEN};
 	int featb[] = {FEAT_BROKEN};
@@ -1520,7 +1521,7 @@ static void do_cmd_wiz_features(void)
 	int featg[] = {FEAT_GRANITE};
 	int featp[] = {FEAT_PERM};
 	int featr[] = {FEAT_RUBBLE};
-	int length;
+	int length = 0;
 
 
 	/* Get a "debug command" */
@@ -1685,15 +1686,17 @@ static void do_cmd_wiz_advance(void)
 	handle_stuff(player->upkeep);
 
 }
-#if 0
+
 /**
  * Prompt for an effect and perform it.
  */
 void do_cmd_wiz_effect(void)
 {
 	char name[80] = "";
-	int effect = -1;
-	bool ident = FALSE, handled = FALSE;
+	char dice[80] = "0";
+	int index = -1;
+	int p1 = 0, p2 = 0, p3 = 0;
+	bool ident = FALSE;
 
 	/* Avoid the prompt getting in the way */
 	screen_save();
@@ -1704,25 +1707,45 @@ void do_cmd_wiz_effect(void)
 	/* Get the name */
 	if (askfor_aux(name, sizeof(name), NULL)) {
 		/* See if an effect index was entered */
-		effect = get_idx_from_name(name);
+		index = get_idx_from_name(name);
 
 		/* If not, find the effect with that name */
-		if (!effect_valid(effect))
-			effect = effect_lookup(name);
+		if (index <= EF_NONE || index >= EF_MAX)
+			index = effect_lookup(name);
 	}
+
+	/* Prompt */
+	prt("Enter damage dice (eg 1+2d6M2): ", 0, 0);
+
+	/* Get the dice */
+	if (!askfor_aux(dice, sizeof(dice), NULL))
+		my_strcpy(dice, "0", sizeof(dice));
+
+	/* Get the parameters */
+	prt("Enter name or number for first parameter: ", 0, 0);
+
+	/* Get the name */
+	if (askfor_aux(name, sizeof(name), NULL)) {
+		/* See if an effect parameter was entered */
+		p1 = effect_param(name);
+		if (p1 == -1) p1 = 0;
+	}
+
+	p2 = get_quantity("Enter second parameter: ", 100);
+	p3 = get_quantity("Enter third parameter: ", 100);
 
 	/* Reload the screen */
 	screen_load();
 
-	if (effect_valid(effect)) {
-		ident = FALSE;
-		handled = effect_do(effect, &ident, FALSE, DIR_TARGET, 0, 0);
-		msg(format("Effect handled: %d ident: %d", handled, ident));
-	}
+	if (index > EF_NONE && index < EF_MAX)
+		effect_simple(index, dice, p1, p2, p3, &ident);
 	else
 		msg("No effect found.");
+
+	if (ident)
+		msg("Identified!");
 }
-#endif
+
 /*
  * Ask for and parse a "debug command"
  */
@@ -1828,7 +1851,13 @@ void do_cmd_debug(void)
 		/* Detect everything */
 		case 'd':
 		{
-			detect_all(TRUE);
+			effect_simple(EF_DETECT_TRAPS, "22d40", 0, 0, 0, NULL);
+			effect_simple(EF_DETECT_DOORS, "22d40", 0, 0, 0, NULL);
+			effect_simple(EF_DETECT_STAIRS, "22d40", 0, 0, 0, NULL);
+			effect_simple(EF_DETECT_GOLD, "22d40", 0, 0, 0, NULL);
+			effect_simple(EF_DETECT_OBJECTS, "22d40", 0, 0, 0, NULL);
+			effect_simple(EF_DETECT_VISIBLE_MONSTERS, "22d40", 0, 0, 0, NULL);
+			effect_simple(EF_DETECT_INVISIBLE_MONSTERS, "22d40", 0, 0, 0, NULL);
 			break;
 		}
 		
@@ -1845,14 +1874,14 @@ void do_cmd_debug(void)
 			do_cmd_wiz_change();
 			break;
 		}
-#if 0
+
 		/* Perform an effect. */
 		case 'E':
 		{
 			do_cmd_wiz_effect();
 			break;
 		}
-#endif
+
 		case 'f':
 		{
 			stats_collect();
@@ -1894,14 +1923,14 @@ void do_cmd_debug(void)
         /* Hit all monsters in LOS */
         case 'H':
         {
-            dispel_monsters(10000);
+			effect_simple(EF_PROJECT_LOS, "10000", GF_DISP_ALL, 0, 0, NULL);
             break;
         }
 
 		/* Identify */
 		case 'i':
 		{
-			(void)ident_spell();
+			effect_simple(EF_IDENTIFY, "0", 0, 0, 0, NULL);
 			break;
 		}
 
@@ -1924,7 +1953,7 @@ void do_cmd_debug(void)
 		/* Magic Mapping */
 		case 'm':
 		{
-			map_area();
+			effect_simple(EF_MAP_AREA, "22d40", 0, 0, 0, NULL);
 			break;
 		}
 
@@ -2087,7 +2116,8 @@ void do_cmd_debug(void)
 		/* Un-hide all monsters */
 		case 'u':
 		{
-			detect_monsters_entire_level();
+			effect_simple(EF_DETECT_VISIBLE_MONSTERS, "500d500", 0, 0, 0, NULL);
+			effect_simple(EF_DETECT_INVISIBLE_MONSTERS, "500d500", 0, 0, 0, NULL);
 			break;
 		}
 

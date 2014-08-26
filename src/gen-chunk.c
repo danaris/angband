@@ -329,7 +329,7 @@ bool chunk_copy(struct chunk *dest, struct chunk *source, int y0, int x0,
 					 this_o_idx = next_o_idx) {
 					object_type *source_obj = cave_object(source, this_o_idx);
 					object_type *dest_obj = NULL;
-					int o_idx;
+					int o_idx = 0;
 
 					/* Is this the first object on this square? */
 					if (first_obj) {
@@ -402,12 +402,12 @@ bool chunk_copy(struct chunk *dest, struct chunk *source, int y0, int x0,
 
 				/* Objects take some work */
 				if (source_mon->hold_o_idx) {
+					int o_idx = 0;
 					first_obj = TRUE;
 					for (this_o_idx = source_mon->hold_o_idx; this_o_idx;
 						 this_o_idx = next_o_idx) {
 						object_type *held_obj = cave_object(source, this_o_idx);
 						object_type *dest_obj = NULL;
-						int o_idx;
 
 						/* Is this the first object on this square? */
 						if (first_obj) {
@@ -482,5 +482,35 @@ bool chunk_copy(struct chunk *dest, struct chunk *source, int y0, int x0,
 		dest->good_item = TRUE;
 
 	return TRUE;
+}
+
+/**
+ * Validate that the chunk contains no NULL objects. 
+ * Only checks for nonzero tval.
+ * \param c is the chunk to validate.
+ */
+
+void chunk_validate_objects(struct chunk *c) {
+	int x, y;
+	int this_o_idx, next_o_idx;
+
+	for (y = 0; y < c->height; y++) {
+		for (x = 0; x < c->width; x++) {
+			for (this_o_idx = c->o_idx[y][x]; this_o_idx; this_o_idx = next_o_idx) {
+				assert(c->objects[this_o_idx].tval != 0);
+				next_o_idx = c->objects[this_o_idx].next_o_idx;
+			}
+			if (c->m_idx[y][x] > 0) {
+				monster_type *mon = square_monster(c, y, x);
+				if (mon->hold_o_idx) {
+					for (this_o_idx = mon->hold_o_idx; this_o_idx; this_o_idx = next_o_idx) {
+						assert(c->objects[this_o_idx].tval != 0);
+						next_o_idx = c->objects[this_o_idx].next_o_idx;
+					}
+					
+				}
+			}
+		}
+	}
 }
 

@@ -1,8 +1,9 @@
-/*
- * File: effects.h
- * Purpose: List of effect types
+/**
+   \file effects.h
+   \brief effect handling
  *
  * Copyright (c) 2007 Andi Sidwell
+ * Copyright (c) 2014 Ben Semmler, Nick McConnell
  *
  * This work is free software; you can redistribute it and/or modify it
  * under the terms of either:
@@ -21,12 +22,12 @@
 /* Types of effect */
 typedef enum
 {
-	AEF_ATOMIC_NONE,
-	#define EFFECT(x, a, d)	AEF_##x,
-	#include "list-atomic-effects.h"
+	EF_NONE,
+	#define EFFECT(x, a, b, d)	EF_##x,
+	#include "list-effects.h"
 	#undef EFFECT
-	AEF_ATOMIC_MAX
-} atomic_effect_index;
+	EF_MAX
+} effect_index;
 
 struct effect {
 	struct effect *next;
@@ -38,10 +39,13 @@ struct effect {
 /*** Functions ***/
 
 void free_effect(struct effect *source);
-bool atomic_effect_do(struct effect *effect, bool *ident, bool aware, int dir, int beam, int boost);
-bool effect_aim(struct effect *effect);
-const char *effect_desc(struct effect *effect);
-bool effect_wonder(int dir, int die, int beam);
 bool effect_valid(struct effect *effect);
+bool effect_aim(struct effect *effect);
+const char *effect_info(struct effect *effect);
+const char *effect_desc(struct effect *effect);
+effect_index effect_lookup(const char *name);
+int effect_param(const char *type);
+bool effect_do(struct effect *effect, bool *ident, bool aware, int dir, int beam, int boost);
+void effect_simple(int index, const char* dice_string, int p1, int p2, int p3, bool *ident);
 
 #endif /* INCLUDED_EFFECTS_H */

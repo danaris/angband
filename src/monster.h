@@ -46,7 +46,7 @@
 /* Monster spell flags */
 enum
 {
-    #define RSF(a, b, c, d, e, f, g, h, i, j, k, l, m, n) RSF_##a,
+    #define RSF(a, b, c, d, e, f, g, h) RSF_##a,
     #include "list-mon-spells.h"
     #undef RSF
 };
@@ -65,10 +65,10 @@ enum
  *	- Damage Sides
  */
 struct monster_blow {
-	byte method;
-	byte effect;
-	byte d_dice;
-	byte d_side;
+	int method;
+	int effect;
+	int d_dice;
+	int d_side;
 };
 
 /*
@@ -83,6 +83,18 @@ typedef struct monster_pain
 } monster_pain;
 
 extern monster_pain *pain_messages;
+
+/* Structure for monster spell types */
+struct monster_spell {
+	struct monster_spell *next;
+
+	u16b index;				/* Numerical index (RSF_FOO) */
+	int hit;				/* To-hit level for the attack */
+	struct effect *effect;
+	random_value power;
+};
+
+extern struct monster_spell *monster_spells;
 
 /*
  * Information about "base" monster type.
@@ -166,20 +178,20 @@ typedef struct monster_race
 
 	struct monster_base *base;
 	
-	u16b avg_hp;				/* Average HP for this creature */
+	int avg_hp;				/* Average HP for this creature */
 
-	s16b ac;				/* Armour Class */
+	int ac;				/* Armour Class */
 
-	s16b sleep;				/* Inactive counter (base) */
-	byte aaf;				/* Area affect radius (1-100) */
-	byte speed;				/* Speed (normally 110) */
+	int sleep;				/* Inactive counter (base) */
+	int aaf;				/* Area affect radius (1-100) */
+	int speed;				/* Speed (normally 110) */
 
-	s32b mexp;				/* Exp value for kill */
+	int mexp;				/* Exp value for kill */
 
 	long power;				/* Monster power */
 	long scaled_power;		/* Monster power scaled by level */
 
-	s16b highest_threat;	/* Monster highest threat */
+	int highest_threat;	/* Monster highest threat */
 	
 	/*AMF:DEBUG*/			/**/
 	long melee_dam;			/**/
@@ -187,15 +199,15 @@ typedef struct monster_race
 	long hp;				/**/
 	/*END AMF:DEBUG*/		/**/
 
-	byte freq_innate;		/* Innate spell frequency */
-	byte freq_spell;		/* Other spell frequency */
+	int freq_innate;		/* Innate spell frequency */
+	int freq_spell;		/* Other spell frequency */
 
 	bitflag flags[RF_SIZE];         /* Flags */
 	bitflag spell_flags[RSF_SIZE];  /* Spell flags */
 
 	struct monster_blow blow[MONSTER_BLOW_MAX]; /* Up to four blows per round */
 
-	byte level;				/* Level of creature */
+	int level;				/* Level of creature */
 	int rarity;			/* Rarity of creature */
 
 	byte d_attr;			/* Default monster attribute */
@@ -205,7 +217,7 @@ typedef struct monster_race
 	wchar_t x_char;			/* Desired monster character */
 
 	byte max_num;			/* Maximum population allowed per level */
-	byte cur_num;			/* Monster population on current level */
+	int cur_num;			/* Monster population on current level */
 
 	struct monster_drop *drops;
     
@@ -217,6 +229,7 @@ typedef struct monster_race
 } monster_race;
 
 extern monster_race *r_info;
+extern const monster_race *ref_race;
 
 /*
  * Monster "lore" information
@@ -286,7 +299,8 @@ typedef struct monster
 
 	bool ml;			/* Monster is "visible" */
 	bool unaware;		/* Player doesn't know this is a monster */
-	
+	bool aware;			/* Are we aware of the player? */
+
 	s16b mimicked_o_idx; /* Object this monster is mimicking */
 
 	s16b hold_o_idx;	/* Object being held (if any) */

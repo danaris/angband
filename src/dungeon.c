@@ -49,6 +49,7 @@
 #include "target.h"
 #include "ui-game.h"
 #include "ui-input.h"
+#include "ui-map.h"
 #include "ui.h"
 
 /* The minimum amount of energy a player has at the start of a new level */
@@ -851,7 +852,7 @@ static void process_world(struct chunk *c)
 			} else {
 				/* Otherwise do something disastrous */
 				msgt(MSG_TPLEVEL, "You are thrown back in an explosion!");
-				destroy_area(player->py, player->px, 5, TRUE);
+				effect_simple(EF_DESTRUCTION, "0", 0, 5, 0, NULL);
 			}		
 		}
 	}
@@ -1023,7 +1024,7 @@ static void process_player(void)
 					!player->timed[TMD_PARALYZED] &&
 					!player->timed[TMD_TERROR] &&
 					!player->timed[TMD_AFRAID])
-				detect_close_buried_treasure();
+				effect_simple(EF_DETECT_GOLD, "3d3", 1, 0, 0, NULL);
 		}
 
 		/* Rogues detect traps */

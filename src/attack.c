@@ -36,6 +36,7 @@
 #include "spells.h"
 #include "tables.h"
 #include "target.h"
+#include "ui-map.h"
 
 /**
  * Returns percent chance of an object breaking after throwing or shooting.
@@ -386,7 +387,7 @@ static bool py_attack_real(int y, int x, bool *fear) {
 
 	/* Apply earthquake brand */
 	if (do_quake) {
-		earthquake(player->py, player->px, 10);
+		effect_simple(EF_EARTHQUAKE, "0", 0, 10, 0, NULL);
 		if (cave->m_idx[y][x] == 0) stop = TRUE;
 	}
 
@@ -561,6 +562,7 @@ static void ranged_helper(int item, int dir, int range, int shots, ranged_attack
 			u32b msg_type = result.msg_type;
 			char hit_verb[20];
 			my_strcpy(hit_verb, result.hit_verb, sizeof(hit_verb));
+			mem_free(result.hit_verb);
 
 			if (result.success) {
 				hit_target = TRUE;
@@ -581,11 +583,11 @@ static void ranged_helper(int item, int dir, int range, int shots, ranged_attack
 					/* Invisible monster */
 					msgt(MSG_SHOOT_HIT, "The %s finds a mark.", o_name);
 				} else {
-					for (i = 0; i < (int)N_ELEMENTS(ranged_hit_types); i++) {
+					for (j = 0; j < (int)N_ELEMENTS(ranged_hit_types); j++) {
 						char m_name[80];
 						const char *dmg_text = "";
 
-						if (msg_type != ranged_hit_types[i].msg)
+						if (msg_type != ranged_hit_types[j].msg)
 							continue;
 
 						if (OPT(show_damage))
@@ -593,10 +595,10 @@ static void ranged_helper(int item, int dir, int range, int shots, ranged_attack
 
 						monster_desc(m_name, sizeof(m_name), m_ptr, MDESC_OBJE);
 
-						if (ranged_hit_types[i].text)
+						if (ranged_hit_types[j].text)
 							msgt(msg_type, "Your %s %s %s%s. %s", o_name, 
 								 hit_verb, m_name, dmg_text, 
-								 ranged_hit_types[i].text);
+								 ranged_hit_types[j].text);
 						else
 							msgt(msg_type, "Your %s %s %s%s.", o_name, hit_verb,
 								 m_name, dmg_text);
@@ -631,11 +633,8 @@ static void ranged_helper(int item, int dir, int range, int shots, ranged_attack
 	object_copy(i_ptr, o_ptr);
 	object_split(i_ptr, o_ptr, 1);
 
-	/* See if the ammunition broke or not */
-	j = breakage_chance(i_ptr, hit_target);
-
 	/* Drop (or break) near that location */
-	drop_near(cave, i_ptr, j, y, x, TRUE);
+	drop_near(cave, i_ptr, breakage_chance(i_ptr, hit_target), y, x, TRUE);
 
 	if (item >= 0) {
 		/* The ammo is from the inventory */
@@ -654,7 +653,8 @@ static void ranged_helper(int item, int dir, int range, int shots, ranged_attack
  * Helper function used with ranged_helper by do_cmd_fire.
  */
 static struct attack_result make_ranged_shot(object_type *o_ptr, int y, int x) {
-	struct attack_result result = {FALSE, 0, 0, "hits"};
+	char *hit_verb = mem_alloc(20*sizeof(char));
+	struct attack_result result = {FALSE, 0, 0, hit_verb};
 
 	object_type *j_ptr = equipped_item_by_slot_name(player, "shooting");
 
@@ -668,6 +668,8 @@ static struct attack_result make_ranged_shot(object_type *o_ptr, int y, int x) {
 	const struct brand *b = NULL;
 	const struct slay *s = NULL;
     bool sneak_attack = FALSE;
+
+	my_strcpy(hit_verb, "hits", sizeof(hit_verb));
 
 	/* Did we hit it (penalize distance travelled) */
 	if (!test_hit(chance2, m_ptr->race->ac, m_ptr->ml)) return result;
@@ -714,7 +716,8 @@ static struct attack_result make_ranged_shot(object_type *o_ptr, int y, int x) {
  * Helper function used with ranged_helper by do_cmd_throw.
  */
 static struct attack_result make_ranged_throw(object_type *o_ptr, int y, int x) {
-	struct attack_result result = {FALSE, 0, 0, "hits"};
+	char *hit_verb = mem_alloc(20*sizeof(char));
+	struct attack_result result = {FALSE, 0, 0, hit_verb};
 
 	monster_type *m_ptr = square_monster(cave, y, x);
 	
@@ -725,6 +728,8 @@ static struct attack_result make_ranged_throw(object_type *o_ptr, int y, int x) 
 	int multiplier = 1;
 	const struct brand *b = NULL;
 	const struct slay *s = NULL;
+
+	my_strcpy(hit_verb, "hits", sizeof(hit_verb));
 
 	/* If we missed then we're done */
 	if (!test_hit(chance2, m_ptr->race->ac, m_ptr->ml)) return result;

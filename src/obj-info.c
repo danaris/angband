@@ -60,7 +60,7 @@ struct blow_info {
 
 static const flag_type elements[] =
 {
-	#define ELEM(a, b, c, d, e, col, f, fh, oh, mh, ph)	{ ELEM_##a, b },
+	#define ELEM(a, b, c, d, e, f, g, col, h, fh, oh, mh, ph)	{ ELEM_##a, b },
     #include "list-elements.h"
     #undef ELEM
 };
@@ -1156,10 +1156,12 @@ static bool describe_digger(textblock *tb, const object_type *o_ptr)
 {
 	int i;
 	int deciturns[DIGGING_MAX];
+	/* Avoid compliler warning */
+	object_type *obj = (object_type *) o_ptr;
 	static const char *names[4] = { "rubble", "magma veins", "quartz veins", "granite" };
 
 	/* Get useful info or print nothing */
-	if (!obj_known_digging((object_type *)o_ptr, deciturns)) return FALSE;
+	if (!obj_known_digging(obj, deciturns)) return FALSE;
 
 	for (i = DIGGING_RUBBLE; i < DIGGING_DOORS; i++)
 	{

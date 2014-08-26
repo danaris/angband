@@ -267,7 +267,7 @@ static void build_tunnel(struct chunk *c, int row1, int col1, int row2, int col2
 					if (square_is_granite_with_flag(c, y, x, SQUARE_WALL_OUTER))
 						set_marked_granite(c, y, x, SQUARE_WALL_SOLID);
 
-		} else if (sqinfo_has(c->info[tmp_row][tmp_col], SQUARE_ROOM)) {
+		} else if (square_isroom(c, tmp_row, tmp_col)) {
 			/* Travel quickly through rooms */
 			/* Accept the location */
 			row1 = tmp_row;
@@ -1509,7 +1509,7 @@ static void town_gen_layout(struct chunk *c, struct player *p) {
  * handles the physical layout.
  */
 struct chunk *town_gen(struct player *p) {
-    int i, y, x;
+    int i, y, x = 0;
     bool daytime = turn % (10 * TOWN_DAWN) < (10 * TOWN_DUSK);
     int residents = daytime ? MIN_M_ALLOC_TD : MIN_M_ALLOC_TN;
 	struct chunk *c;

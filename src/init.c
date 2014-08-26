@@ -135,7 +135,7 @@ static const char *kind_flags[] = {
 };
 
 static const char *elements[] = {
-	#define ELEM(a, b, c, d, e, col, f, fh, oh, mh, ph) #a,
+	#define ELEM(a, b, c, d, e, f, g, col, h, fh, oh, mh, ph) #a,
 	#include "list-elements.h"
 	#undef ELEM
 	NULL
@@ -149,7 +149,7 @@ static const char *slays[] = {
 };
 
 static const char *brand_names[] = {
-	#define ELEM(a, b, c, d, e, col, f, fh, oh, mh, ph) b,
+	#define ELEM(a, b, c, d, e, f, g, col, h, fh, oh, mh, ph) b,
 	#include "list-elements.h"
 	#undef ELEM
 	NULL
@@ -163,35 +163,41 @@ static const char *slay_names[] = {
 };
 
 static const char *effect_list[] = {
-	"ATOMIC_NONE",
-	#define EFFECT(x, a, d)	#x,
-	#include "list-atomic-effects.h"
+	"NONE",
+	#define EFFECT(x, a, b, d)	#x,
+	#include "list-effects.h"
 	#undef EFFECT
-	"ATOMIC_MAX"
+	"MAX"
 };
 
-static const char *spell_effect_list[] = {
-	#define S_EF(x, a, s) #x,
-	#include "list-player-spells.h"
-	#undef S_EF
-};
-
-static u32b grab_one_effect(const char *what, const char *list[], int num)
+errr grab_effect_data(struct parser *p, struct effect *effect)
 {
-	int i;
+	const char *type;
+	int val;
 
-	/* Scan activations */
-	for (i = 0; i < num; i++)
-	{
-		if (streq(what, list[i]))
-			return i;
+	if (grab_name("effect", parser_getsym(p, "eff"), effect_list,
+				  N_ELEMENTS(effect_list), &val))
+		return PARSE_ERROR_INVALID_EFFECT;
+	effect->index = val;
+
+	if (parser_hasval(p, "type")) {
+		type = parser_getsym(p, "type");
+
+		if (type == NULL)
+			return PARSE_ERROR_INVALID_VALUE;
+
+		/* Check for a value */
+		val = effect_param(type);
+		if (val < 0)
+			return PARSE_ERROR_INVALID_EFFECT;
+		else
+			effect->params[0] = val;
 	}
 
-	/* Oops */
-	msg("Unknown effect '%s'.", what);
+	if (parser_hasval(p, "xtra"))
+		effect->params[1] = parser_getint(p, "xtra");
 
-	/* Error */
-	return 0;
+	return PARSE_ERROR_NONE;
 }
 
 static bool grab_element_flag(struct element_info *info, const char *flag_name)
@@ -792,8 +798,6 @@ static enum parser_error parse_k_effect(struct parser *p) {
 	struct object_kind *k = parser_priv(p);
 	struct effect *effect;
 	struct effect *new_effect = mem_zalloc(sizeof(*new_effect));
-	const char *type;
-	int val, r;
 
 	if (!k)
 		return PARSE_ERROR_MISSING_RECORD_HEADER;
@@ -807,43 +811,8 @@ static enum parser_error parse_k_effect(struct parser *p) {
 	} else
 		k->effect = new_effect;
 
-	new_effect->index = grab_one_effect(parser_getsym(p, "eff"), effect_list,
-										N_ELEMENTS(effect_list));
-
-	if (parser_hasval(p, "type")) {
-		type = parser_getsym(p, "type");
-
-		if (type == NULL)
-			return PARSE_ERROR_INVALID_VALUE;
-
-		/* Check for a value */
-		if (sscanf(type, "%d", &r) == 1)
-			val = r;
-		else {
-			/* Run through the possibilities */
-			val = gf_name_to_idx(type);
-			if (val < 0) {
-				val = timed_name_to_idx(type);
-				if (val < 0) {
-					val = stat_name_to_idx(type);
-					if (val < 0) { //Hack - NRM
-						if (streq(type, "TOHIT")) val = ENCH_TOHIT;
-						else if (streq(type, "TODAM")) val = ENCH_TODAM;
-						else if (streq(type, "TOAC")) val = ENCH_TOAC;
-					}
-				}
-			}
-		}
-		if (val < 0)
-			return PARSE_ERROR_INVALID_EFFECT;
-		else
-			new_effect->params[0] = val;
-	}
-
-	if (parser_hasval(p, "xtra"))
-		new_effect->params[1] = parser_getint(p, "xtra");
-
-	return PARSE_ERROR_NONE;
+	/* Fill in the detail */
+	return grab_effect_data(p, new_effect);
 }
 
 static enum parser_error parse_k_param(struct parser *p) {
@@ -1157,8 +1126,6 @@ static enum parser_error parse_act_effect(struct parser *p) {
 	struct activation *act = parser_priv(p);
 	struct effect *effect;
 	struct effect *new_effect = mem_zalloc(sizeof(*new_effect));
-	const char *type;
-	int val, r;
 
 	if (!act)
 		return PARSE_ERROR_MISSING_RECORD_HEADER;
@@ -1172,43 +1139,8 @@ static enum parser_error parse_act_effect(struct parser *p) {
 	} else
 		act->effect = new_effect;
 
-	new_effect->index = grab_one_effect(parser_getsym(p, "eff"), effect_list,
-										N_ELEMENTS(effect_list));
-
-	if (parser_hasval(p, "type")) {
-		type = parser_getsym(p, "type");
-
-		if (type == NULL)
-			return PARSE_ERROR_INVALID_VALUE;
-
-		/* Check for a value */
-		if (sscanf(type, "%d", &r) == 1)
-			val = r;
-		else {
-			/* Run through the possibilities */
-			val = gf_name_to_idx(type);
-			if (val < 0) {
-				val = timed_name_to_idx(type);
-				if (val < 0) {
-					val = stat_name_to_idx(type);
-					if (val < 0) { //Hack - NRM
-						if (streq(type, "TOHIT")) val = ENCH_TOHIT;
-						else if (streq(type, "TODAM")) val = ENCH_TODAM;
-						else if (streq(type, "TOAC")) val = ENCH_TOAC;
-					}
-				}
-			}
-		}
-		if (val < 0)
-			return PARSE_ERROR_INVALID_EFFECT;
-		else
-			new_effect->params[0] = val;
-	}
-
-	if (parser_hasval(p, "xtra"))
-		new_effect->params[1] = parser_getint(p, "xtra");
-
-	return PARSE_ERROR_NONE;
+	/* Fill in the detail */
+	return grab_effect_data(p, new_effect);
 }
 
 static enum parser_error parse_act_dice(struct parser *p) {
@@ -1828,8 +1760,6 @@ static enum parser_error parse_trap_effect(struct parser *p) {
     struct trap *t = parser_priv(p);
 	struct effect *effect;
 	struct effect *new_effect = mem_zalloc(sizeof(*new_effect));
-	const char *type;
-	int val;
 
 	if (!t)
 		return PARSE_ERROR_MISSING_RECORD_HEADER;
@@ -1844,32 +1774,7 @@ static enum parser_error parse_trap_effect(struct parser *p) {
 		t->effect = new_effect;
 
 	/* Fill in the detail */
-	new_effect->index = grab_one_effect(parser_getsym(p, "eff"), effect_list,
-										N_ELEMENTS(effect_list));
-
-	if (parser_hasval(p, "type")) {
-		type = parser_getsym(p, "type");
-
-		if (type == NULL)
-			return PARSE_ERROR_INVALID_VALUE;
-
-		/* Run through the possibilities */
-		val = gf_name_to_idx(type);
-		if (val < 0) {
-			val = timed_name_to_idx(type);
-			if (val < 0)
-				val = stat_name_to_idx(type);
-		}
-		if (val < 0)
-			return PARSE_ERROR_INVALID_EFFECT;
-		else
-			new_effect->params[0] = val;
-	}
-
-	if (parser_hasval(p, "xtra"))
-		new_effect->params[1] = parser_getint(p, "xtra");
-
-	return PARSE_ERROR_NONE;
+	return grab_effect_data(p, new_effect);
 }
 
 static enum parser_error parse_trap_dice(struct parser *p) {
@@ -2318,8 +2223,6 @@ static enum parser_error parse_e_effect(struct parser *p) {
 	struct ego_item *e = parser_priv(p);
 	struct effect *effect;
 	struct effect *new_effect = mem_zalloc(sizeof(*new_effect));
-	const char *type;
-	int val;
 
 	if (!e)
 		return PARSE_ERROR_MISSING_RECORD_HEADER;
@@ -2334,32 +2237,7 @@ static enum parser_error parse_e_effect(struct parser *p) {
 		e->effect = new_effect;
 
 	/* Fill in the detail */
-	new_effect->index = grab_one_effect(parser_getsym(p, "eff"), effect_list,
-										N_ELEMENTS(effect_list));
-
-	if (parser_hasval(p, "type")) {
-		type = parser_getsym(p, "type");
-
-		if (type == NULL)
-			return PARSE_ERROR_INVALID_VALUE;
-
-		/* Run through the possibilities */
-		val = gf_name_to_idx(type);
-		if (val < 0) {
-			val = timed_name_to_idx(type);
-			if (val < 0)
-				val = stat_name_to_idx(type);
-		}
-		if (val < 0)
-			return PARSE_ERROR_INVALID_EFFECT;
-		else
-			new_effect->params[0] = val;
-	}
-
-	if (parser_hasval(p, "xtra"))
-		new_effect->params[1] = parser_getint(p, "xtra");
-
-	return PARSE_ERROR_NONE;
+	return grab_effect_data(p, new_effect);
 }
 
 static enum parser_error parse_e_dice(struct parser *p) {
@@ -3101,7 +2979,6 @@ static enum parser_error parse_c_effect(struct parser *p) {
 	class_spell *spell = &book->spells[book->num_spells - 1];
 	struct effect *effect;
 	struct effect *new_effect = mem_zalloc(sizeof(*effect));
-	const char *type;
 
 	if (!c)
 		return PARSE_ERROR_MISSING_RECORD_HEADER;
@@ -3116,23 +2993,7 @@ static enum parser_error parse_c_effect(struct parser *p) {
 		spell->effect = new_effect;
 
 	/* Fill in the detail */
-	new_effect->index = grab_one_effect(parser_getsym(p, "eff"),
-										spell_effect_list,
-										N_ELEMENTS(spell_effect_list));
-
-	if (parser_hasval(p, "type")) {
-		type = parser_getsym(p, "type");
-
-		if (type == NULL)
-			return PARSE_ERROR_INVALID_VALUE;
-
-		new_effect->params[0] = gf_name_to_idx(type);
-	}
-
-	if (parser_hasval(p, "xtra"))
-		new_effect->params[1] = parser_getint(p, "xtra");
-
-	return PARSE_ERROR_NONE;
+	return grab_effect_data(p, new_effect);
 }
 
 static enum parser_error parse_c_param(struct parser *p) {
@@ -4069,6 +3930,10 @@ void init_arrays(void)
 	event_signal_string(EVENT_INITSTATUS, "Initializing arrays... (pain messages)");
 	if (run_parser(&mp_parser)) quit("Cannot initialize monster pain messages");
 
+	/* Initialize monster spell info */
+	event_signal_string(EVENT_INITSTATUS, "Initializing arrays... (monster spells)");
+	if (run_parser(&rs_parser)) quit("Cannot initialize monster spells");
+
 	/* Initialize monster-base info */
 	event_signal_string(EVENT_INITSTATUS, "Initializing arrays... (monster bases)");
 	if (run_parser(&rb_parser)) quit("Cannot initialize monster bases");
@@ -4283,6 +4148,7 @@ void cleanup_angband(void)
 	cleanup_parser(&names_parser);
 	cleanup_parser(&r_parser);
 	cleanup_parser(&rb_parser);
+	cleanup_parser(&rs_parser);
 	cleanup_parser(&f_parser);
 	cleanup_parser(&e_parser);
 	cleanup_parser(&p_parser);

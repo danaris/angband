@@ -10,7 +10,7 @@
  */
 enum
 {
-	#define ELEM(a, b, c, d, e, col, f, fh, oh, mh, ph) GF_##a,
+	#define ELEM(a, b, c, d, e, f, g, col, h, fh, oh, mh, ph) GF_##a,
 	#include "list-elements.h"
 	#undef ELEM
 	#define PROJ_ENV(a, col, fh, oh, mh) GF_##a,
@@ -88,9 +88,12 @@ enum
 extern byte gf_to_attr[GF_MAX][BOLT_MAX];
 extern wchar_t gf_to_char[GF_MAX][BOLT_MAX];
 
+extern int project_path(u16b *gp, int range, int y1, int x1, int y2, int x2, int flg);
+extern bool projectable(struct chunk *c, int y1, int x1, int y2, int x2, int flg);
 int gf_name_to_idx(const char *name);
 const char *gf_idx_to_name(int type);
 int inven_damage(struct player *p, int type, int cperc);
+int spell_color(int type);
 int adjust_dam(int type, int dam, aspect dam_aspect, int resist);
 bool project(int who, int rad, int y, int x, int dam, int typ, int flg,
 			 int degrees_of_arc, byte diameter_of_source);

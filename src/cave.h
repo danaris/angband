@@ -180,25 +180,25 @@ extern feature_type *f_info;
 
 enum grid_light_level
 {
-	FEAT_LIGHTING_LOS = 0,   /* line of sight */
-	FEAT_LIGHTING_TORCH,     /* torchlight */
-	FEAT_LIGHTING_LIT,       /* permanently lit (when not in line of sight) */
-	FEAT_LIGHTING_DARK,      /* dark */
-	FEAT_LIGHTING_MAX
+	LIGHTING_LOS = 0,   /* line of sight */
+	LIGHTING_TORCH,     /* torchlight */
+	LIGHTING_LIT,       /* permanently lit (when not in line of sight) */
+	LIGHTING_DARK,      /* dark */
+	LIGHTING_MAX
 };
 
 typedef struct
 {
-	u32b m_idx;		/* Monster index */
-	u32b f_idx;		/* Feature index */
-	struct object_kind *first_kind;	/* The "kind" of the first item on the grid */
-    u32b trap;          /* Trap index */
+	u32b m_idx;				/* Monster index */
+	u32b f_idx;				/* Feature index */
+	struct object_kind *first_kind;	/* The kind of the first item on the grid */
+	u32b trap;				/* Trap index */
 	bool multiple_objects;	/* Is there more than one item there? */
-	bool unseen_object;	/* Is there an unaware object there? */
-	bool unseen_money; /* Is there some unaware money there? */
+	bool unseen_object;		/* Is there an unaware object there? */
+	bool unseen_money;		/* Is there some unaware money there? */
 
 	enum grid_light_level lighting; /* Light level */
-	bool in_view; /* TRUE when the player can currently see the grid. */
+	bool in_view; 			/* Can the player can currently see the grid? */
 	bool is_player;
 	bool hallucinate;
 	bool trapborder;
@@ -232,6 +232,7 @@ struct chunk {
 	struct monster *monsters;
 	u16b mon_max;
 	u16b mon_cnt;
+	int mon_current;
 
 	struct object *objects;
 	u16b obj_max;
@@ -245,23 +246,14 @@ extern int distance(int y1, int x1, int y2, int x2);
 extern bool los(struct chunk *c, int y1, int x1, int y2, int x2);
 extern bool no_light(void);
 extern bool square_valid_bold(int y, int x);
-extern byte get_color(byte a, int attr, int n);
 extern void map_info(unsigned x, unsigned y, grid_data *g);
-extern void grid_data_as_text(grid_data *g, int *ap, wchar_t *cp, int *tap, wchar_t *tcp);
-extern void move_cursor_relative(int y, int x);
-extern void print_rel(wchar_t c, byte a, int y, int x);
-extern void prt_map(void);
-extern void display_map(int *cy, int *cx);
-extern void do_cmd_view_map(void);
+void light_room(int y1, int x1, bool light);
 extern void forget_view(struct chunk *c);
 extern bool player_has_los_bold(int y, int x);
 extern bool player_can_see_bold(int y, int x);
 extern void update_view(struct chunk *c, struct player *p);
-extern void map_area(void);
 extern void wiz_light(struct chunk *c, bool full);
 extern void wiz_dark(void);
-extern int project_path(u16b *gp, int range, int y1, int x1, int y2, int x2, int flg);
-extern bool projectable(struct chunk *c, int y1, int x1, int y2, int x2, int flg);
 extern void scatter(struct chunk *c, int *yp, int *xp, int y, int x, int d, bool need_los);
 extern bool is_quest(int level);
 extern bool dtrap_edge(int y, int x);
@@ -309,13 +301,12 @@ extern bool square_isdoor(struct chunk *c, int y, int x);
 extern bool square_issecrettrap(struct chunk *c, int y, int x);
 extern bool feat_is_wall(int feat);
 extern bool square_isknowntrap(struct chunk *c, int y, int x);
-extern bool square_istrap(struct chunk *c, int y, int x);
 extern bool feature_isshop(int feat);
 extern bool square_isstairs(struct chunk *c, int y, int x);
 extern bool square_isupstairs(struct chunk *c, int y, int x);
 extern bool square_isdownstairs(struct chunk *c, int y, int x);
 extern bool square_isshop(struct chunk *c, int y, int x);
-extern bool square_isglyph(struct chunk *c, int y, int x);
+extern bool square_isplayer(struct chunk *c, int y, int x);
 
 /* BEHAVIOR PREDICATES */
 extern bool square_isopen(struct chunk *c, int y, int x);
@@ -330,19 +321,28 @@ extern bool feat_isprojectable(feature_type *f_ptr);
 extern bool square_isprojectable(struct chunk *c, int y, int x);
 extern bool square_iswall(struct chunk *c, int y, int x);
 extern bool square_isstrongwall(struct chunk *c, int y, int x);
-extern bool square_isvault(struct chunk *c, int y, int x);
-extern bool square_isroom(struct chunk *c, int y, int x);
+bool square_ismark(struct chunk *c, int y, int x);
+bool square_isglow(struct chunk *c, int y, int x);
+bool square_isvault(struct chunk *c, int y, int x);
+bool square_isroom(struct chunk *c, int y, int x);
+bool square_isseen(struct chunk *c, int y, int x);
+bool square_isview(struct chunk *c, int y, int x);
+bool square_wasseen(struct chunk *c, int y, int x);
+bool square_isdtrap(struct chunk *c, int y, int x);
+bool square_isfeel(struct chunk *c, int y, int x);
+bool square_isdedge(struct chunk *c, int y, int x);
+bool square_istrap(struct chunk *c, int y, int x);
+bool square_isinvis(struct chunk *c, int y, int x);
+bool square_iswall_inner(struct chunk *c, int y, int x);
+bool square_iswall_outer(struct chunk *c, int y, int x);
+bool square_iswall_solid(struct chunk *c, int y, int x);
+bool square_ismon_restrict(struct chunk *c, int y, int x);
+bool square_isno_teleport(struct chunk *c, int y, int x);
+bool square_isno_map(struct chunk *c, int y, int x);
+bool square_isno_esp(struct chunk *c, int y, int x);
 extern bool square_isrubble(struct chunk *c, int y, int x);
-extern bool square_isfeel(struct chunk *c, int y, int x);
 extern bool feat_isboring(feature_type *f_ptr);
 extern bool square_isboring(struct chunk *c, int y, int x);
-extern bool square_isview(struct chunk *c, int y, int x);
-extern bool square_isseen(struct chunk *c, int y, int x);
-extern bool square_wasseen(struct chunk *c, int y, int x);
-extern bool square_isglow(struct chunk *c, int y, int x);
-extern bool square_is_no_teleport(struct chunk *c, int y, int x);
-extern bool square_is_no_map(struct chunk *c, int y, int x);
-extern bool square_is_no_esp(struct chunk *c, int y, int x);
 extern bool square_iswarded(struct chunk *c, int y, int x);
 extern bool square_canward(struct chunk *c, int y, int x);
 

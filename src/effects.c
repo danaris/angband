@@ -1,8 +1,9 @@
-/*
- * File: effects.c
- * Purpose: Big switch statement for every effect in the game
+/**
+   \file effects.c
+   \brief Handler and auxiliary functions for every effect in the game
  *
  * Copyright (c) 2007 Andi Sidwell
+ * Copyright (c) 2014 Ben Semmler, Nick McConnell
  *
  * This work is free software; you can redistribute it and/or modify it
  * under the terms of either:
@@ -44,7 +45,7 @@
 
 
 typedef struct effect_handler_context_s {
-	const atomic_effect_index effect;
+	const effect_index effect;
 	const bool aware;
 	const int dir;
 	const int beam;
@@ -57,12 +58,13 @@ typedef struct effect_handler_context_s {
 typedef bool (*effect_handler_f)(effect_handler_context_t *);
 
 /**
- * Structure for atomic effects
+ * Structure for effects
  */
 struct effect_kind {
 	u16b index;          /* Effect index */
 	bool aim;            /* Whether the effect requires aiming */
-	effect_handler_f handler;
+	const char *info;    /* Effect info (for spell tips) */
+	effect_handler_f handler;    /* Function to perform the effect */
 	const char *desc;    /* Effect description */
 };
 
@@ -104,7 +106,7 @@ static struct breath_info {
  */
 static const char *desc_stat_pos[] =
 {
-	#define STAT(a, b, c, d, e, f, g, h) #f,
+	#define STAT(a, b, c, d, e, f, g, h) f,
 	#include "list-stats.h"
 	#undef STAT
 };
@@ -115,7 +117,7 @@ static const char *desc_stat_pos[] =
  */
 static const char *desc_stat_neg[] =
 {
-	#define STAT(a, b, c, d, e, f, g, h) #g,
+	#define STAT(a, b, c, d, e, f, g, h) g,
 	#include "list-stats.h"
 	#undef STAT
 };
@@ -143,6 +145,8 @@ static bool project_aimed(int typ, int dir, int dam, int flg)
 {
 	int py = player->py;
 	int px = player->px;
+	/* Player or monster? */
+	int source = (cave->mon_current > 0) ? cave->mon_current : -1;
 
 	s16b ty, tx;
 
@@ -154,11 +158,11 @@ static bool project_aimed(int typ, int dir, int dam, int flg)
 	tx = px + ddx[dir];
 
 	/* Ask for a target if no direction given */
-	if ((dir == 5) && target_okay())
+	if ((dir == 5) && target_okay() && source == -1)
 		target_get(&tx, &ty);
 
 	/* Aim at the target, do NOT explode */
-	return (project(-1, 0, ty, tx, dam, typ, flg, 0, 0));
+	return (project(source, 0, ty, tx, dam, typ, flg, 0, 0));
 }
 
 /**
@@ -178,10 +182,32 @@ static bool project_touch(int dam, int typ, bool aware)
  * Dummy effect, to tell the effect code to pick one of the next 
  * context->value.base effects at random.
  */
-bool effect_handler_ATOMIC_RANDOM(effect_handler_context_t *context)
+bool effect_handler_RANDOM(effect_handler_context_t *context)
 {
 	return TRUE;
 }
+
+/**
+ * Deal damage from the current monster to the player
+ */
+bool effect_handler_DAMAGE(effect_handler_context_t *context)
+{
+	int dam = effect_calculate_value(context, FALSE);
+	char ddesc[80];
+	struct monster *mon;
+
+	/* Get the monster */
+	mon = cave_monster(cave, cave->mon_current);
+
+	/* Get the "died from" name in case this attack kills @ */
+	monster_desc(ddesc, sizeof(ddesc), mon, MDESC_DIED_FROM);
+
+	/* Hit the player */
+	take_hit(player, dam, ddesc);
+
+	return TRUE;
+}
+
 
 /**
  * Heal the player by a given percentage of their wounds, or a minimum
@@ -190,7 +216,7 @@ bool effect_handler_ATOMIC_RANDOM(effect_handler_context_t *context)
  * context->value.base should be the minimum, and
  * context->value.m_bonus the percentage
  */
-bool effect_handler_ATOMIC_HEAL_HP(effect_handler_context_t *context)
+bool effect_handler_HEAL_HP(effect_handler_context_t *context)
 {
 	int num;
 
@@ -237,9 +263,60 @@ bool effect_handler_ATOMIC_HEAL_HP(effect_handler_context_t *context)
 
 
 /**
+ * Monster self-healing.
+ */
+bool effect_handler_MON_HEAL_HP(effect_handler_context_t *context)
+{
+	int midx = cave->mon_current;
+	int amount = effect_calculate_value(context, FALSE);
+	monster_type *mon = midx > 0 ? cave_monster(cave, midx) : NULL;
+	char m_name[80], m_poss[80];
+	bool seen;
+
+	if (!mon) return TRUE;
+
+	/* Get the monster name (or "it") */
+	monster_desc(m_name, sizeof(m_name), mon, MDESC_STANDARD);
+
+	/* Get the monster possessive ("his"/"her"/"its") */
+	monster_desc(m_poss, sizeof(m_poss), mon, MDESC_PRO_VIS | MDESC_POSS);
+
+	seen = (!player->timed[TMD_BLIND] && mon->ml);
+
+	/* Heal some */
+	mon->hp += amount;
+
+	/* Fully healed */
+	if (mon->hp >= mon->maxhp) {
+		mon->hp = mon->maxhp;
+
+		if (seen)
+			msg("%s looks REALLY healthy!", m_name);
+		else
+			msg("%s sounds REALLY healthy!", m_name);
+	} else if (seen) { /* Partially healed */
+		msg("%s looks healthier.", m_name);
+	} else {
+		msg("%s sounds healthier.", m_name);
+	}
+
+	/* Redraw (later) if needed */
+	if (player->upkeep->health_who == mon)
+		player->upkeep->redraw |= (PR_HEALTH);
+
+	/* Cancel fear */
+	if (mon->m_timed[MON_TMD_FEAR]) {
+		mon_clear_timed(mon, MON_TMD_FEAR, MON_TMD_FLG_NOMESSAGE, FALSE);
+		msg("%s recovers %s courage.", m_name, m_poss);
+	}
+
+	return TRUE;
+}
+
+/**
  * Feed the player.
  */
-bool effect_handler_ATOMIC_NOURISH(effect_handler_context_t *context)
+bool effect_handler_NOURISH(effect_handler_context_t *context)
 {
 	int amount = effect_calculate_value(context, FALSE);
 	player_set_food(player, player->food + amount);
@@ -248,7 +325,7 @@ bool effect_handler_ATOMIC_NOURISH(effect_handler_context_t *context)
 	return TRUE;
 }
 
-bool effect_handler_ATOMIC_CRUNCH(effect_handler_context_t *context)
+bool effect_handler_CRUNCH(effect_handler_context_t *context)
 {
 	if (one_in_(2))
 		msg("It's crunchy.");
@@ -261,7 +338,7 @@ bool effect_handler_ATOMIC_CRUNCH(effect_handler_context_t *context)
 /**
  * Cure a player status condition.
  */
-bool effect_handler_ATOMIC_CURE(effect_handler_context_t *context)
+bool effect_handler_CURE(effect_handler_context_t *context)
 {
 	int type = context->p1;
 	if (player_clear_timed(player, type, TRUE))
@@ -272,7 +349,7 @@ bool effect_handler_ATOMIC_CURE(effect_handler_context_t *context)
 /**
  * Set a (positive or negative) player status condition.
  */
-bool effect_handler_ATOMIC_TIMED_SET(effect_handler_context_t *context)
+bool effect_handler_TIMED_SET(effect_handler_context_t *context)
 {
 	int amount = effect_calculate_value(context, FALSE);
 	player_set_timed(player, context->p1, amount, TRUE);
@@ -285,9 +362,10 @@ bool effect_handler_ATOMIC_TIMED_SET(effect_handler_context_t *context)
  * Extend a (positive or negative) player status condition.
  * If context->p2 is set, increase by that amount if the status exists already
  */
-bool effect_handler_ATOMIC_TIMED_INC(effect_handler_context_t *context)
+bool effect_handler_TIMED_INC(effect_handler_context_t *context)
 {
 	int amount = effect_calculate_value(context, FALSE);
+
 	if (!player->timed[context->p1] || !context->p2)
 		player_inc_timed(player, context->p1, amount, TRUE, TRUE);
 	else
@@ -298,11 +376,31 @@ bool effect_handler_ATOMIC_TIMED_INC(effect_handler_context_t *context)
 }
 
 /**
- * Reduce a (positive or negative) player status condition.
+ * Extend a (positive or negative) monster status condition.
  */
-bool effect_handler_ATOMIC_TIMED_DEC(effect_handler_context_t *context)
+bool effect_handler_MON_TIMED_INC(effect_handler_context_t *context)
 {
 	int amount = effect_calculate_value(context, FALSE);
+	struct monster *mon  = cave->mon_current > 0 ?
+		cave_monster(cave, cave->mon_current) : NULL;
+
+	if (mon) {
+		mon_inc_timed(mon, context->p1, amount, MON_TMD_FLG_NOTIFY, FALSE);
+		context->ident = TRUE;
+	}
+	return TRUE;
+
+}
+
+/**
+ * Reduce a (positive or negative) player status condition.
+ * If context->p2 is set, decrease by the current value / context->p2
+ */
+bool effect_handler_TIMED_DEC(effect_handler_context_t *context)
+{
+	int amount = effect_calculate_value(context, FALSE);
+	if (context->p2)
+		amount = player->timed[context->p1] / context->p2;
 	player_dec_timed(player, context->p1, amount, TRUE);
 	context->ident = TRUE;
 	return TRUE;
@@ -312,7 +410,7 @@ bool effect_handler_ATOMIC_TIMED_DEC(effect_handler_context_t *context)
 /**
  * Make the player, um, lose food.  Or gain it.
  */
-bool effect_handler_ATOMIC_SET_NOURISH(effect_handler_context_t *context)
+bool effect_handler_SET_NOURISH(effect_handler_context_t *context)
 {
 	int amount = effect_calculate_value(context, FALSE);
 	player_set_food(player, amount);
@@ -320,7 +418,7 @@ bool effect_handler_ATOMIC_SET_NOURISH(effect_handler_context_t *context)
 	return TRUE;
 }
 
-bool effect_handler_ATOMIC_CONFUSING(effect_handler_context_t *context)
+bool effect_handler_CONFUSING(effect_handler_context_t *context)
 {
 	if (player->confusing == 0) {
 		msg("Your hands begin to glow.");
@@ -333,7 +431,7 @@ bool effect_handler_ATOMIC_CONFUSING(effect_handler_context_t *context)
 /**
  * Create a "glyph of warding".
  */
-bool effect_handler_ATOMIC_RUNE(effect_handler_context_t *context)
+bool effect_handler_RUNE(effect_handler_context_t *context)
 {
 	int py = player->py;
 	int px = player->px;
@@ -358,9 +456,10 @@ bool effect_handler_ATOMIC_RUNE(effect_handler_context_t *context)
 }
 
 /**
- * Restore a stat.  The stat index is context->p1.
+ * Restore a stat.  The stat index is context->p1, message printed if
+ * context->p2 is non-zero.
  */
-bool effect_handler_ATOMIC_RESTORE_STAT(effect_handler_context_t *context)
+bool effect_handler_RESTORE_STAT(effect_handler_context_t *context)
 {
 	int stat = context->p1;
 
@@ -379,7 +478,8 @@ bool effect_handler_ATOMIC_RESTORE_STAT(effect_handler_context_t *context)
 	update_stuff(player->upkeep);
 
 	/* Message */
-	msg("You feel less %s.", desc_stat_neg[stat]);
+	if (context->p2)
+		msg("You feel less %s.", desc_stat_neg[stat]);
 
 	/* Success */
 	context->ident = TRUE;
@@ -390,7 +490,7 @@ bool effect_handler_ATOMIC_RESTORE_STAT(effect_handler_context_t *context)
 /**
  * Drain a stat temporarily.  The stat index is context->p1.
  */
-bool effect_handler_ATOMIC_DRAIN_STAT(effect_handler_context_t *context)
+bool effect_handler_DRAIN_STAT(effect_handler_context_t *context)
 {
 	int stat = context->p1;
 	int flag = sustain_flag(stat);
@@ -432,7 +532,7 @@ bool effect_handler_ATOMIC_DRAIN_STAT(effect_handler_context_t *context)
  * Lose a stat point permanently, in a stat other than the one specified
  * in context->p1.
  */
-bool effect_handler_ATOMIC_LOSE_RANDOM_STAT(effect_handler_context_t *context)
+bool effect_handler_LOSE_RANDOM_STAT(effect_handler_context_t *context)
 {
 	int safe_stat = context->p1;
 	int loss_stat = randint0(STAT_MAX - 1);
@@ -456,7 +556,7 @@ bool effect_handler_ATOMIC_LOSE_RANDOM_STAT(effect_handler_context_t *context)
 /**
  * Gain a stat point.  The stat index is context->p1.
  */
-bool effect_handler_ATOMIC_GAIN_STAT(effect_handler_context_t *context)
+bool effect_handler_GAIN_STAT(effect_handler_context_t *context)
 {
 	int stat = context->p1;
 
@@ -473,14 +573,15 @@ bool effect_handler_ATOMIC_GAIN_STAT(effect_handler_context_t *context)
 }
 
 /**
- * Restores any drained experience
+ * Restores any drained experience; message suppressed if context->p1 is set
  */
-bool effect_handler_ATOMIC_RESTORE_EXP(effect_handler_context_t *context)
+bool effect_handler_RESTORE_EXP(effect_handler_context_t *context)
 {
 	/* Restore experience */
 	if (player->exp < player->max_exp) {
 		/* Message */
-		msg("You feel your life energies returning.");
+		if (context->p1 == 0)
+			msg("You feel your life energies returning.");
 		player_exp_gain(player, player->max_exp - player->exp);
 
         /* Recalculate max. hitpoints */
@@ -493,7 +594,7 @@ bool effect_handler_ATOMIC_RESTORE_EXP(effect_handler_context_t *context)
 	return (TRUE);
 }
 
-bool effect_handler_ATOMIC_GAIN_EXP(effect_handler_context_t *context)
+bool effect_handler_GAIN_EXP(effect_handler_context_t *context)
 {
 	int amount = effect_calculate_value(context, FALSE);
 	if (player->exp < PY_MAX_EXP) {
@@ -504,7 +605,7 @@ bool effect_handler_ATOMIC_GAIN_EXP(effect_handler_context_t *context)
 	return TRUE;
 }
 
-bool effect_handler_ATOMIC_LOSE_EXP(effect_handler_context_t *context)
+bool effect_handler_LOSE_EXP(effect_handler_context_t *context)
 {
 	if (!player_of_has(player, OF_HOLD_LIFE) && (player->exp > 0)) {
 		msg("You feel your memories fade.");
@@ -515,7 +616,61 @@ bool effect_handler_ATOMIC_LOSE_EXP(effect_handler_context_t *context)
 	return TRUE;
 }
 
-bool effect_handler_ATOMIC_RESTORE_MANA(effect_handler_context_t *context)
+/**
+ * Drain mana from the player, healing the caster.
+ */
+bool effect_handler_DRAIN_MANA(effect_handler_context_t *context)
+{
+	int drain = effect_calculate_value(context, FALSE);
+	char m_name[80];
+	struct monster *mon = cave_monster(cave, cave->mon_current);
+
+	if (!mon) return TRUE;
+
+	/* Get the monster name (or "it") */
+	monster_desc(m_name, sizeof(m_name), mon, MDESC_STANDARD);
+
+	if (!player->csp) {
+		msg("The draining fails.");
+		if (OPT(birth_ai_learn) && !(mon->smart & SM_IMM_MANA)) {
+			msg("%s notes that you have no mana!", m_name);
+			mon->smart |= SM_IMM_MANA;
+		}
+		return TRUE;
+	}
+
+	/* Full drain */
+	if (drain >= player->csp) {
+		drain = player->csp;
+		player->csp = 0;
+		player->csp_frac = 0;
+	}
+	/* Partial drain */
+	else
+		player->csp -= drain;
+
+	/* Redraw mana */
+	player->upkeep->redraw |= PR_MANA;
+
+	/* Heal the monster */
+	if (mon->hp < mon->maxhp) {
+		mon->hp += (6 * drain);
+		if (mon->hp > mon->maxhp)
+			mon->hp = mon->maxhp;
+
+		/* Redraw (later) if needed */
+		if (player->upkeep->health_who == mon)
+			player->upkeep->redraw |= (PR_HEALTH);
+
+		/* Special message */
+		if (mon->ml)
+			msg("%s appears healthier.", m_name);
+	}
+
+	return TRUE;
+}
+
+bool effect_handler_RESTORE_MANA(effect_handler_context_t *context)
 {
 	int amount = effect_calculate_value(context, FALSE);
 	if (!amount) amount = player->msp;
@@ -536,7 +691,7 @@ bool effect_handler_ATOMIC_RESTORE_MANA(effect_handler_context_t *context)
 /**
  * Will need revamping with curses - NRM
  */
-bool effect_handler_ATOMIC_REMOVE_CURSE(effect_handler_context_t *context)
+bool effect_handler_REMOVE_CURSE(effect_handler_context_t *context)
 {
 	if (remove_curse())
 	{
@@ -553,7 +708,7 @@ bool effect_handler_ATOMIC_REMOVE_CURSE(effect_handler_context_t *context)
 /**
  * Will need revamping with curses - NRM
  */
-bool effect_handler_ATOMIC_REMOVE_ALL_CURSE(effect_handler_context_t *context)
+bool effect_handler_REMOVE_ALL_CURSE(effect_handler_context_t *context)
 {
 	remove_all_curse();
 	context->ident = TRUE;
@@ -561,16 +716,61 @@ bool effect_handler_ATOMIC_REMOVE_ALL_CURSE(effect_handler_context_t *context)
 }
 
 /**
- * Set word of recall as appropriate - set_recall() probably needs work NRM
+ * Set word of recall as appropriate
  */
-bool effect_handler_ATOMIC_RECALL(effect_handler_context_t *context)
+bool effect_handler_RECALL(effect_handler_context_t *context)
 {
 	context->ident = TRUE;
-	(void) set_recall();
+
+	/* No recall */
+	if (OPT(birth_no_recall) && !player->total_winner) {
+		msg("Nothing happens.");
+		return TRUE;
+	}
+    
+	/* No recall from quest levels with force_descend */
+	if (OPT(birth_force_descend) && (is_quest(player->depth))) {
+		msg("Nothing happens.");
+		return TRUE;
+	}
+
+    /* Warn the player if they're descending to an unrecallable level */
+	if (OPT(birth_force_descend) && !(player->depth) &&
+			(is_quest(player->max_depth + 1))) {
+		if (!get_check("Are you sure you want to descend? ")) {
+			msg("You prevent the recall from taking place.");
+			return TRUE;
+		}
+	}
+
+	/* Activate recall */
+	if (!player->word_recall) {
+		/* Reset recall depth */
+		if ((player->depth > 0) && (player->depth != player->max_depth)) {
+			/* ToDo: Add a new player_type field "recall_depth" */
+			if (get_check("Reset recall depth? "))
+				player->max_depth = player->depth;
+		}
+
+		player->word_recall = randint0(20) + 15;
+		msg("The air about you becomes charged...");
+	} else {
+		/* Deactivate recall */
+		if (!get_check("Word of Recall is already active.  Do you want to cancel it? "))
+			return TRUE;
+
+		player->word_recall = 0;
+		msg("A tension leaves the air around you...");
+	}
+
+	/* Redraw status line */
+	player->upkeep->redraw = PR_STATUS;
+	handle_stuff(player->upkeep);
+
 	return TRUE;
 }
 
-bool effect_handler_ATOMIC_DEEP_DESCENT(effect_handler_context_t *context)
+bool effect_handler_DEEP_DESCENT(effect_handler_context_t *context)
 {
 	int i, target_depth = player->max_depth;
 
@@ -590,8 +790,18 @@ bool effect_handler_ATOMIC_DEEP_DESCENT(effect_handler_context_t *context)
 	} else {
 		msgt(MSG_TPLEVEL, "You sense a malevolent presence blocking passage to the levels below.");
 		context->ident = TRUE;
-		return FALSE;
+		return TRUE;
 	}
+}
+
+bool effect_handler_ALTER_REALITY(effect_handler_context_t *context)
+{
+	msg("The world changes!");
+
+	/* Leaving */
+	player->upkeep->leaving = TRUE;
+
+	return TRUE;
 }
 
 /**
@@ -599,7 +809,7 @@ bool effect_handler_ATOMIC_DEEP_DESCENT(effect_handler_context_t *context)
  * is context->value.dice, the width either side of the player context->value.sides.
  *
  */
-bool effect_handler_ATOMIC_MAP_AREA(effect_handler_context_t *context)
+bool effect_handler_MAP_AREA(effect_handler_context_t *context)
 {
 	int i, x, y;
 	int x1, x2, y1, y2;
@@ -622,7 +832,7 @@ bool effect_handler_ATOMIC_MAP_AREA(effect_handler_context_t *context)
 	for (y = y1; y < y2; y++) {
 		for (x = x1; x < x2; x++) {
 			/* Some squares can't be mapped */
-			if (square_is_no_map(cave, y, x)) continue;
+			if (square_isno_map(cave, y, x)) continue;
 
 			/* All non-walls are "checked" */
 			if (!square_seemslikewall(cave, y, x)) {
@@ -660,7 +870,7 @@ bool effect_handler_ATOMIC_MAP_AREA(effect_handler_context_t *context)
  * Detect traps around the player.  The height to detect above and below the
  * player is context->value.dice, the width either side of the player context->value.sides.
  */
-bool effect_handler_ATOMIC_DETECT_TRAPS(effect_handler_context_t *context)
+bool effect_handler_DETECT_TRAPS(effect_handler_context_t *context)
 {
 	int x, y;
 	int x1, x2, y1, y2;
@@ -756,7 +966,7 @@ bool effect_handler_ATOMIC_DETECT_TRAPS(effect_handler_context_t *context)
  * Detect doors around the player.  The height to detect above and below the
  * player is context->value.dice, the width either side of the player context->value.sides.
  */
-bool effect_handler_ATOMIC_DETECT_DOORS(effect_handler_context_t *context)
+bool effect_handler_DETECT_DOORS(effect_handler_context_t *context)
 {
 	int x, y;
 	int x1, x2, y1, y2;
@@ -813,7 +1023,7 @@ bool effect_handler_ATOMIC_DETECT_DOORS(effect_handler_context_t *context)
  * Detect stairs around the player.  The height to detect above and below the
  * player is context->value.dice, the width either side of the player context->value.sides.
  */
-bool effect_handler_ATOMIC_DETECT_STAIRS(effect_handler_context_t *context)
+bool effect_handler_DETECT_STAIRS(effect_handler_context_t *context)
 {
 	int x, y;
 	int x1, x2, y1, y2;
@@ -865,10 +1075,10 @@ bool effect_handler_ATOMIC_DETECT_STAIRS(effect_handler_context_t *context)
 
 /**
  * Detect buried gold around the player.  The height to detect above and below
- * the player is context->value.dice, the width either side of the player context->value.sides, 
- * and setting context->boost to -1 suppresses messages.
+ * the player is context->value.dice, the width either side of the player
+ * context->value.sides, and setting context->p1 to 1 suppresses messages.
  */
-bool effect_handler_ATOMIC_DETECT_GOLD(effect_handler_context_t *context)
+bool effect_handler_DETECT_GOLD(effect_handler_context_t *context)
 {
 	int x, y;
 	int x1, x2, y1, y2;
@@ -910,8 +1120,8 @@ bool effect_handler_ATOMIC_DETECT_GOLD(effect_handler_context_t *context)
 		}
 	}
 
-	/* A bit of a hack to allow use in silent gold detection - NRM */
-	if (context->boost != -1) {
+	/* Message unless we're silently detecting */
+	if (context->p1 != 1) {
 		if (gold_buried)
 			msg("You sense the presence of buried treasure!");
 		else if (context->aware)
@@ -926,7 +1136,7 @@ bool effect_handler_ATOMIC_DETECT_GOLD(effect_handler_context_t *context)
  * player is context->value.dice, the width either side of the player
  * context->value.sides
  */
-bool effect_handler_ATOMIC_SENSE_OBJECTS(effect_handler_context_t *context)
+bool effect_handler_SENSE_OBJECTS(effect_handler_context_t *context)
 {
 	int i, x, y;
 	int x1, x2, y1, y2;
@@ -988,7 +1198,7 @@ bool effect_handler_ATOMIC_SENSE_OBJECTS(effect_handler_context_t *context)
  * player is context->value.dice, the width either side of the player
  * context->value.sides
  */
-bool effect_handler_ATOMIC_DETECT_OBJECTS(effect_handler_context_t *context)
+bool effect_handler_DETECT_OBJECTS(effect_handler_context_t *context)
 {
 	int i, x, y;
 	int x1, x2, y1, y2;
@@ -1051,7 +1261,7 @@ bool effect_handler_ATOMIC_DETECT_OBJECTS(effect_handler_context_t *context)
  * below the player is context->value.dice, the width either side of the player
  * context->value.sides.
  */
-bool effect_handler_ATOMIC_DETECT_VISIBLE_MONSTERS(effect_handler_context_t *context)
+bool effect_handler_DETECT_VISIBLE_MONSTERS(effect_handler_context_t *context)
 {
 	int i, x, y;
 	int x1, x2, y1, y2;
@@ -1118,7 +1328,7 @@ bool effect_handler_ATOMIC_DETECT_VISIBLE_MONSTERS(effect_handler_context_t *con
  * below the player is context->value.dice, the width either side of the player
  * context->value.sides.
  */
-bool effect_handler_ATOMIC_DETECT_INVISIBLE_MONSTERS(effect_handler_context_t *context)
+bool effect_handler_DETECT_INVISIBLE_MONSTERS(effect_handler_context_t *context)
 {
 	int i, x, y;
 	int x1, x2, y1, y2;
@@ -1191,7 +1401,7 @@ bool effect_handler_ATOMIC_DETECT_INVISIBLE_MONSTERS(effect_handler_context_t *c
  * below the player is context->value.dice, the width either side of the player
  * context->value.sides.
  */
-bool effect_handler_ATOMIC_DETECT_EVIL(effect_handler_context_t *context)
+bool effect_handler_DETECT_EVIL(effect_handler_context_t *context)
 {
 	int i, x, y;
 	int x1, x2, y1, y2;
@@ -1260,7 +1470,7 @@ bool effect_handler_ATOMIC_DETECT_EVIL(effect_handler_context_t *context)
 /**
  * Create stairs at the player location
  */
-bool effect_handler_ATOMIC_CREATE_STAIRS(effect_handler_context_t *context)
+bool effect_handler_CREATE_STAIRS(effect_handler_context_t *context)
 {
 	int py = player->py;
 	int px = player->px;
@@ -1285,7 +1495,7 @@ bool effect_handler_ATOMIC_CREATE_STAIRS(effect_handler_context_t *context)
 /**
  * Apply disenchantment to the player's stuff.
  */
-bool effect_handler_ATOMIC_DISENCHANT(effect_handler_context_t *context)
+bool effect_handler_DISENCHANT(effect_handler_context_t *context)
 {
 	int i, count = 0;
 	object_type *o_ptr;
@@ -1375,7 +1585,7 @@ bool effect_handler_ATOMIC_DISENCHANT(effect_handler_context_t *context)
  *
  * Work on incorporating enchant_spell() has been postponed...NRM
  */
-bool effect_handler_ATOMIC_ENCHANT(effect_handler_context_t *context)
+bool effect_handler_ENCHANT(effect_handler_context_t *context)
 {
 	int value = randcalc(context->value, player->depth, RANDOMISE);
 	context->ident = TRUE;
@@ -1390,23 +1600,63 @@ bool effect_handler_ATOMIC_ENCHANT(effect_handler_context_t *context)
 	return TRUE;
 }
 
-/**
- * Slack - NRM
+/*
+ * Hopefully this is OK now
  */
-bool effect_handler_ATOMIC_IDENTIFY(effect_handler_context_t *context)
+static bool item_tester_unknown(const object_type *o_ptr)
 {
+	return object_is_known(o_ptr) ? FALSE : TRUE;
+}
+
+/**
+ * Identify an unknown item
+ */
+bool effect_handler_IDENTIFY(effect_handler_context_t *context)
+{
+	int item;
+	object_type *o_ptr;
+	const char *q, *s;
+
 	context->ident = TRUE;
-	ident_spell();
+
+	/* Get an item */
+	q = "Identify which item? ";
+	s = "You have nothing to identify.";
+	if (!get_item(&item, q, s, 0, item_tester_unknown,
+				  (USE_EQUIP | USE_INVEN | USE_QUIVER | USE_FLOOR)))
+		return TRUE;
+
+	o_ptr = object_from_item_idx(item);
+
+	/* Identify the object */
+	do_ident_item(o_ptr);
+
 	return TRUE;
 }
 
 /**
- * Slack - NRM
+ * Identify everything worn or carried by the player
  */
-bool effect_handler_ATOMIC_IDENTIFY_PACK(effect_handler_context_t *context)
+bool effect_handler_IDENTIFY_PACK(effect_handler_context_t *context)
 {
+	int i;
+
 	context->ident = TRUE;
-	identify_pack();
+
+	/* Simply identify and know every item */
+	for (i = 0; i < player->max_gear; i++) {
+		object_type *o_ptr = &player->gear[i];
+
+		/* Skip non-objects */
+		if (!o_ptr->kind) continue;
+
+		/* Aware and Known */
+		if (object_is_known(o_ptr)) continue;
+
+		/* Identify it */
+		do_ident_item(o_ptr);
+	}
+
 	return TRUE;
 }
 
@@ -1428,7 +1678,7 @@ static bool item_tester_hook_recharge(const object_type *o_ptr)
  *
  * It is harder to recharge high level, and highly charged wands.
  */
-bool effect_handler_ATOMIC_RECHARGE(effect_handler_context_t *context)
+bool effect_handler_RECHARGE(effect_handler_context_t *context)
 {
 	int i, t, item, lev;
 	int strength = context->value.base;
@@ -1502,7 +1752,7 @@ bool effect_handler_ATOMIC_RECHARGE(effect_handler_context_t *context)
  *
  * Note that affected monsters are NOT auto-tracked by this usage.
  */
-bool effect_handler_ATOMIC_PROJECT_LOS(effect_handler_context_t *context)
+bool effect_handler_PROJECT_LOS(effect_handler_context_t *context)
 {
 	int i, x, y;
 	int dam = effect_calculate_value(context, context->p2 ? TRUE : FALSE);
@@ -1534,7 +1784,7 @@ bool effect_handler_ATOMIC_PROJECT_LOS(effect_handler_context_t *context)
 	return TRUE;
 }
 
-bool effect_handler_ATOMIC_ACQUIRE(effect_handler_context_t *context)
+bool effect_handler_ACQUIRE(effect_handler_context_t *context)
 {
 	int num = effect_calculate_value(context, FALSE);
 	acquirement(player->py, player->px, player->depth, num, TRUE);
@@ -1543,17 +1793,17 @@ bool effect_handler_ATOMIC_ACQUIRE(effect_handler_context_t *context)
 }
 
 /**
- * Wake up all monsters, and speed up "los" monsters.  The index of the monster
- * doing the aggravating (or 0 for the player) is context->p2.
+ * Wake up all monsters, and speed up "los" monsters.
  *
  * Possibly the los test should be from the aggravating monster, rather than
  * automatically the player - NRM
  */
-bool effect_handler_ATOMIC_AGGRAVATE(effect_handler_context_t *context)
+bool effect_handler_AGGRAVATE(effect_handler_context_t *context)
 {
 	int i;
 	bool sleep = FALSE;
-	monster_type *who = context->p2 ? cave_monster(cave, context->p2) : NULL;
+	int midx = cave->mon_current;
+	monster_type *who = midx > 0 ? cave_monster(cave, midx) : NULL;
 
 	/* Immediately obvious if the player did it */
 	if (!who) {
@@ -1595,40 +1845,98 @@ bool effect_handler_ATOMIC_AGGRAVATE(effect_handler_context_t *context)
  * Summon context->value monsters of context->p1 type.
  * Better handling of context->p1 is sorely needed
  */
-bool effect_handler_ATOMIC_SUMMON(effect_handler_context_t *context)
+bool effect_handler_SUMMON(effect_handler_context_t *context)
 {
 	int i;
-	int num = effect_calculate_value(context, FALSE);
+	int summon_max = effect_calculate_value(context, FALSE);
 	int type = context->p1 ? context->p1 : 0;
-	int msgt = MSG_SUM_MONSTER;
+	struct monster *mon = cave_monster(cave, cave->mon_current);
+	int msgtyp = MSG_SUM_MONSTER;
+	int count = 0, val = 0, attempts = 0;
 
-	if (type == S_ANIMAL) msgt = MSG_SUM_ANIMAL;
-	else if (type == S_SPIDER) msgt = MSG_SUM_SPIDER;
-	else if (type == S_HOUND) msgt = MSG_SUM_HOUND;
-	else if (type == S_HYDRA) msgt = MSG_SUM_HYDRA;
-	else if (type == S_AINU) msgt = MSG_SUM_AINU;
-	else if (type == S_DEMON) msgt = MSG_SUM_DEMON;
-	else if (type == S_UNDEAD) msgt = MSG_SUM_UNDEAD;
-	else if (type == S_DRAGON) msgt = MSG_SUM_DRAGON;
-	else if (type == S_HI_DEMON) msgt = MSG_SUM_HI_DEMON;
-	else if (type == S_HI_UNDEAD) msgt = MSG_SUM_HI_UNDEAD;
-	else if (type == S_HI_DRAGON) msgt = MSG_SUM_HI_DRAGON;
-	else if (type == S_WRAITH) msgt = MSG_SUM_WRAITH;
-	else if (type == S_UNIQUE) msgt = MSG_SUM_UNIQUE;
+	if (type == S_ANIMAL) msgtyp = MSG_SUM_ANIMAL;
+	else if (type == S_SPIDER) msgtyp = MSG_SUM_SPIDER;
+	else if (type == S_HOUND) msgtyp = MSG_SUM_HOUND;
+	else if (type == S_HYDRA) msgtyp = MSG_SUM_HYDRA;
+	else if (type == S_AINU) msgtyp = MSG_SUM_AINU;
+	else if (type == S_DEMON) msgtyp = MSG_SUM_DEMON;
+	else if (type == S_UNDEAD) msgtyp = MSG_SUM_UNDEAD;
+	else if (type == S_DRAGON) msgtyp = MSG_SUM_DRAGON;
+	else if (type == S_HI_DEMON) msgtyp = MSG_SUM_HI_DEMON;
+	else if (type == S_HI_UNDEAD) msgtyp = MSG_SUM_HI_UNDEAD;
+	else if (type == S_HI_DRAGON) msgtyp = MSG_SUM_HI_DRAGON;
+	else if (type == S_WRAITH) msgtyp = MSG_SUM_WRAITH;
+	else if (type == S_UNIQUE) msgtyp = MSG_SUM_UNIQUE;
 
-	sound(msgt);
+	sound(msgtyp);
 
-	for (i = 0; i < num; i++) {
-		if (summon_specific(player->py, player->px, player->depth, type, 1))
-			context->ident = TRUE;
+	/* Monster summon */
+	if (mon) {
+		int rlev = mon->race->level;
+
+		/* Continue summoning until we reach the current dungeon level */
+		while ((val < player->depth * rlev) && (attempts < summon_max)) {
+			int temp;
+
+			/* Get a monster */
+			temp = summon_specific(mon->fy, mon->fx, rlev, type, 0);
+
+			val += temp * temp;
+
+			/* Increase the attempt in case no monsters were available. */
+			attempts++;
+
+			/* Increase count of summoned monsters */
+			if (val > 0)
+				count++;
+		}
+
+		/* In the special case that uniques or wraiths were summoned but all
+		 * were dead S_HI_UNDEAD is used instead */
+		if ((!count) && ((type == S_WRAITH) || (type == S_UNIQUE))) {
+			type = S_HI_UNDEAD;
+			while ((val < player->depth * rlev) && (attempts < summon_max)) {
+				int temp;
+
+				/* Get a monster */
+				temp = summon_specific(mon->fy, mon->fx, rlev, type, 0);
+
+				val += temp * temp;
+
+				/* Increase the attempt in case no monsters were available. */
+				attempts++;
+
+				/* Increase count of summoned monsters */
+				if (val > 0)
+					count++;
+			}
+		}
+	} else {
+		/* If not a monster summon, it's simple */
+		for (i = 0; i < summon_max; i++)
+			count += summon_specific(player->py, player->px, player->depth, type, 1);
 	}
+
+	/* Identify if some monsters arrive */
+	if (count)
+		context->ident = TRUE;
+
+	/* Message for the blind */
+	if (count && player->timed[TMD_BLIND])
+		msgt(msgtyp, "You hear %s appear nearby.", (count > 1 ?
+												  "many things" : "something"));
+
+	/* Summoner failed */
+	if (mon && !count)
+		msg("But nothing comes.");
+
 	return TRUE;
 }
 
 /**
  * Delete all non-unique monsters of a given "type" from the level
  */
-bool effect_handler_ATOMIC_BANISH(effect_handler_context_t *context)
+bool effect_handler_BANISH(effect_handler_context_t *context)
 {
 	int i;
 	unsigned dam = 0;
@@ -1674,7 +1982,7 @@ bool effect_handler_ATOMIC_BANISH(effect_handler_context_t *context)
  * Delete all nearby (non-unique) monsters.  The radius of effect is
  * context->p2 if passed, otherwise the player view radius.
  */
-bool effect_handler_ATOMIC_MASS_BANISH(effect_handler_context_t *context)
+bool effect_handler_MASS_BANISH(effect_handler_context_t *context)
 {
 	int i;
 	int radius = context->p2 ? context->p2 : MAX_SIGHT;
@@ -1714,7 +2022,7 @@ bool effect_handler_ATOMIC_MASS_BANISH(effect_handler_context_t *context)
 /*
  * Probe nearby monsters
  */
-bool effect_handler_ATOMIC_PROBE(effect_handler_context_t *context)
+bool effect_handler_PROBE(effect_handler_context_t *context)
 {
 	int i;
 
@@ -1763,31 +2071,44 @@ bool effect_handler_ATOMIC_PROBE(effect_handler_context_t *context)
 }
 
 /**
- * Teleport the player to a location up to context->value.base grids away.
+ * Teleport player or monster up to context->value.base grids away.
  *
- * If no such spaces are readily available, the distance may increase.
- * Try very hard to move the player at least a quarter that distance.
+ * If no spaces are readily available, the distance may increase.
+ * Try very hard to move the player/monster at least a quarter that distance.
+ * Setting context->p1 allows monsters to teleport the player away
  */
-bool effect_handler_ATOMIC_TELEPORT(effect_handler_context_t *context)
+bool effect_handler_TELEPORT(effect_handler_context_t *context)
 {
-	int py = player->py;
-	int px = player->px;
+	int y_start, x_start;
 	int dis = context->value.base;
 	int d, i, min, y, x;
+	int midx = cave->mon_current;
+	struct monster *mon;
 
 	bool look = TRUE;
+	bool is_player = (midx < 0 || context->p2);
 
 	context->ident = TRUE;
 
-	/* Check for a no teleport grid */
-	if (square_is_no_teleport(cave, py, px) && (dis > 10)) {
-		msg("Teleportation forbidden!");
-		return TRUE;
+	if (is_player) {
+		y_start = player->py;
+		x_start = player->px;
+
+		/* Check for a no teleport grid */
+		if (square_isno_teleport(cave, y_start, x_start) && (dis > 10)) {
+			msg("Teleportation forbidden!");
+			return TRUE;
+		}
+	} else {
+		mon = cave_monster(cave, midx);
+        if (!mon->race) return TRUE;
+        y_start = mon->fy;
+        x_start = mon->fx;
 	}
 
 	/* Initialize */
-	y = py;
-	x = px;
+	y = y_start;
+	x = x_start;
 
 	/* Minimum distance */
 	min = dis / 2;
@@ -1801,9 +2122,9 @@ bool effect_handler_ATOMIC_TELEPORT(effect_handler_context_t *context)
 		for (i = 0; i < 500; i++) {
 			/* Pick a (possibly illegal) location */
 			while (1) {
-				y = rand_spread(py, dis);
-				x = rand_spread(px, dis);
-				d = distance(py, px, y, x);
+				y = rand_spread(y_start, dis);
+				x = rand_spread(x_start, dis);
+				d = distance(y_start, x_start, y, x);
 				if ((d >= min) && (d <= dis)) break;
 			}
 
@@ -1815,6 +2136,9 @@ bool effect_handler_ATOMIC_TELEPORT(effect_handler_context_t *context)
 
 			/* No teleporting into vaults and such */
 			if (square_isvault(cave, y, x)) continue;
+
+			/* No monster teleport onto glyph of warding */
+			if (!is_player && square_iswarded(cave, y, x)) continue;
 
 			/* This grid looks good */
 			look = FALSE;
@@ -1831,10 +2155,10 @@ bool effect_handler_ATOMIC_TELEPORT(effect_handler_context_t *context)
 	}
 
 	/* Sound */
-	sound(MSG_TELEPORT);
+	sound(is_player ? MSG_TELEPORT : MSG_TPOTHER);
 
 	/* Move player */
-	monster_swap(py, px, y, x);
+	monster_swap(y_start, x_start, y, x);
 
 	/* Lots of updates after monster_swap */
 	handle_stuff(player->upkeep);
@@ -1848,21 +2172,32 @@ bool effect_handler_ATOMIC_TELEPORT(effect_handler_context_t *context)
  * This function is slightly obsessive about correctness.
  * This function allows teleporting into vaults (!)
  */
-bool effect_handler_ATOMIC_TELEPORT_TO(effect_handler_context_t *context)
+bool effect_handler_TELEPORT_TO(effect_handler_context_t *context)
 {
 	int py = player->py;
 	int px = player->px;
 
-	int ny = GRID_Y(context->p2);
-	int nx = GRID_X(context->p2);
-
+	s16b ny = py, nx = px;
 	int y, x, dis = 0, ctr = 0;
+	int midx = cave->mon_current;
+	struct monster *mon;
 
 	/* Initialize */
 	y = py;
 	x = px;
 
 	context->ident = TRUE;
+
+	/* Where are we going? */
+	if (midx > 0) {
+		mon = cave_monster(cave, midx);
+		if (!mon) return TRUE;
+		ny = mon->fy;
+		nx = mon->fx;
+	} else {
+		if ((context->dir == 5) && target_okay())
+			target_get(&nx, &ny);
+	}
 
 	/* Find a usable location */
 	while (1) {
@@ -1898,11 +2233,15 @@ bool effect_handler_ATOMIC_TELEPORT_TO(effect_handler_context_t *context)
 /**
  * Teleport the player one level up or down (random when legal)
  */
-bool effect_handler_ATOMIC_TELEPORT_LEVEL(effect_handler_context_t *context)
+bool effect_handler_TELEPORT_LEVEL(effect_handler_context_t *context)
 {
 	bool up = TRUE, down = TRUE;
 
 	context->ident = TRUE;
+
+	/* Resist hostile teleport */
+	if (cave->mon_current && player_resists(player, ELEM_NEXUS))
+		msg("You resist the effect!");
 
 	/* No going up with force_descend or in the town */
 	if (OPT(birth_force_descend) || !player->depth)
@@ -1943,14 +2282,14 @@ bool effect_handler_ATOMIC_TELEPORT_LEVEL(effect_handler_context_t *context)
 }
 
 /**
- * The spell of destruction
+ * The destruction effect
  *
- * This spell "deletes" monsters (instead of "killing" them).
+ * This effect "deletes" monsters (instead of killing them).
  *
  * This is always an effect centred on the player; it is similar to the
- * "earthquake" effect.
+ * earthquake effect.
  */
-bool effect_handler_ATOMIC_DESTRUCTION(effect_handler_context_t *context)
+bool effect_handler_DESTRUCTION(effect_handler_context_t *context)
 {
 	int y, x, k, r = context->p2;
 	int y1 = player->py;
@@ -2026,17 +2365,305 @@ bool effect_handler_ATOMIC_DESTRUCTION(effect_handler_context_t *context)
 }
 
 /**
- * This effect, the destruction effect, and the earthquake funtion should be
- * rationalised
+ * Induce an earthquake of the radius context->p2 centred on the instigator.
+ *
+ * This will turn some walls into floors and some floors into walls.
+ *
+ * The player will take damage and jump into a safe grid if possible,
+ * otherwise, he will tunnel through the rubble instantaneously.
+ *
+ * Monsters will take damage, and jump into a safe grid if possible,
+ * otherwise they will be buried in the rubble, disappearing from
+ * the level in the same way that they do when banished.
+ *
+ * Note that players and monsters (except eaters of walls and passers
+ * through walls) will never occupy the same grid as a wall (or door).
  */
-bool effect_handler_ATOMIC_EARTHQUAKE(effect_handler_context_t *context)
+bool effect_handler_EARTHQUAKE(effect_handler_context_t *context)
 {
-	earthquake(player->py, player->px, context->p2);
+	int py = player->py;
+	int px = player->px;
+	int r = context->p2;
+	int i, y, x, yy, xx, dy, dx, cy, cx;
+	int damage = 0;
+	int safe_grids = 0, safe_y = 0, safe_x = 0;
+
+	bool hurt = FALSE;
+	bool map[32][32];
+
 	context->ident = TRUE;
+
+	/* Determine the epicentre */
+	if (cave->mon_current > 0) {
+		cy = cave_monster(cave, cave->mon_current)->fy;
+		cx = cave_monster(cave, cave->mon_current)->fx;
+	} else {
+		cy = py;
+		cx = px;
+	}
+
+	/* No effect in town */
+	if (!player->depth) {
+		msg("The ground shakes for a moment.");
+		return TRUE;
+	}
+
+	/* Paranoia -- Enforce maximum range */
+	if (r > 12) r = 12;
+
+	/* Clear the "maximal blast" area */
+	for (y = 0; y < 32; y++)
+		for (x = 0; x < 32; x++)
+			map[y][x] = FALSE;
+
+	/* Check around the epicenter */
+	for (dy = -r; dy <= r; dy++) {
+		for (dx = -r; dx <= r; dx++) {
+			/* Extract the location */
+			yy = cy + dy;
+			xx = cx + dx;
+
+			/* Skip illegal grids */
+			if (!square_in_bounds_fully(cave, yy, xx)) continue;
+
+			/* Skip distant grids */
+			if (distance(cy, cx, yy, xx) > r) continue;
+
+			/* Lose room and vault */
+			sqinfo_off(cave->info[yy][xx], SQUARE_ROOM);
+			sqinfo_off(cave->info[yy][xx], SQUARE_VAULT);
+
+			/* Lose light and knowledge */
+			sqinfo_off(cave->info[yy][xx], SQUARE_GLOW);
+			sqinfo_off(cave->info[yy][xx], SQUARE_MARK);
+
+			/* Skip the epicenter */
+			if (!dx && !dy) continue;
+
+			/* Skip most grids */
+			if (randint0(100) < 85) continue;
+
+			/* Damage this grid */
+			map[16 + yy - cy][16 + xx - cx] = TRUE;
+
+			/* Hack -- Take note of player damage */
+			if ((yy == py) && (xx == px)) hurt = TRUE;
+		}
+	}
+
+	/* First, affect the player (if necessary) */
+	if (hurt) {
+		/* Check around the player */
+		for (i = 0; i < 8; i++) {
+			/* Get the location */
+			y = py + ddy_ddd[i];
+			x = px + ddx_ddd[i];
+
+			/* Skip non-empty grids */
+			if (!square_isempty(cave, y, x)) continue;
+
+			/* Important -- Skip "quake" grids */
+			if (map[16 + y - cy][16 + x - cx]) continue;
+
+			/* Count "safe" grids, apply the randomizer */
+			if ((++safe_grids > 1) && (randint0(safe_grids) != 0)) continue;
+
+			/* Save the safe location */
+			safe_y = y; safe_x = x;
+		}
+
+		/* Random message */
+		switch (randint1(3))
+		{
+			case 1:
+			{
+				msg("The cave ceiling collapses!");
+				break;
+			}
+			case 2:
+			{
+				msg("The cave floor twists in an unnatural way!");
+				break;
+			}
+			default:
+			{
+				msg("The cave quakes!");
+				msg("You are pummeled with debris!");
+				break;
+			}
+		}
+
+		/* Hurt the player a lot */
+		if (!safe_grids) {
+			/* Message and damage */
+			msg("You are severely crushed!");
+			damage = 300;
+		} else {
+			/* Destroy the grid, and push the player to (relative) safety */
+			switch (randint1(3)) {
+				case 1: {
+					msg("You nimbly dodge the blast!");
+					damage = 0;
+					break;
+				}
+				case 2: {
+					msg("You are bashed by rubble!");
+					damage = damroll(10, 4);
+					(void)player_inc_timed(player, TMD_STUN, randint1(50), TRUE, TRUE);
+					break;
+				}
+				case 3: {
+					msg("You are crushed between the floor and ceiling!");
+					damage = damroll(10, 4);
+					(void)player_inc_timed(player, TMD_STUN, randint1(50), TRUE, TRUE);
+					break;
+				}
+			}
+
+			/* Move player */
+			monster_swap(py, px, safe_y, safe_x);
+		}
+
+		/* Take some damage */
+		if (damage) take_hit(player, damage, "an earthquake");
+	}
+
+
+	/* Examine the quaked region */
+	for (dy = -r; dy <= r; dy++) {
+		for (dx = -r; dx <= r; dx++) {
+			/* Extract the location */
+			yy = cy + dy;
+			xx = cx + dx;
+
+			/* Skip unaffected grids */
+			if (!map[16 + yy - cy][16 + xx - cx]) continue;
+
+			/* Process monsters */
+			if (cave->m_idx[yy][xx] > 0) {
+				monster_type *m_ptr = square_monster(cave, yy, xx);
+
+				/* Most monsters cannot co-exist with rock */
+				if (!flags_test(m_ptr->race->flags, RF_SIZE, RF_KILL_WALL,
+								RF_PASS_WALL, FLAG_END)) {
+					char m_name[80];
+
+					/* Assume not safe */
+					safe_grids = 0;
+
+					/* Monster can move to escape the wall */
+					if (!rf_has(m_ptr->race->flags, RF_NEVER_MOVE)) {
+						/* Look for safety */
+						for (i = 0; i < 8; i++) {
+							/* Get the grid */
+							y = yy + ddy_ddd[i];
+							x = xx + ddx_ddd[i];
+
+							/* Skip non-empty grids */
+							if (!square_isempty(cave, y, x)) continue;
+
+							/* Hack -- no safety on glyph of warding */
+							if (square_iswarded(cave, y, x))
+								continue;
+
+							/* Important -- Skip quake grids */
+							if (map[16 + y - cy][16 + x - cx]) continue;
+
+							/* Count safe grids, apply the randomizer */
+							if ((++safe_grids > 1) &&
+								(randint0(safe_grids) != 0))
+								continue;
+
+							/* Save the safe grid */
+							safe_y = y;
+							safe_x = x;
+						}
+					}
+
+					/* Describe the monster */
+					monster_desc(m_name, sizeof(m_name), m_ptr, MDESC_STANDARD);
+
+					/* Scream in pain */
+					msg("%s wails out in pain!", m_name);
+
+					/* Take damage from the quake */
+					damage = (safe_grids ? damroll(4, 8) : (m_ptr->hp + 1));
+
+					/* Monster is certainly awake */
+					mon_clear_timed(m_ptr, MON_TMD_SLEEP,
+							MON_TMD_FLG_NOMESSAGE, FALSE);
+
+					/* If the quake finished the monster off, show message */
+					if (m_ptr->hp < damage && m_ptr->hp >= 0)
+						msg("%s is embedded in the rock!", m_name);
+
+					/* Apply damage directly */
+					m_ptr->hp -= damage;
+
+					/* Delete (not kill) "dead" monsters */
+					if (m_ptr->hp < 0) {
+						/* Delete the monster */
+						delete_monster(yy, xx);
+
+						/* No longer safe */
+						safe_grids = 0;
+					}
+
+					/* Escape from the rock */
+					if (safe_grids)
+						/* Move the monster */
+						monster_swap(yy, xx, safe_y, safe_x);
+				}
+			}
+		}
+	}
+
+	/* Player may have moved */
+	py = player->py;
+	px = player->px;
+
+	/* Important -- no wall on player */
+	map[16 + py - cy][16 + px - cx] = FALSE;
+
+
+	/* Examine the quaked region */
+	for (dy = -r; dy <= r; dy++) {
+		for (dx = -r; dx <= r; dx++) {
+			/* Extract the location */
+			yy = cy + dy;
+			xx = cx + dx;
+
+			/* Ignore invalid grids */
+			if (!square_in_bounds_fully(cave, yy, xx)) continue;
+
+			/* Note unaffected grids for light changes, etc. */
+			if (!map[16 + yy - cy][16 + xx - cx])
+				square_light_spot(cave, yy, xx);
+
+			/* Destroy location (if valid) */
+			else if (square_valid_bold(yy, xx)) {
+				delete_object(yy, xx);
+				square_earthquake(cave, yy, xx);
+			}
+		}
+	}
+
+	/* Fully update the visuals */
+	player->upkeep->update |= (PU_FORGET_VIEW | PU_UPDATE_VIEW | PU_MONSTERS);
+
+	/* Fully update the flow */
+	player->upkeep->update |= (PU_FORGET_FLOW | PU_UPDATE_FLOW);
+
+	/* Update the health bar */
+	player->upkeep->redraw |= (PR_HEALTH);
+
+	/* Window stuff */
+	player->upkeep->redraw |= (PR_MONLIST | PR_ITEMLIST);
+
 	return TRUE;
 }
 
-bool effect_handler_ATOMIC_ENLIGHTENMENT(effect_handler_context_t *context)
+bool effect_handler_ENLIGHTENMENT(effect_handler_context_t *context)
 {
 	bool full = context->value.base ? TRUE : FALSE;
 	if (full)
@@ -2050,12 +2677,12 @@ bool effect_handler_ATOMIC_ENLIGHTENMENT(effect_handler_context_t *context)
  * Call light around the player
  * Affect all monsters in the projection radius (context->p2)
  */
-bool effect_handler_ATOMIC_LIGHT_AREA(effect_handler_context_t *context)
+bool effect_handler_LIGHT_AREA(effect_handler_context_t *context)
 {
 	int py = player->py;
 	int px = player->px;
 	int dam = effect_calculate_value(context, FALSE);
-	int rad = context->p2 + context->p3 ? player->level / context->p3 : 0;
+	int rad = context->p2 + (context->p3 ? player->lev / context->p3 : 0);
 
 	int flg = PROJECT_GRID | PROJECT_KILL;
 
@@ -2079,7 +2706,7 @@ bool effect_handler_ATOMIC_LIGHT_AREA(effect_handler_context_t *context)
  * Call darkness around the player
  * Affect all monsters in the projection radius (context->p2)
  */
-bool effect_handler_ATOMIC_DARKEN_AREA(effect_handler_context_t *context)
+bool effect_handler_DARKEN_AREA(effect_handler_context_t *context)
 {
 	int py = player->py;
 	int px = player->px;
@@ -2105,31 +2732,42 @@ bool effect_handler_ATOMIC_DARKEN_AREA(effect_handler_context_t *context)
 
 /**
  * Cast a ball spell
- * Stop if we hit a monster, act as a ball
+ * Stop if we hit a monster or the player, act as a ball
  * Allow target mode to pass over monsters
  * Affect grids, objects, and monsters
  */
-bool effect_handler_ATOMIC_BALL(effect_handler_context_t *context)
+bool effect_handler_BALL(effect_handler_context_t *context)
 {
 	int py = player->py;
 	int px = player->px;
 	int dam = effect_calculate_value(context, TRUE);
-	int rad = context->p2 + context->p3 ? player->lev / context->p3 : 0;
+	int rad = context->p2 ? context->p2 : 2;
+	int source;
 
 	s16b ty = py + 99 * ddy[context->dir];
 	s16b tx = px + 99 * ddx[context->dir];
 
 	int flg = PROJECT_STOP | PROJECT_GRID | PROJECT_ITEM | PROJECT_KILL;
 
+	/* Player or monster? */
+	if (cave->mon_current > 0) {
+		struct monster *mon = cave_monster(cave, cave->mon_current);
+		source = cave->mon_current;
+		if (rf_has(mon->race->flags, RF_POWERFUL)) rad++;
+	} else {
+		if (context->p3) rad += player->lev / context->p3;
+		source = -1;
+	}
+
 	/* Ask for a target if no direction given */
-	if ((context->dir == 5) && target_okay()) {
+	if ((context->dir == 5) && target_okay() && source == -1) {
 		flg &= ~(PROJECT_STOP);
 
 		target_get(&tx, &ty);
 	}
 
 	/* Aim at the target, explode */
-	if (project(-1, rad, ty, tx, dam, context->p1, flg, 0, 0))
+	if (project(source, rad, ty, tx, dam, context->p1, flg, 0, 0))
 		context->ident = TRUE;
 
 	return TRUE;
@@ -2138,33 +2776,47 @@ bool effect_handler_ATOMIC_BALL(effect_handler_context_t *context)
 
 /**
  * Breathe an element
- * Stop if we hit a monster, act as a ball (for now)
+ * Stop if we hit a monster or the player, act as a ball (for now)
  * Allow target mode to pass over monsters
  * Affect grids, objects, and monsters
+ * context->p1 is element, context->p2 radius
  */
-bool effect_handler_ATOMIC_BREATH(effect_handler_context_t *context)
+bool effect_handler_BREATH(effect_handler_context_t *context)
 {
 	int py = player->py;
 	int px = player->px;
 	int dam = effect_calculate_value(context, TRUE);
 	int type = context->p1;
+	int rad = context->p2;
+	int source;
 
 	s16b ty = py + 99 * ddy[context->dir];
 	s16b tx = px + 99 * ddx[context->dir];
 
 	int flg = PROJECT_STOP | PROJECT_GRID | PROJECT_ITEM | PROJECT_KILL;
 
-	msgt(elements[type].msgt, "You breathe %s.", elements[type].desc);
+	/* Player or monster? */
+	if (cave->mon_current > 0) {
+		struct monster *mon = cave_monster(cave, cave->mon_current);
+		source = cave->mon_current;
+
+		/* Breath parameters for monsters are monster-dependent */
+		dam = breath_dam(type, mon->hp); 
+		if (rf_has(mon->race->flags, RF_POWERFUL)) rad++;
+	} else {
+		msgt(elements[type].msgt, "You breathe %s.", elements[type].desc);
+		source = -1;
+	}
 
 	/* Ask for a target if no direction given */
-	if ((context->dir == 5) && target_okay()) {
+	if ((context->dir == 5) && target_okay() && source == -1) {
 		flg &= ~(PROJECT_STOP);
 
 		target_get(&tx, &ty);
 	}
 
 	/* Aim at the target, explode */
-	if (project(-1, context->p2, ty, tx, dam, type, flg, 0, 0))
+	if (project(source, rad, ty, tx, dam, type, flg, 0, 0))
 		context->ident = TRUE;
 
 	return TRUE;
@@ -2177,7 +2829,7 @@ bool effect_handler_ATOMIC_BREATH(effect_handler_context_t *context)
  * Targets absolute coordinates instead of a specific monster, so that
  * the death of the monster doesn't change the target's location.
  */
-bool effect_handler_ATOMIC_SWARM(effect_handler_context_t *context)
+bool effect_handler_SWARM(effect_handler_context_t *context)
 {
 	int py = player->py;
 	int px = player->px;
@@ -2208,7 +2860,7 @@ bool effect_handler_ATOMIC_SWARM(effect_handler_context_t *context)
  * Stop if we hit a monster, act as a ball
  * Affect grids, objects, and monsters
  */
-bool effect_handler_ATOMIC_STAR(effect_handler_context_t *context)
+bool effect_handler_STAR(effect_handler_context_t *context)
 {
 	int py = player->py;
 	int px = player->px;
@@ -2237,7 +2889,7 @@ bool effect_handler_ATOMIC_STAR(effect_handler_context_t *context)
  * Stop if we hit a monster, act as a ball
  * Affect grids, objects, and monsters
  */
-bool effect_handler_ATOMIC_STAR_BALL(effect_handler_context_t *context)
+bool effect_handler_STAR_BALL(effect_handler_context_t *context)
 {
 	int py = player->py;
 	int px = player->px;
@@ -2261,50 +2913,11 @@ bool effect_handler_ATOMIC_STAR_BALL(effect_handler_context_t *context)
 }
 
 /**
- * Messy, will change if breaths do - NRM
- */
-bool effect_handler_ATOMIC_RAND_BREATH(effect_handler_context_t *context)
-{
-	int py = player->py;
-	int px = player->px;
-
-	s16b ty = py + 99 * ddy[context->dir];
-	s16b tx = px + 99 * ddx[context->dir];
-
-	int flg = PROJECT_STOP | PROJECT_GRID | PROJECT_ITEM | PROJECT_KILL;
-
-	/* Table of random ball effects and their damages */
-	const int breath_types[] = {
-		GF_ACID, 200,
-		GF_ELEC, 160,
-		GF_FIRE, 200,
-		GF_COLD, 160,
-		GF_POIS, 120
-	};
-
-	/* Pick a random (type, damage) tuple in the table */
-	int which = 2 * randint0(sizeof(breath_types) / (2 * sizeof(int)));
-
-	/* Ask for a target if no direction given */
-	if ((context->dir == 5) && target_okay()) {
-		flg &= ~(PROJECT_STOP);
-
-		target_get(&tx, &ty);
-	}
-
-	/* Aim at the target, explode */
-	(void) project(-1, breath_types[which], ty, tx, breath_types[which + 1], 3, flg, 0, 0);
-
-	context->ident = TRUE;
-	return TRUE;
-}
- 
-/**
  * Cast a bolt spell
  * Stop if we hit a monster, as a bolt
  * Affect monsters (not grids or objects)
  */
-bool effect_handler_ATOMIC_BOLT(effect_handler_context_t *context)
+bool effect_handler_BOLT(effect_handler_context_t *context)
 {
 	int dam = effect_calculate_value(context, TRUE);
 	int flg = PROJECT_STOP | PROJECT_KILL;
@@ -2318,7 +2931,7 @@ bool effect_handler_ATOMIC_BOLT(effect_handler_context_t *context)
  * Pass through monsters, as a beam
  * Affect monsters (not grids or objects)
  */
-bool effect_handler_ATOMIC_BEAM(effect_handler_context_t *context)
+bool effect_handler_BEAM(effect_handler_context_t *context)
 {
 	int dam = effect_calculate_value(context, TRUE);
 	int flg = PROJECT_BEAM | PROJECT_KILL;
@@ -2330,13 +2943,21 @@ bool effect_handler_ATOMIC_BEAM(effect_handler_context_t *context)
 /**
  * Cast a bolt spell, or rarely, a beam spell
  * context->p2 is any adjustment to the regular beam chance
+ * context->p3 being set means to divide by the adjustment instead of adding
  */
-bool effect_handler_ATOMIC_BOLT_OR_BEAM(effect_handler_context_t *context)
+bool effect_handler_BOLT_OR_BEAM(effect_handler_context_t *context)
 {
-	if (randint0(100) < context->beam + context->p2)
-		return effect_handler_ATOMIC_BEAM(context);
+	int beam = context->beam;
+
+	if (context->p3)
+		beam /= context->p2;
 	else
-		return effect_handler_ATOMIC_BOLT(context);
+		beam += context->p2;
+
+	if (randint0(100) < beam)
+		return effect_handler_BEAM(context);
+	else
+		return effect_handler_BOLT(context);
 }
 
 /**
@@ -2344,7 +2965,7 @@ bool effect_handler_ATOMIC_BOLT_OR_BEAM(effect_handler_context_t *context)
  * Pass through monsters, as a beam
  * Affect monsters and grids (not objects)
  */
-bool effect_handler_ATOMIC_LINE(effect_handler_context_t *context)
+bool effect_handler_LINE(effect_handler_context_t *context)
 {
 	int dam = effect_calculate_value(context, TRUE);
 	int flg = PROJECT_BEAM | PROJECT_GRID | PROJECT_KILL;
@@ -2357,7 +2978,7 @@ bool effect_handler_ATOMIC_LINE(effect_handler_context_t *context)
  * Cast an alter spell
  * Affect objects and grids (not monsters)
  */
-bool effect_handler_ATOMIC_ALTER(effect_handler_context_t *context)
+bool effect_handler_ALTER(effect_handler_context_t *context)
 {
 	int flg = PROJECT_BEAM | PROJECT_GRID | PROJECT_ITEM;
 	if (project_aimed(context->p1, context->dir, 0, flg))
@@ -2371,7 +2992,7 @@ bool effect_handler_ATOMIC_ALTER(effect_handler_context_t *context)
  * Affect monsters (not grids or objects)
  * Notice stuff based on awareness of the effect
  */
-bool effect_handler_ATOMIC_BOLT_AWARE(effect_handler_context_t *context)
+bool effect_handler_BOLT_AWARE(effect_handler_context_t *context)
 {
 	int dam = effect_calculate_value(context, TRUE);
 	int flg = PROJECT_STOP | PROJECT_KILL;
@@ -2384,7 +3005,7 @@ bool effect_handler_ATOMIC_BOLT_AWARE(effect_handler_context_t *context)
 /**
  * Affect adjacent grids (radius 1 ball attack)
  */
-bool effect_handler_ATOMIC_TOUCH(effect_handler_context_t *context)
+bool effect_handler_TOUCH(effect_handler_context_t *context)
 {
 	int dam = effect_calculate_value(context, TRUE);
 	if (project_touch(dam, context->p1, FALSE))
@@ -2396,7 +3017,7 @@ bool effect_handler_ATOMIC_TOUCH(effect_handler_context_t *context)
  * Affect adjacent grids (radius 1 ball attack)
  * Notice stuff based on awareness of the effect
  */
-bool effect_handler_ATOMIC_TOUCH_AWARE(effect_handler_context_t *context)
+bool effect_handler_TOUCH_AWARE(effect_handler_context_t *context)
 {
 	int dam = effect_calculate_value(context, TRUE);
 	if (project_touch(dam, context->p1, context->aware))
@@ -2407,7 +3028,7 @@ bool effect_handler_ATOMIC_TOUCH_AWARE(effect_handler_context_t *context)
 /**
  * Curse the player's armor
  */
-bool effect_handler_ATOMIC_CURSE_ARMOR(effect_handler_context_t *context)
+bool effect_handler_CURSE_ARMOR(effect_handler_context_t *context)
 {
 	object_type *o_ptr;
 
@@ -2458,7 +3079,7 @@ bool effect_handler_ATOMIC_CURSE_ARMOR(effect_handler_context_t *context)
 /**
  * Curse the player's weapon
  */
-bool effect_handler_ATOMIC_CURSE_WEAPON(effect_handler_context_t *context)
+bool effect_handler_CURSE_WEAPON(effect_handler_context_t *context)
 {
 	object_type *o_ptr;
 
@@ -2511,7 +3132,7 @@ bool effect_handler_ATOMIC_CURSE_WEAPON(effect_handler_context_t *context)
 /**
  * Brand the current weapon
  */
-bool effect_handler_ATOMIC_BRAND_WEAPON(effect_handler_context_t *context)
+bool effect_handler_BRAND_WEAPON(effect_handler_context_t *context)
 {
 	object_type *o_ptr = equipped_item_by_slot_name(player, "weapon");
 
@@ -2538,7 +3159,7 @@ static bool item_tester_hook_ammo(const object_type *o_ptr)
 /**
  * Brand some (non-magical) ammo
  */
-bool effect_handler_ATOMIC_BRAND_AMMO(effect_handler_context_t *context)
+bool effect_handler_BRAND_AMMO(effect_handler_context_t *context)
 {
 	int item;
 	object_type *o_ptr;
@@ -2571,7 +3192,7 @@ static bool item_tester_hook_bolt(const struct object *o)
 /**
  * Enchant some (non-magical) bolts
  */
-bool effect_handler_ATOMIC_BRAND_BOLTS(effect_handler_context_t *context)
+bool effect_handler_BRAND_BOLTS(effect_handler_context_t *context)
 {
 	int item;
 	object_type *o_ptr;
@@ -2595,13 +3216,89 @@ bool effect_handler_ATOMIC_BRAND_BOLTS(effect_handler_context_t *context)
 
 
 /**
- * Slack - NRM
+ * One Ring activation
  */
-bool effect_handler_ATOMIC_BIZARRE(effect_handler_context_t *context)
+bool effect_handler_BIZARRE(effect_handler_context_t *context)
 {
 	context->ident = TRUE;
-	ring_of_power(context->dir);
-	return TRUE;
+	/* Pick a random effect */
+	switch (randint1(10))
+	{
+		case 1:
+		case 2:
+		{
+			/* Message */
+			msg("You are surrounded by a malignant aura.");
+
+			/* Decrease all stats (permanently) */
+			player_stat_dec(player, STAT_STR, TRUE);
+			player_stat_dec(player, STAT_INT, TRUE);
+			player_stat_dec(player, STAT_WIS, TRUE);
+			player_stat_dec(player, STAT_DEX, TRUE);
+			player_stat_dec(player, STAT_CON, TRUE);
+
+			/* Lose some experience (permanently) */
+			player_exp_lose(player, player->exp / 4, TRUE);
+
+			return TRUE;
+		}
+
+		case 3:
+		{
+			struct effect *effect = mem_zalloc(sizeof(*effect));
+
+			/* Message */
+			msg("You are surrounded by a powerful aura.");
+
+			/* Dispel monsters */
+			effect_simple(EF_PROJECT_LOS, "1000", GF_DISP_ALL, 0, 0, NULL);
+
+			return TRUE;
+		}
+
+		case 4:
+		case 5:
+		case 6:
+		{
+			/* Mana Ball */
+			int flg = PROJECT_STOP | PROJECT_GRID | PROJECT_ITEM | PROJECT_KILL;
+			s16b ty = player->py + 99 * ddy[context->dir];
+			s16b tx = player->px + 99 * ddx[context->dir];
+
+			/* Ask for a target if no direction given */
+			if ((context->dir == 5) && target_okay()) {
+				flg &= ~(PROJECT_STOP);
+
+				target_get(&tx, &ty);
+			}
+
+			/* Aim at the target, explode */
+			if (project(-1, 3, ty, tx, 300, GF_MANA, flg, 0, 0))
+
+			return TRUE;
+		}
+
+		case 7:
+		case 8:
+		case 9:
+		case 10:
+		{
+			/* Mana Bolt */
+			int flg = PROJECT_STOP | PROJECT_KILL | PROJECT_THRU;
+			s16b ty = player->py + ddy[context->dir];
+			s16b tx = player->px + ddx[context->dir];
+
+			/* Use an actual target */
+			if ((context->dir == 5) && target_okay())
+				target_get(&tx, &ty);
+
+			/* Aim at the target, do NOT explode */
+			return (project(-1, 0, ty, tx, 250, GF_MANA, flg, 0, 0));
+
+			return TRUE;
+		}
+	}
+	return FALSE;
 }
 
 /**
@@ -2614,7 +3311,7 @@ bool effect_handler_ATOMIC_BIZARRE(effect_handler_context_t *context)
  * keeping the results quite random.  It also allows
  * some potent effects only at high level
  */
-bool effect_handler_ATOMIC_WONDER(effect_handler_context_t *context)
+bool effect_handler_WONDER(effect_handler_context_t *context)
 {
 	int plev = player->lev;
 	int die = effect_calculate_value(context, FALSE);
@@ -2631,96 +3328,96 @@ bool effect_handler_ATOMIC_WONDER(effect_handler_context_t *context)
 
 	if (die < 8) {
 		p1 = GF_OLD_CLONE;
-		handler = effect_handler_ATOMIC_BOLT;
+		handler = effect_handler_BOLT;
 	} else if (die < 14) {
 		p1 = GF_OLD_SPEED;
-		handler = effect_handler_ATOMIC_BOLT;
+		handler = effect_handler_BOLT;
 	} else if (die < 26) {
 		p1 = GF_OLD_HEAL;
-		handler = effect_handler_ATOMIC_BOLT;
+		handler = effect_handler_BOLT;
 	} else if (die < 31) {
 		p1 = GF_OLD_POLY;
-		handler = effect_handler_ATOMIC_BOLT;
+		handler = effect_handler_BOLT;
 	} else if (die < 36) {
 		beam -= 10;
 		p1 = GF_MISSILE;
 		value.dice = 3 + ((plev - 1) / 5);
 		value.sides = 4;
-		handler = effect_handler_ATOMIC_BOLT_OR_BEAM;
+		handler = effect_handler_BOLT_OR_BEAM;
 	} else if (die < 41) {
 		p1 = GF_OLD_CONF;
-		handler = effect_handler_ATOMIC_BOLT;
+		handler = effect_handler_BOLT;
 	} else if (die < 46) {
 		p1 = GF_POIS;
 		value.base = 20 + plev / 2;
 		p2 = 3;
-		handler = effect_handler_ATOMIC_BALL;
+		handler = effect_handler_BALL;
 	} else if (die < 51) {
 		p1 = GF_LIGHT_WEAK;
 		value.dice = 6;
 		value.sides = 8;
-		handler = effect_handler_ATOMIC_LINE;
+		handler = effect_handler_LINE;
 	} else if (die < 56) {
 		p1 = GF_ELEC;
 		value.dice = 3 + ((plev - 5) / 6);
 		value.sides = 6;
-		handler = effect_handler_ATOMIC_BEAM;
+		handler = effect_handler_BEAM;
 	} else if (die < 61) {
 		beam -= 10;
 		p1 = GF_COLD;
 		value.dice = 5 + ((plev - 5) / 4);
 		value.sides = 8;
-		handler = effect_handler_ATOMIC_BOLT_OR_BEAM;
+		handler = effect_handler_BOLT_OR_BEAM;
 	} else if (die < 66) {
 		p1 = GF_ACID;
 		value.dice = 6 + ((plev - 5) / 4);
 		value.sides = 8;
-		handler = effect_handler_ATOMIC_BOLT_OR_BEAM;
+		handler = effect_handler_BOLT_OR_BEAM;
 	} else if (die < 71) {
 		p1 = GF_FIRE;
 		value.dice = 8 + ((plev - 5) / 4);
 		value.sides = 8;
-		handler = effect_handler_ATOMIC_BOLT_OR_BEAM;
+		handler = effect_handler_BOLT_OR_BEAM;
 	} else if (die < 76) {
 		p1 = GF_OLD_DRAIN;
 		value.base = 75;
-		handler = effect_handler_ATOMIC_BOLT;
+		handler = effect_handler_BOLT;
 	} else if (die < 81) {
 		p1 = GF_ELEC;
 		value.base = 30 + plev / 2;
 		p2 = 2;
-		handler = effect_handler_ATOMIC_BALL;
+		handler = effect_handler_BALL;
 	} else if (die < 86) {
 		p1 = GF_ACID;
 		value.base = 40 + plev;
 		p2 = 2;
-		handler = effect_handler_ATOMIC_BALL;
+		handler = effect_handler_BALL;
 	} else if (die < 91) {
 		p1 = GF_ICE;
 		value.base = 70 + plev;
 		p2 = 3;
-		handler = effect_handler_ATOMIC_BALL;
+		handler = effect_handler_BALL;
 	} else if (die < 96) {
 		p1 = GF_FIRE;
 		value.base = 80 + plev;
 		p2 = 3;
-		handler = effect_handler_ATOMIC_BALL;
+		handler = effect_handler_BALL;
 	} else if (die < 101) {
 		p1 = GF_OLD_DRAIN;
 		value.base = 100 + plev;
-		handler = effect_handler_ATOMIC_BOLT;
+		handler = effect_handler_BOLT;
 	} else if (die < 104) {
 		p2 = 12;
-		handler = effect_handler_ATOMIC_EARTHQUAKE;
+		handler = effect_handler_EARTHQUAKE;
 	} else if (die < 106) {
 		p2 = 15;
-		handler = effect_handler_ATOMIC_EARTHQUAKE;
+		handler = effect_handler_EARTHQUAKE;
 	} else if (die < 108) {
-		handler = effect_handler_ATOMIC_BANISH;
+		handler = effect_handler_BANISH;
 	} else if (die < 110) {
 		p1 = GF_DISP_ALL;
 		value.base = 120;
-		handler = effect_handler_ATOMIC_PROJECT_LOS;
+		handler = effect_handler_PROJECT_LOS;
 	}
 
 	if (handler != NULL) {
@@ -2735,144 +3432,19 @@ bool effect_handler_ATOMIC_WONDER(effect_handler_context_t *context)
 			ident
 		};
 
+		mem_free(ident);
 		return (handler(&new_context));
 	}
 
-	/* RARE - this is the only code that makes me regret how effects are done */
-	p1 = GF_DISP_ALL;
-	value.base = 150;
-	{
-		effect_handler_context_t new_context = {
-			context->effect,
-			context->aware,
-			context->dir,
-			beam,
-			context->boost,
-			value,
-			p1, p2, p3,
-			ident
-		};
-		(void) effect_handler_ATOMIC_PROJECT_LOS(&new_context);
-	}
-	p1 = GF_OLD_SLOW;
-	value.base = 0;
-	{
-		effect_handler_context_t new_context = {
-			context->effect,
-			context->aware,
-			context->dir,
-			beam,
-			context->boost,
-			value,
-			p1, p2, p3,
-			ident
-		};
-		(void) effect_handler_ATOMIC_PROJECT_LOS(&new_context);
-	}
-	p1 = GF_OLD_SLEEP;
-	{
-		effect_handler_context_t new_context = {
-			context->effect,
-			context->aware,
-			context->dir,
-			beam,
-			context->boost,
-			value,
-			p1, p2, p3,
-			ident
-		};
-		(void) effect_handler_ATOMIC_PROJECT_LOS(&new_context);
-	}
-	value.base = 300;
-	{
-		effect_handler_context_t new_context = {
-			context->effect,
-			context->aware,
-			context->dir,
-			beam,
-			context->boost,
-			value,
-			p1, p2, p3,
-			ident
-		};
-		(void) effect_handler_ATOMIC_HEAL_HP(&new_context);
-	}
+	/* RARE */
+	effect_simple(EF_PROJECT_LOS, "150", GF_DISP_ALL, 0, 0, ident);
+	effect_simple(EF_PROJECT_LOS, "0", GF_OLD_SLOW, 0, 0, ident);
+	effect_simple(EF_PROJECT_LOS, "0", GF_OLD_SLEEP, 0, 0, ident);
+	effect_simple(EF_HEAL_HP, "300", 0, 0, 0, ident);
 	mem_free(ident);
 
 	return TRUE;
 }
-
-/*
- * The "wonder" effect.
- *
- * Returns TRUE if the effect is evident.
- */
-bool effect_wonder(int dir, int die, int beam)
-{
-/* This spell should become more useful (more
-   controlled) as the player gains experience levels.
-   Thus, add 1/5 of the player's level to the die roll.
-   This eliminates the worst effects later on, while
-   keeping the results quite random.  It also allows
-   some potent effects only at high level. */
-
-	bool visible = FALSE;
-	int py = player->py;
-	int px = player->px;
-	int plev = player->lev;
-
-	if (die > 100)
-	{
-		/* above 100 the effect is always visible */
-		msg("You feel a surge of power!");
-		visible = TRUE;
-	}
-
-	if (die < 8) visible = clone_monster(dir);
-	else if (die < 14) visible = speed_monster(dir);
-	else if (die < 26) visible = heal_monster(dir);
-	else if (die < 31) visible = poly_monster(dir);
-	else if (die < 36)
-		visible = fire_bolt_or_beam(beam - 10, GF_MISSILE, dir,
-		                            damroll(3 + ((plev - 1) / 5), 4));
-	else if (die < 41) visible = confuse_monster(dir, plev, FALSE);
-	else if (die < 46) visible = fire_ball(GF_POIS, dir, 20 + (plev / 2), 3);
-	else if (die < 51) visible = light_line(dir);
-	else if (die < 56)
-		visible = fire_beam(GF_ELEC, dir, damroll(3+((plev-5)/6), 6));
-	else if (die < 61)
-		visible = fire_bolt_or_beam(beam-10, GF_COLD, dir,
-		                            damroll(5+((plev-5)/4), 8));
-	else if (die < 66)
-		visible = fire_bolt_or_beam(beam, GF_ACID, dir,
-		                            damroll(6+((plev-5)/4), 8));
-	else if (die < 71)
-		visible = fire_bolt_or_beam(beam, GF_FIRE, dir,
-		                            damroll(8+((plev-5)/4), 8));
-	else if (die < 76) visible = drain_life(dir, 75);
-	else if (die < 81) visible = fire_ball(GF_ELEC, dir, 30 + plev / 2, 2);
-	else if (die < 86) visible = fire_ball(GF_ACID, dir, 40 + plev, 2);
-	else if (die < 91) visible = fire_ball(GF_ICE, dir, 70 + plev, 3);
-	else if (die < 96) visible = fire_ball(GF_FIRE, dir, 80 + plev, 3);
-	/* above 100 'visible' is already true */
-	else if (die < 101) drain_life(dir, 100 + plev);
-	else if (die < 104) earthquake(py, px, 12);
-	else if (die < 106) destroy_area(py, px, 15, TRUE);
-	else if (die < 108) banishment();
-	else if (die < 110) dispel_monsters(120);
-	else /* RARE */
-	{
-		dispel_monsters(150);
-		slow_monsters();
-		sleep_monsters(TRUE);
-		hp_player(300);
-	}
-
-	return visible;
-}
-
-
-
 
 
 bool effect_handler_TRAP_DOOR(effect_handler_context_t *context)
@@ -2881,7 +3453,8 @@ bool effect_handler_TRAP_DOOR(effect_handler_context_t *context)
 	if (player_of_has(player, OF_FEATHER)) {
 		msg("You float gently down to the next level.");
 	} else {
-		take_hit(player, damroll(2, 8), "a trap");
+		int dam = effect_calculate_value(context, FALSE);
+		take_hit(player, dam, "a trap");
 	}
 	wieldeds_notice_flag(player, OF_FEATHER);
 
@@ -2895,7 +3468,8 @@ bool effect_handler_TRAP_PIT(effect_handler_context_t *context)
 	if (player_of_has(player, OF_FEATHER)) {
 		msg("You float gently to the bottom of the pit.");
 	} else {
-		take_hit(player, damroll(2, 6), "a trap");
+		int dam = effect_calculate_value(context, FALSE);
+		take_hit(player, dam, "a trap");
 	}
 	wieldeds_notice_flag(player, OF_FEATHER);
 	return TRUE;
@@ -2909,7 +3483,7 @@ bool effect_handler_TRAP_PIT_SPIKES(effect_handler_context_t *context)
 		msg("You float gently to the floor of the pit.");
 		msg("You carefully avoid touching the spikes.");
 	} else {
-		int dam = damroll(2, 6);
+		int dam = effect_calculate_value(context, FALSE);
 
 		/* Extra spike damage */
 		if (one_in_(2)) {
@@ -2932,7 +3506,7 @@ bool effect_handler_TRAP_PIT_POISON(effect_handler_context_t *context)
 		msg("You float gently to the floor of the pit.");
 		msg("You carefully avoid touching the spikes.");
 	} else {
-		int dam = damroll(2, 6);
+		int dam = effect_calculate_value(context, FALSE);
 
 		/* Extra spike damage */
 		if (one_in_(2)) {
@@ -2950,7 +3524,7 @@ bool effect_handler_TRAP_PIT_POISON(effect_handler_context_t *context)
 bool effect_handler_TRAP_RUNE_SUMMON(effect_handler_context_t *context)
 {
 	int i;
-	int num = 2 + randint1(3);
+	int num = effect_calculate_value(context, FALSE);
 
 	msgt(MSG_SUM_MONSTER, "You are enveloped in a cloud of smoke!");
 
@@ -2966,14 +3540,15 @@ bool effect_handler_TRAP_RUNE_SUMMON(effect_handler_context_t *context)
 
 bool effect_handler_TRAP_RUNE_TELEPORT(effect_handler_context_t *context)
 {
+	int radius = effect_calculate_value(context, FALSE);
 	msg("You hit a teleport trap!");
-	teleport_player(100);
+	teleport_player(radius);
 	return TRUE;
 }
 
 bool effect_handler_TRAP_SPOT_FIRE(effect_handler_context_t *context)
 {
-	int dam = damroll(4, 6);
+	int dam = effect_calculate_value(context, FALSE);
 	msg("You are enveloped in flames!");
 	dam = adjust_dam(GF_FIRE, dam, RANDOMISE, 0);
 	if (dam) {
@@ -2985,7 +3560,7 @@ bool effect_handler_TRAP_SPOT_FIRE(effect_handler_context_t *context)
 
 bool effect_handler_TRAP_SPOT_ACID(effect_handler_context_t *context)
 {
-	int dam = damroll(4, 6);
+	int dam = effect_calculate_value(context, FALSE);
 	msg("You are splashed with acid!");
 	dam = adjust_dam(GF_ACID, dam, RANDOMISE, 0);
 	if (dam) {
@@ -3075,17 +3650,24 @@ bool effect_handler_TRAP_GAS_SLEEP(effect_handler_context_t *context)
 /**
  * Useful things about effects.
  */
-static const struct effect_kind atomic_effects[] =
+static const struct effect_kind effects[] =
 {
-	{ AEF_ATOMIC_NONE, FALSE, NULL, NULL },
+	{ EF_NONE, FALSE, NULL, NULL, NULL },
 	#define F(x) effect_handler_##x
-	#define EFFECT(x, a, d)    { AEF_##x, a, F(x), d },
-	#include "list-atomic-effects.h"
+	#define EFFECT(x, a, b, d)    { EF_##x, a, b, F(x), d },
+	#include "list-effects.h"
 	#undef EFFECT
 	#undef F
-	{ AEF_ATOMIC_MAX, FALSE, NULL, NULL }
+	{ EF_MAX, FALSE, NULL, NULL, NULL }
 };
 
+
+static const char *effect_names[] = {
+	NULL,
+	#define EFFECT(x, a, b, d)	#x,
+	#include "list-effects.h"
+	#undef EFFECT
+};
 
 /*
  * Utility functions
@@ -3110,7 +3692,7 @@ void free_effect(struct effect *source)
 bool effect_valid(struct effect *effect)
 {
 	if (!effect) return FALSE;
-	return effect->index > AEF_ATOMIC_NONE && effect->index < AEF_ATOMIC_MAX;
+	return effect->index > EF_NONE && effect->index < EF_MAX;
 }
 
 bool effect_aim(struct effect *effect)
@@ -3121,11 +3703,19 @@ bool effect_aim(struct effect *effect)
 		return FALSE;
 
 	while (e) {
-		if (atomic_effects[e->index].aim) return TRUE;
+		if (effects[e->index].aim) return TRUE;
 		e = e->next;
 	}
 
 	return FALSE;
+}
+
+const char *effect_info(struct effect *effect)
+{
+	if (!effect_valid(effect))
+		return NULL;
+
+	return effects[effect->index].info;
 }
 
 const char *effect_desc(struct effect *effect)
@@ -3133,19 +3723,14 @@ const char *effect_desc(struct effect *effect)
 	if (!effect_valid(effect))
 		return NULL;
 
-	return atomic_effects[effect->index].desc;
+	return effects[effect->index].desc;
 }
 
-atomic_effect_index atomic_effect_lookup(const char *name)
+effect_index effect_lookup(const char *name)
 {
-	static const char *effect_names[] = {
-		#define EFFECT(x, a, d)	#x,
-		#include "list-atomic-effects.h"
-		#undef EFFECT
-	};
-	int i;
+	size_t i;
 
-	for (i = 0; i < AEF_ATOMIC_MAX; i++) {
+	for (i = 0; i < N_ELEMENTS(effect_names); i++) {
 		const char *effect_name = effect_names[i];
 
 		/* Test for equality */
@@ -3153,7 +3738,38 @@ atomic_effect_index atomic_effect_lookup(const char *name)
 			return i;
 	}
 
-	return AEF_ATOMIC_MAX;
+	return EF_MAX;
+}
+
+int effect_param(const char *type)
+{
+	int val;
+
+	/* If not a numerical value, run through the possibilities */
+	if (sscanf(type, "%d", &val) != 1) {
+		val = gf_name_to_idx(type);
+		if (val < 0) {
+			val = timed_name_to_idx(type);
+			if (val < 0) {
+				val = stat_name_to_idx(type);
+				if (val < 0) { //Hack - NRM
+					if (streq(type, "TOHIT")) val = ENCH_TOHIT;
+					else if (streq(type, "TODAM")) val = ENCH_TODAM;
+					else if (streq(type, "TOAC")) val = ENCH_TOAC;
+					if (val < 0) { //Hack - this and the summon crap really need fixing NRM
+						if (streq(type, "MON_TMD_SLEEP")) val = MON_TMD_SLEEP;
+						else if (streq(type, "MON_TMD_STUN")) val = MON_TMD_STUN;
+						else if (streq(type, "MON_TMD_CONF")) val = MON_TMD_CONF;
+						else if (streq(type, "MON_TMD_FEAR")) val = MON_TMD_FEAR;
+						else if (streq(type, "MON_TMD_SLOW")) val = MON_TMD_SLOW;
+						else if (streq(type, "MON_TMD_FAST")) val = MON_TMD_FAST;
+					}
+				}
+			}
+		}
+	}
+
+	return val;
 }
 
 /*
@@ -3161,14 +3777,14 @@ atomic_effect_index atomic_effect_lookup(const char *name)
  * Boost is the extent to which skill surpasses difficulty, used as % boost. It
  * ranges from 0 to 138.
  */
-bool atomic_effect_do(struct effect *effect, bool *ident, bool aware, int dir, int beam, int boost)
+bool effect_do(struct effect *effect, bool *ident, bool aware, int dir, int beam, int boost)
 {
 	bool handled = FALSE;
 	effect_handler_f handler;
-	random_value value;
+	random_value value = { 0, 0, 0, 0 };
 
 	do {
-		int random_choices, leftover = 0;
+		int random_choices = 0, leftover = 0;
 
 		if (!effect_valid(effect)) {
 			msg("Bad effect passed to effect_do(). Please report this bug.");
@@ -3179,7 +3795,7 @@ bool atomic_effect_do(struct effect *effect, bool *ident, bool aware, int dir, i
 			random_choices = dice_roll(effect->dice, &value);
 
 		/* Deal with special random effect */
-		if (effect->index == AEF_ATOMIC_RANDOM) {
+		if (effect->index == EF_RANDOM) {
 			int choice = randint0(random_choices);
 			leftover = random_choices - choice;
 
@@ -3190,7 +3806,7 @@ bool atomic_effect_do(struct effect *effect, bool *ident, bool aware, int dir, i
 		}
 
 		/* Handle the effect */
-		handler = atomic_effects[effect->index].handler;
+		handler = effects[effect->index].handler;
 		if (handler != NULL) {
 			effect_handler_context_t context = {
 				effect->index,
@@ -3224,4 +3840,36 @@ bool atomic_effect_do(struct effect *effect, bool *ident, bool aware, int dir, i
 	} while (effect);
 
 	return handled;
+}
+
+/**
+ * Perform a single effect with a simple dice string and parameters
+ * Calling with ident a valid pointer will (depending on effect) give success
+ * information; ident = NULL will ignore this 
+ */
+void effect_simple(int index, const char* dice_string, int p1, int p2, int p3, bool *ident)
+{
+	struct effect *effect = mem_zalloc(sizeof(*effect));
+	int dir = DIR_TARGET;
+	bool dummy_ident;
+
+	/* Set all the values */
+	effect->index = index;
+	effect->dice = dice_new();
+	dice_parse_string(effect->dice, dice_string);
+	effect->params[0] = p1;
+	effect->params[1] = p2;
+	effect->params[2] = p3;
+
+	/* Direction if needed */
+	if (effect_aim(effect))
+		get_aim_dir(&dir);
+
+	/* Do the effect */
+	if (ident)
+		effect_do(effect, ident, TRUE, dir, 0, 0);
+	else
+		effect_do(effect, &dummy_ident, TRUE, dir, 0, 0);
+
+	free_effect(effect);
 }
