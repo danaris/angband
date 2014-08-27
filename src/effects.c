@@ -877,6 +877,8 @@ bool effect_handler_DETECT_TRAPS(effect_handler_context_t *context)
 	int y_dist = context->value.dice;
 	int x_dist = context->value.sides;
 
+	bool silent = (context->p2==1);
+
 	bool detect = FALSE;
 
 	object_type *o_ptr;
@@ -946,12 +948,14 @@ bool effect_handler_DETECT_TRAPS(effect_handler_context_t *context)
 	}
 
 	/* Describe */
-	if (detect)
-		msg("You sense the presence of traps!");
+	if (!silent) {
+		if (detect)
+			msg("You sense the presence of traps!");
 
-	/* Trap detection always makes you aware, even if no traps are present */
-	else
-		msg("You sense no traps.");
+		/* Trap detection always makes you aware, even if no traps are present */
+		else
+			msg("You sense no traps.");
+	}
 
 	/* Mark the redraw flag */
 	player->upkeep->redraw |= (PR_DTRAP);
@@ -972,6 +976,8 @@ bool effect_handler_DETECT_DOORS(effect_handler_context_t *context)
 	int x1, x2, y1, y2;
 	int y_dist = context->value.dice;
 	int x_dist = context->value.sides;
+
+	bool silent = (context->p2==1);
 
 	bool doors = FALSE;
 
@@ -1010,11 +1016,13 @@ bool effect_handler_DETECT_DOORS(effect_handler_context_t *context)
 		}
 	}
 
-	/* Describe */
-	if (doors)
-		msg("You sense the presence of doors!");
-	else if (context->aware)
-		msg("You sense no doors.");
+	if (!silent) {
+		/* Describe */
+		if (doors)
+			msg("You sense the presence of doors!");
+		else if (context->aware)
+			msg("You sense no doors.");
+	}
 
 	return TRUE;
 }

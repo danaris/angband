@@ -10,44 +10,99 @@
 #include "z-color.h" /* TERM_* */
 #include "z-util.h" /* my_strcpy */
 #include "mon-util.h" /* monster_desc */
+#include "ui-map.h" /* move_cursor_relative */
+#include "target.h"
 
 /*
  * The player other record (static)
  */
 static player_other player_other_body;
 
-void monmem_remove(struct player_upkeep *upkeep, struct monster *m_ptr) {
-	int i;
-	bool found = false;
+void monmen_collapse(struct player_upkeep *upkeep) {
+	int i, j;
+	struct monster *tmp1;
 	for (i=0; i<PY_MAX_MONMEM; i++) {
-		if (!found) {
-			continue;
-		}
-		if (upkeep->monster_memory[i] == m_ptr) {
-			found = true;
-		}
-		if (i+1 < PY_MAX_MONMEM) {
-			upkeep->monster_memory[i] = upkeep->monster_memory[i+1];
-		} else {
-			upkeep->monster_memory[i] = 0;
+		// Look for a hole
+		if (upkeep->monster_memory[i] == 0) {
+			tmp1 = 0;
+			// Once we've found one, look *after* the hole for something to fill it with
+			for (j=i+1; j<PY_MAX_MONMEM; j++) {
+				// If we find something, grab it, and leave a hole where it was
+				if (upkeep->monster_memory[j] != 0) {
+					tmp1 = upkeep->monster_memory[j];
+					upkeep->monster_memory[j] = 0;
+					break;
+				}
+			}
+			if (tmp1 != 0) {
+				// Then if we found something, put it in our original hole...
+				upkeep->monster_memory[i] = tmp1;
+			} else {
+				// ...and if we didn't, the rest of the array is empty.
+				break;
+			}
 		}
 	}
 }
-			
+
+void monmem_remove(struct player_upkeep *upkeep, struct monster *m_ptr) {
+	int i;
+	for (i=0; i<PY_MAX_MONMEM; i++) {
+		if (upkeep->monster_memory[i] == m_ptr) {
+			upkeep->monster_memory[i] = 0;
+			break;
+		}
+	}
+	monmen_collapse(upkeep);
+	fprintf(stderr, "Removed %d from monmem at position %d\n", m_ptr, i);
+}
 
 void monmem_push(struct player_upkeep *upkeep, struct monster *m_ptr) {
 	int i;
 	struct monster *tmp1, *tmp2;
-	tmp2 = m_ptr;
+	bool holes = false;
+	monmen_collapse(upkeep);
+	tmp1 = m_ptr;
 	for (i=0; i<PY_MAX_MONMEM; i++) {
-		if (upkeep->monster_memory[i] == m_ptr || upkeep->monster_memory[i] == 0) {
-			upkeep->monster_memory[i] = tmp2;
-			break;
+		if (upkeep->monster_memory[i] == m_ptr) {
+			tmp2 = 0;
+			holes = true;
+		} else {
+			tmp2 = upkeep->monster_memory[i];
 		}
-		tmp1 = upkeep->monster_memory[i];
-		upkeep->monster_memory[i] = tmp2;
-		tmp2 = tmp1;
+		upkeep->monster_memory[i] = tmp1;
+		tmp1 = tmp2;
 	}
+	if (holes) {
+		monmen_collapse(upkeep);
+	}
+		/*if (i==0) {
+			if (upkeep->monster_memory[i]!=0) {
+				tmp1 = upkeep->monster_memory[i];
+			}
+			upkeep->monster_memory[i] = m_ptr;
+			continue;
+		}
+		if (upkeep->monster_memory[i] != 0) {
+			if (upkeep->monster_memory[i] == m_ptr) {
+				if (i < PY_MAX_MONMEM-1) {
+					tmp2 = upkeep->monster_memory[i+1];
+				}
+				upkeep->monster_memory[i] = tmp1;
+				if (i < PY_MAX_MONMEM-1) {
+					i++;
+					tmp1 = tmp2;
+				} else {
+					break;
+				}
+			}
+			tmp2 = upkeep->monster_memory[i];
+		}
+		if (tmp1 != 0) {
+			upkeep->monster_memory[i] = tmp1;
+		}
+		tmp1 = tmp2;
+	}*/
 }
 
 void monmem_rotate(struct player_upkeep *upkeep) {
@@ -56,7 +111,7 @@ void monmem_rotate(struct player_upkeep *upkeep) {
 	struct monster *last = upkeep->monster_memory[PY_MAX_MONMEM-1];
 	int i = PY_MAX_MONMEM-1;
 	while (last == 0 && i>0) {
-		fprintf(stderr, "Looking for %d at position %d, where there's %d\n", last, i, upkeep->monster_memory[i]);
+		//fprintf(stderr, "Looking for %d at position %d, where there's %d\n", last, i, upkeep->monster_memory[i]);
 		i--;
 		last = upkeep->monster_memory[i];
 	}
@@ -64,14 +119,24 @@ void monmem_rotate(struct player_upkeep *upkeep) {
 		prt("You don't remember any monsters.", 0, 0);
 		return;
 	}
+	upkeep->monster_memory[i] = 0;
 	monmem_push(upkeep, last);
 	upkeep->health_who = last;
-	upkeep->redraw |= PR_HEALTH;
-	fprintf(stderr, "Remembering monster index %d, #%d in monmem array\n", last, i);
+	upkeep->redraw |= (PR_HEALTH | PR_MAP);
 	monster_desc(name, sizeof(name), last, MDESC_DEFAULT);
 	strnfmt(out_val, sizeof(out_val), "You remember %s.",
-						name);
+			name);
 	prt(out_val, 0, 0);
+	fprintf(stderr, "Remembering monster index %d, which is '%s'\n", last, name);
+	if (last->ml) {
+		s16b oldX, oldY;
+		target_get(&oldX, &oldY);
+		target_set_monster(last);
+		(void)Term_set_cursor(TRUE);
+		move_cursor_relative(last->fy, last->fx );
+		fprintf(stderr, "Monster location is (%d, %d)\n", last->fx, last->fy);
+		target_set_location(oldY, oldX);
+	}
 }
 	
 /*

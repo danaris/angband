@@ -52,6 +52,8 @@
 #include "ui-map.h"
 #include "ui.h"
 
+#include <math.h>
+
 /* The minimum amount of energy a player has at the start of a new level */
 #define INITIAL_DUNGEON_ENERGY 100
 
@@ -1037,8 +1039,14 @@ static void process_player(void)
 					!player->timed[TMD_STUN] &&
 					!player->timed[TMD_PARALYZED] &&
 					!player->timed[TMD_TERROR] &&
-					!player->timed[TMD_AFRAID])
-				detect_close_traps();
+					!player->timed[TMD_AFRAID]) {
+				int rad = (int)floor(player->lev/5);
+				char buf[7];
+				sprintf(buf,"%dd%d",rad,rad);
+				effect_simple(EF_DETECT_TRAPS, buf, 1, 1, 0, NULL);
+				effect_simple(EF_DETECT_DOORS, buf, 1, 1, 0, NULL);
+			}
+				
 		}
 
 		/* Paralyzed or Knocked Out */
