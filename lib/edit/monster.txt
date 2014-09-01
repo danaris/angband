@@ -2452,7 +2452,7 @@ F:DROP_1
 F:OPEN_DOOR
 F:FORCE_SLEEP
 S:1_IN_3
-S:BLIND | BLINK | CONF | DARKNESS | HASTE | HOLD
+S:BLIND | BLINK | CONF | DARKNESS | HASTE | ENTANGLE
 S:SLOW | TPORT
 drop:magic book:[Conjurings and Tricks]:8:1:1
 drop:magic book:[Incantations and Illusions]:8:1:1
@@ -2474,7 +2474,7 @@ F:DROP_1
 F:OPEN_DOOR
 F:FORCE_SLEEP
 S:1_IN_3
-S:BLIND | BLINK | HASTE | HOLD | SLOW
+S:BLIND | BLINK | HASTE | ENTANGLE | SLOW
 S:BO_ELEC | BO_FIRE
 S:S_ANIMAL
 drop:prayer book:[Beginners Handbook]:8:1:1
@@ -2576,6 +2576,8 @@ W:14:2:0:40
 B:BITE:HURT:1d8
 F:EVIL | GROUP_AI
 F:RAND_25 | BASH_DOOR
+S:1_IN_8
+S:ENTANGLE
 friends:100:2d7:Same
 D:It is a large wolf with eyes full of cunning.
 
@@ -4341,7 +4343,7 @@ B:HIT:HURT:3d8
 F:DROP_1
 F:FORCE_SLEEP
 S:1_IN_4
-S:HEAL | HOLD | TRAPS
+S:HEAL | ENTANGLE | TRAPS
 S:BA_COLD
 S:S_MONSTER
 drop:magic book:[Incantations and Illusions]:5:1:1
@@ -5191,7 +5193,7 @@ F:DROP_40
 F:OPEN_DOOR | BASH_DOOR
 F:FORCE_SLEEP
 S:1_IN_8
-S:CAUSE_2 | DARKNESS | HOLD | SCARE
+S:CAUSE_2 | DARKNESS | ENTANGLE | SCARE
 friends:100:4d4:Same
 D:It is a ghostly nightmare of an entity.
 
@@ -5833,7 +5835,7 @@ F:EVIL | COLD_BLOOD
 F:NEVER_MOVE
 F:HURT_ROCK | HURT_LIGHT | IM_COLD | IM_FIRE | IM_POIS
 S:1_IN_6
-S:CONF | DRAIN_MANA | HOLD | MIND_BLAST | SHRIEK
+S:CONF | DRAIN_MANA | ENTANGLE | MIND_BLAST | SHRIEK
 S:S_MONSTER | S_MONSTERS
 D:A figure carved from stone, with three vulture faces whose eyes glow with a
 D: malevolent light.
@@ -6041,7 +6043,7 @@ F:DROP_1 | ONLY_ITEM
 F:OPEN_DOOR
 F:FORCE_SLEEP
 S:1_IN_3
-S:BLIND | CAUSE_3 | HASTE | HOLD | SCARE | TELE_TO
+S:BLIND | CAUSE_3 | HASTE | HOLD | SCARE | TELE_TO | ENTANGLE
 S:TPORT
 S:BO_NETH
 S:S_UNDEAD

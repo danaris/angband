@@ -524,6 +524,21 @@ static void prt_speed(int row, int col)
 
 
 /*
+ * Prints the bonus move of a character.
+ */
+static void prt_bonus_move(int row, int col)
+{
+	int i = player->state.bonus_move;
+	char buf[32] = "";
+	
+	strnfmt(buf, sizeof(buf), "%+d Move", i);
+	
+	/* Display the speed */
+	c_put_str(TERM_BLUE, format("%-10s", buf), row, col);
+}
+
+
+/*
  * Prints depth in stat area
  */
 static void prt_depth(int row, int col)
@@ -588,6 +603,7 @@ static const struct side_handler_t
 	{ NULL,        20, 0 },
 	{ NULL,        22, 0 },
 	{ prt_speed,   13, EVENT_PLAYERSPEED }, /* Slow (-NN) / Fast (+NN) */
+	/*{ prt_bonus_move,   13, EVENT_PLAYERSPEED }, /* Slow (-NN) / Fast (+NN) */
 	{ prt_depth,   14, EVENT_DUNGEONLEVEL }, /* Lev NNN / NNNN ft */
 };
 
@@ -736,6 +752,7 @@ static const struct state_info effects[] =
 	{ TMD_OPP_POIS,  S("RPois"),      TERM_GREEN },
 	{ TMD_OPP_CONF,  S("RConf"),      TERM_VIOLET },
 	{ TMD_AMNESIA,   S("Amnesiac"),   TERM_ORANGE },
+	{ TMD_ENTANGLED, S("Entangled"),  TERM_ORANGE },
 };
 
 #define PRINT_STATE(sym, data, index, row, col) \

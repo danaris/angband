@@ -41,6 +41,6 @@ ELEM(TIME,		"time",				"something strange",0,	RV(0,0,0,0),	3,		150,	TERM_L_BLUE,
 ELEM(PLASMA,	"plasma",			"something",		0,	RV(0,0,0,0),	6,		150,	TERM_RED,			0,				NULL,			OH(PLASMA),		MH(PLASMA),			PH(PLASMA))
 ELEM(METEOR,	"a meteor",			"something",		0,	RV(0,0,0,0),	6,		0,		TERM_RED,			0,				NULL,			OH(METEOR),		NULL,				NULL)
 ELEM(MISSILE,	"a missile",		"something",		0,	RV(0,0,0,0),	6,		0,		TERM_VIOLET,		0,				NULL,			NULL,			NULL,				NULL)
-ELEM(MANA,		"mana",				"something",		0,	RV(0,0,0,0),	3,		1600,	TERM_L_DARK,		0,				NULL,			OH(MANA),		NULL,				NULL)
-ELEM(HOLY_ORB,	"a holy orb",		"something",		0,	RV(0,0,0,0),	6,		0,		TERM_L_DARK,		0,				NULL,			OH(HOLY_ORB),	MH(HOLY_ORB),		NULL)
+ELEM(MANA,		"mana",				"something",		0,	RV(0,0,0,0),	3,		1600,	TERM_L_BLUE,		0,				NULL,			OH(MANA),		NULL,				NULL)
+ELEM(HOLY_ORB,	"a holy orb",		"something",		0,	RV(0,0,0,0),	6,		0,		TERM_SHADE,			0,				NULL,			OH(HOLY_ORB),	MH(HOLY_ORB),		NULL)
 ELEM(ARROW,		"an arrow",			"something sharp",	0,	RV(0,0,0,0),	6,		0,		TERM_WHITE,			0,				NULL,			NULL,			NULL,				NULL)

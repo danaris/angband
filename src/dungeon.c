@@ -1040,11 +1040,13 @@ static void process_player(void)
 					!player->timed[TMD_PARALYZED] &&
 					!player->timed[TMD_TERROR] &&
 					!player->timed[TMD_AFRAID]) {
-				int rad = (int)floor(player->lev/5);
-				char buf[7];
-				sprintf(buf,"%dd%d",rad,rad);
-				effect_simple(EF_DETECT_TRAPS, buf, 1, 1, 0, NULL);
-				effect_simple(EF_DETECT_DOORS, buf, 1, 1, 0, NULL);
+				if (player->lev >= 5) {
+					int rad = (int)floor(player->lev/5);
+					char buf[7];
+					sprintf(buf,"%dd%d",rad,rad);
+					effect_simple(EF_DETECT_TRAPS, buf, 1, 1, 0, NULL);
+					effect_simple(EF_DETECT_DOORS, buf, 1, 1, 0, NULL);
+				}
 			}
 				
 		}
@@ -1118,10 +1120,29 @@ static void process_player(void)
 		if (player->upkeep->energy_use)
 		{
 			/* Use some energy */
-			player->energy -= player->upkeep->energy_use;
+			/* Apply energy use to bonus move first, if we have it, then to our actual energy *
+			if (player->state.bonus_move) {
+				if (player->state.bonus_move > player->upkeep->energy_use) {
+					player->state.bonus_move -= player->upkeep->energy_use;
+				} else {
+					player->energy -= (player->upkeep->energy_use - player->state.bonus_move);
+					player->state.bonus_move = 0;
+				}
+			} else {
+				player->energy -= player->upkeep->energy_use;
+			}*/
 
 			/* Increment the total energy counter */
 			player->total_energy += player->upkeep->energy_use;
+			
+			/* Hack -- If we have bonus move (single or double), apply it appropriately *
+			if (player->timed[TMD_BONUS_MOVE] || player->timed[TMD_BONUS_MOVE_2X]) {
+				player->state.bonus_move = extract_energy[player->state.speed];
+				if (player->timed[TMD_BONUS_MOVE_2X]) {
+					player->state.bonus_move += extract_energy[player->state.speed];
+				}
+				player->upkeep->update |= PU_BONUS;
+			}*/
 
 			/* Hack -- constant hallucination */
 			if (player->timed[TMD_IMAGE])
@@ -1497,6 +1518,13 @@ static void dungeon(struct chunk *c)
 
 		/* Give the player some energy */
 		player->energy += extract_energy[player->state.speed];
+		
+		/* If we have bonus move (single or double), apply it appropriately *
+		if (player->timed[TMD_BONUS_MOVE]) {
+			player->state.bonus_move = extract_energy[player->state.speed];
+		} else if (player->timed[TMD_BONUS_MOVE_2X]) {
+			player->state.bonus_move = 2*extract_energy[player->state.speed];
+		}*/
 
 		/* Give energy to all monsters */
 		for (i = cave_monster_max(cave) - 1; i >= 1; i--)

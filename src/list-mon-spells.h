@@ -18,6 +18,7 @@
  */
 /* 	name		type					desc				msgt			save	verb					blind_verb			lore_desc*/
 RSF(NONE,		0,						NULL,				0,				FALSE,	NULL,					NULL,				"")
+RSF(ENTANGLE,	RST_ANNOY,				"entwining vines",	0,				TRUE,	"conjures up",			"binds your legs",	"entangle")
 RSF(SHRIEK,		RST_ANNOY,				"shriek",			MSG_SHRIEK,		FALSE,	"makes a high-pitched",	"shrieks",			"shriek for help")
 RSF(ARROW_1,	RST_BOLT,				"arrow",			0,				FALSE,	"fires an",				"fires an arrow",	"fire an arrow")
 RSF(ARROW_2,	RST_BOLT,				"arrow",			0,				FALSE,	"fires an",				"fires an arrow",	"fire arrows")

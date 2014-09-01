@@ -269,6 +269,9 @@ bool make_attack_spell(struct monster *m_ptr)
 
 	/* Cannot cast spells when confused */
 	if (m_ptr->m_timed[MON_TMD_CONF]) return (FALSE);
+	
+	/* Cannot cast spells when blinded */
+	if (m_ptr->m_timed[MON_TMD_BLIND]) return (FALSE);
 
 	/* Cannot cast spells when nice */
 	if (m_ptr->mflag & MFLAG_NICE) return FALSE;
@@ -523,6 +526,11 @@ static bool get_moves_flow(struct chunk *c, struct monster *m_ptr, int *yp, int 
 
 	int py = player->py, px = player->px;
 	int my = m_ptr->fy, mx = m_ptr->fx;
+	
+	/* If the monster has been blinded, revert to scent (because sound is too strong!) */
+	if (m_ptr->m_timed[MON_TMD_BLIND]) {
+		return FALSE;
+	}
 
 	/* Only use this algorithm for passwall monsters if near permanent walls, to avoid getting snagged */
 	if (flags_test(m_ptr->race->flags, RF_SIZE, RF_PASS_WALL, RF_KILL_WALL, FLAG_END) &&
@@ -1303,12 +1311,17 @@ static int monster_critical(int dice, int sides, int dam)
 /*
  * Determine if a monster attack against the player succeeds.
  */
-bool check_hit(struct player *p, int power, int level)
+bool check_hit(struct player *p, int power, int level, bool blinded)
 {
 	int chance, ac;
 
 	/* Calculate the "attack quality" */
 	chance = (power + (level * 3));
+	
+	/* If the monster is blind, reduce chance to hit by 20% */
+	if (blinded) {
+		chance = chance * 4 / 5;
+	}
 
 	/* Total armor */
 	ac = p->state.ac + p->state.to_a;
@@ -1398,7 +1411,7 @@ static bool make_attack_normal(struct monster *m_ptr, struct player *p)
 		power = monster_blow_effect_power(effect);
 
 		/* Monster hits player */
-		if (!effect || check_hit(p, power, rlev)) {
+		if (!effect || check_hit(p, power, rlev, m_ptr->m_timed[MON_TMD_BLIND])) {
 			melee_effect_handler_f effect_handler;
 
 			/* Always disturbing */
@@ -1638,6 +1651,16 @@ static bool process_monster_timed(struct chunk *c, struct monster *m_ptr)
 		int d = randint1(m_ptr->race->level / 10 + 1);
 		mon_dec_timed(m_ptr, MON_TMD_FEAR, d, MON_TMD_FLG_NOTIFY, FALSE);
 	}
+	
+	if (m_ptr->m_timed[MON_TMD_ENTANGLED]) {
+		int d = randint1(m_ptr->race->level / 10 + 1);
+		mon_dec_timed(m_ptr, MON_TMD_ENTANGLED, d, MON_TMD_FLG_NOTIFY, FALSE);
+	}
+	
+	if (m_ptr->m_timed[MON_TMD_BLIND]) {
+		int d = randint1(m_ptr->race->level / 10 + 1);
+		mon_dec_timed(m_ptr, MON_TMD_BLIND, d, MON_TMD_FLG_NOTIFY, FALSE);
+	}
 
 	/* Don't do anything if stunned */
 	return m_ptr->m_timed[MON_TMD_STUN] ? TRUE : FALSE;
@@ -1728,6 +1751,10 @@ static bool process_monster_can_move(struct chunk *c, struct monster *m_ptr,
 		const char *m_name, int nx, int ny, bool *did_something)
 {
 	monster_lore *l_ptr = get_lore(m_ptr->race);
+	
+	if (m_ptr->m_timed[MON_TMD_ENTANGLED]) {
+		return FALSE;
+	}
 
 	/* Floor is open? */
 	if (square_ispassable(c, ny, nx))

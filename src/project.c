@@ -926,7 +926,7 @@ static void project_monster_timed_damage(project_monster_handler_context_t *cont
  */
 static void project_monster_timed_no_damage(project_monster_handler_context_t *context, int type)
 {
-	project_monster_timed_damage(context, type, 0, 0);
+	project_monster_timed_damage(context, type, context->dam, 0);
 	context->dam = 0;
 }
 
@@ -1272,6 +1272,18 @@ static void project_monster_handler_OLD_SLEEP(project_monster_handler_context_t 
 static void project_monster_handler_OLD_CONF(project_monster_handler_context_t *context)
 {
 	project_monster_timed_no_damage(context, MON_TMD_CONF);
+}
+
+/* Entangle (Use "dam" as "power") */
+static void project_monster_handler_ENTANGLE(project_monster_handler_context_t *context)
+{
+	project_monster_timed_no_damage(context, MON_TMD_ENTANGLED);
+}
+
+/* Blind (Use "dam" as "power") */
+static void project_monster_handler_BLIND(project_monster_handler_context_t *context)
+{
+	project_monster_timed_no_damage(context, MON_TMD_BLIND);
 }
 
 /* Light, but only hurts susceptible creatures */

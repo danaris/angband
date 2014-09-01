@@ -54,7 +54,7 @@ void monmem_remove(struct player_upkeep *upkeep, struct monster *m_ptr) {
 		}
 	}
 	monmen_collapse(upkeep);
-	fprintf(stderr, "Removed %d from monmem at position %d\n", m_ptr, i);
+	//fprintf(stderr, "Removed %d from monmem at position %d\n", m_ptr, i);
 }
 
 void monmem_push(struct player_upkeep *upkeep, struct monster *m_ptr) {
@@ -122,21 +122,21 @@ void monmem_rotate(struct player_upkeep *upkeep) {
 	upkeep->monster_memory[i] = 0;
 	monmem_push(upkeep, last);
 	upkeep->health_who = last;
-	upkeep->redraw |= (PR_HEALTH | PR_MAP);
+	upkeep->redraw |= PR_HEALTH;
 	monster_desc(name, sizeof(name), last, MDESC_DEFAULT);
 	strnfmt(out_val, sizeof(out_val), "You remember %s.",
 			name);
 	prt(out_val, 0, 0);
-	fprintf(stderr, "Remembering monster index %d, which is '%s'\n", last, name);
-	if (last->ml) {
-		s16b oldX, oldY;
-		target_get(&oldX, &oldY);
-		target_set_monster(last);
+	//fprintf(stderr, "Remembering monster index %d, which is '%s'\n", last, name);
+	/*if (last->ml) {
+		//s16b oldX, oldY;
+		//target_get(&oldX, &oldY);
+		//target_set_monster(last);
 		(void)Term_set_cursor(TRUE);
 		move_cursor_relative(last->fy, last->fx );
 		fprintf(stderr, "Monster location is (%d, %d)\n", last->fx, last->fy);
-		target_set_location(oldY, oldX);
-	}
+		//target_set_location(oldY, oldX);
+	}*/
 }
 	
 /*

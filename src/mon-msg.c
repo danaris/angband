@@ -85,6 +85,12 @@ static const char *msg_repository[MAX_MON_MSG + 1] =
 	"lose[s] some mana!",		/* MON_MSG_MANA_DRAIN */
 	"look[s] briefly puzzled.",	/* MON_MSG_BRIEF_PUZZLE */
 	"maintain[s] the same shape.", /* MON_MSG_MAINTAIN_SHAPE */
+	"[is|are] entangled.", /* MON_MSG_ENTANGLED */
+	"tear[s] free of the entanglement.", /* MON_MSG_NOT_ENTANGLED */
+	"[is|are] more entangled.", /* MON_MSG_MORE_ENTANGLED */
+	"stumble[s] blindly.", /* MON_MSG_BLIND */
+	"blink[s] [its|their] eyes and focus[es] on you.", /* MON_MSG_NOT_BLIND */
+	"stumble[s] more blindly.", /* MON_MSG_BLIND */
 
 	/* From message_pain */
 	"[is|are] unharmed.",		/* MON_MSG_UNHARMED  */

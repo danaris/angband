@@ -1410,3 +1410,10 @@ power:25
 effect:BREATH:MISSILE:2
 dice:300
 desc:allows you to breathe for 300 damage
+
+name:TANGLE_BALL
+aim:1
+power:10
+effect:BALL:ENTANGLE:4
+dice:20
+desc:entangles all monsters in a targeted area

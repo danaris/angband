@@ -1247,6 +1247,9 @@ static bool do_cmd_walk_test(int y, int x)
 		}
 
 		return (TRUE);
+	} else if (player->timed[TMD_ENTANGLED]) {
+		msgt(MSG_ENTANGLED, "You cannot move with your legs entangled!");
+		return (FALSE);
 	}
 
 	/* If we don't know the grid, allow attempts to walk into it */

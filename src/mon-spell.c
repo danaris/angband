@@ -91,7 +91,7 @@ void do_mon_spell(int index, struct monster *m_ptr, bool seen)
 	else if (spell->hit == 0)
 		hits = FALSE;
 	else
-		hits = check_hit(player, spell->hit, rlev);
+		hits = check_hit(player, spell->hit, rlev, m_ptr->m_timed[MON_TMD_BLIND]);
 
 	/* Tell the player what's going on */
 	disturb(player, 1);

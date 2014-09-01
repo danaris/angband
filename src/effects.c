@@ -885,9 +885,9 @@ bool effect_handler_DETECT_TRAPS(effect_handler_context_t *context)
 
 	/* Pick an area to detect */
 	y1 = player->py - y_dist;
-	y2 = player->py + y_dist;
+	y2 = player->py + y_dist + 1;
 	x1 = player->px - x_dist;
-	x2 = player->px + x_dist;
+	x2 = player->px + x_dist + 1;
 
 	if (y1 < 0) y1 = 0;
 	if (x1 < 0) x1 = 0;
@@ -2167,6 +2167,12 @@ bool effect_handler_TELEPORT(effect_handler_context_t *context)
 
 	/* Move player */
 	monster_swap(y_start, x_start, y, x);
+	
+	/* If the player was entangled, they got free by teleporting */
+	if (player->timed[TMD_ENTANGLED]) {
+		msg("Your legs are now free.");
+		player->timed[TMD_ENTANGLED] = FALSE;
+	}
 
 	/* Lots of updates after monster_swap */
 	handle_stuff(player->upkeep);
@@ -3771,6 +3777,7 @@ int effect_param(const char *type)
 						else if (streq(type, "MON_TMD_FEAR")) val = MON_TMD_FEAR;
 						else if (streq(type, "MON_TMD_SLOW")) val = MON_TMD_SLOW;
 						else if (streq(type, "MON_TMD_FAST")) val = MON_TMD_FAST;
+						else if (streq(type, "MON_TMD_ENTANGLED")) val = MON_TMD_ENTANGLED;
 					}
 				}
 			}

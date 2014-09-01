@@ -7,6 +7,59 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		0A17D38219AD545E0015456D /* obj-info.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A17D31D19AD53340015456D /* obj-info.c */; };
+		0A17D38319AD545E0015456D /* obj-list.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A17D31E19AD53340015456D /* obj-list.c */; };
+		0A17D38419AD545E0015456D /* obj-power.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A17D31F19AD53340015456D /* obj-power.c */; };
+		0A17D38519AD545E0015456D /* obj-randart.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A17D32019AD53340015456D /* obj-randart.c */; };
+		0A17D38619AD545E0015456D /* obj-util.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A17D32219AD53340015456D /* obj-util.c */; };
+		0A17D38719AD545E0015456D /* player-calcs.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A17D32419AD53340015456D /* player-calcs.c */; };
+		0A17D38819AD545E0015456D /* player-spell.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A17D32619AD53340015456D /* player-spell.c */; };
+		0A17D38919AD545E0015456D /* player-timed.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A17D32819AD53340015456D /* player-timed.c */; };
+		0A17D38A19AD545E0015456D /* player.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A17D32A19AD53340015456D /* player.c */; };
+		0A17D38B19AD545E0015456D /* project.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A17D32C19AD53340015456D /* project.c */; };
+		0A17D38C19AD545E0015456D /* ui-game.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A17D32E19AD53340015456D /* ui-game.c */; };
+		0A17D38D19AD545E0015456D /* ui-map.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A17D32F19AD53340015456D /* ui-map.c */; };
+		0A17D38E19AD545E0015456D /* z-dice.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A17D33119AD53340015456D /* z-dice.c */; };
+		0A17D38F19AD545E0015456D /* obj-make.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A17D33219AD53340015456D /* obj-make.c */; };
+		0A17D39019AD545E0015456D /* cmd-core.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A17D33419AD53340015456D /* cmd-core.c */; };
+		0A17D39219AD545E0015456D /* mon-blow-methods.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A17D34C19AD53340015456D /* mon-blow-methods.c */; };
+		0A17D39319AD545E0015456D /* mon-list.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A17D34F19AD53340015456D /* mon-list.c */; };
+		0A17D39419AD545E0015456D /* mon-msg.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A17D35319AD53340015456D /* mon-msg.c */; };
+		0A17D39519AD545E0015456D /* mon-power.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A17D35519AD53340015456D /* mon-power.c */; };
+		0A17D39619AD545E0015456D /* obj-chest.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A17D35919AD53340015456D /* obj-chest.c */; };
+		0A17D39719AD545E0015456D /* obj-desc.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A17D35B19AD53340015456D /* obj-desc.c */; };
+		0A17D39819AD545E0015456D /* obj-gear.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A17D35D19AD53340015456D /* obj-gear.c */; };
+		0A17D39919AD545E0015456D /* obj-identify.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A17D35F19AD53340015456D /* obj-identify.c */; };
+		0A17D39A19AD545E0015456D /* obj-ignore.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A17D36119AD53340015456D /* obj-ignore.c */; };
+		0A17D39B19AD545E0015456D /* obj-properties.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A17D36719AD53340015456D /* obj-properties.c */; };
+		0A17D39C19AD545E0015456D /* obj-slays.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A17D36919AD53340015456D /* obj-slays.c */; };
+		0A17D39D19AD545E0015456D /* obj-tval.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A17D36B19AD53340015456D /* obj-tval.c */; };
+		0A17D39E19AD545E0015456D /* obj-ui.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A17D36D19AD53340015456D /* obj-ui.c */; };
+		0A17D39F19AD545E0015456D /* player-class.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A17D37019AD53340015456D /* player-class.c */; };
+		0A17D3A019AD545E0015456D /* player-race.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A17D37119AD53340015456D /* player-race.c */; };
+		0A17D3A119AD545E0015456D /* player-util.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A17D37219AD53340015456D /* player-util.c */; };
+		0A17D3A219AD545E0015456D /* ui-input.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A17D37819AD53340015456D /* ui-input.c */; };
+		0A17D3A319AD545E0015456D /* ui-store.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A17D37B19AD53340015456D /* ui-store.c */; };
+		0A17D3A419AD545E0015456D /* z-color.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A17D37C19AD53340015456D /* z-color.c */; };
+		0A17D3A519AD545E0015456D /* z-expression.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A17D37F19AD53340015456D /* z-expression.c */; };
+		0A17D3A619AD546D0015456D /* spells.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A17D30919AD53340015456D /* spells.c */; };
+		0A17D3A719AD546D0015456D /* gen-cave.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A17D30A19AD53340015456D /* gen-cave.c */; };
+		0A17D3A819AD546D0015456D /* gen-chunk.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A17D30B19AD53340015456D /* gen-chunk.c */; };
+		0A17D3A919AD546D0015456D /* gen-monster.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A17D30C19AD53340015456D /* gen-monster.c */; };
+		0A17D3AA19AD546D0015456D /* gen-room.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A17D30D19AD53340015456D /* gen-room.c */; };
+		0A17D3AB19AD546D0015456D /* gen-util.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A17D30E19AD53340015456D /* gen-util.c */; };
+		0A17D3AC19AD546D0015456D /* mon-blow-effects.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A17D31219AD53340015456D /* mon-blow-effects.c */; };
+		0A17D3AD19AD546D0015456D /* mon-init.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A17D31319AD53340015456D /* mon-init.c */; };
+		0A17D3AE19AD546D0015456D /* mon-lore.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A17D31519AD53340015456D /* mon-lore.c */; };
+		0A17D3AF19AD546D0015456D /* mon-make.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A17D31619AD53340015456D /* mon-make.c */; };
+		0A17D3B019AD546D0015456D /* mon-melee2.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A17D31719AD53340015456D /* mon-melee2.c */; };
+		0A17D3B119AD546D0015456D /* mon-spell.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A17D31819AD53340015456D /* mon-spell.c */; };
+		0A17D3B219AD546D0015456D /* mon-timed.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A17D31A19AD53340015456D /* mon-timed.c */; };
+		0A17D3B319AD546D0015456D /* mon-util.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A17D31B19AD53340015456D /* mon-util.c */; };
+		0A17D3B819AD57870015456D /* activation.txt in Lib files: Edit */ = {isa = PBXBuildFile; fileRef = 0A17D3B419AD56360015456D /* activation.txt */; };
+		0A17D3B919AD57870015456D /* monster_spell.txt in Lib files: Edit */ = {isa = PBXBuildFile; fileRef = 0A17D3B519AD56360015456D /* monster_spell.txt */; };
+		0A17D3BA19AD57870015456D /* trap.txt in Lib files: Edit */ = {isa = PBXBuildFile; fileRef = 0A17D3B619AD56360015456D /* trap.txt */; };
+		0A17D3BB19AD57870015456D /* body.txt in Lib files: Edit */ = {isa = PBXBuildFile; fileRef = 0A17D3B719AD56360015456D /* body.txt */; };
 		0A97A71417D2A295008FF7CA /* init.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A97A71217D2A286008FF7CA /* init.c */; };
 		0A97A71517D2A295008FF7CA /* quest.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A97A71317D2A286008FF7CA /* quest.c */; };
 		0A97A71617D2A295008FF7CA /* cmd-cave.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A97A70E17D2A23C008FF7CA /* cmd-cave.c */; };
@@ -25,7 +78,6 @@
 		0AE77CEF1734815A000EF250 /* main-cocoa.m in Sources */ = {isa = PBXBuildFile; fileRef = 0A28679B172DCD4B004FD64D /* main-cocoa.m */; };
 		0AE77CF017348236000EF250 /* attack.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A28671C172DCD4A004FD64D /* attack.c */; };
 		0AE77CF117348236000EF250 /* birth.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A28671F172DCD4A004FD64D /* birth.c */; };
-		0AE77CF217348236000EF250 /* button.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A286743172DCD4B004FD64D /* button.c */; };
 		0AE77CF317348236000EF250 /* cave.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A286746172DCD4B004FD64D /* cave.c */; };
 		0AE77CF417348236000EF250 /* cmd-context.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A286749172DCD4B004FD64D /* cmd-context.c */; };
 		0AE77CF517348236000EF250 /* cmd-misc.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A28674B172DCD4B004FD64D /* cmd-misc.c */; };
@@ -35,7 +87,6 @@
 		0AE77CFE17348236000EF250 /* dungeon.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A286771172DCD4B004FD64D /* dungeon.c */; };
 		0AE77CFF17348236000EF250 /* effects.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A286774172DCD4B004FD64D /* effects.c */; };
 		0AE77D0017348236000EF250 /* files.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A286778172DCD4B004FD64D /* files.c */; };
-		0AE77D0117348236000EF250 /* game-cmd.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A28677B172DCD4B004FD64D /* game-cmd.c */; };
 		0AE77D0217348236000EF250 /* game-event.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A28677E172DCD4B004FD64D /* game-event.c */; };
 		0AE77D0317348236000EF250 /* generate.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A286782172DCD4B004FD64D /* generate.c */; };
 		0AE77D0417348236000EF250 /* grafmode.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A286785172DCD4B004FD64D /* grafmode.c */; };
@@ -43,47 +94,15 @@
 		0AE77D0617348236000EF250 /* history.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A28678D172DCD4B004FD64D /* history.c */; };
 		0AE77D0817348236000EF250 /* keymap.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A286793172DCD4B004FD64D /* keymap.c */; };
 		0AE77D0917348236000EF250 /* load.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A286799172DCD4B004FD64D /* load.c */; };
-		0AE77D0A17348236000EF250 /* melee1.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A2867B9172DCD4C004FD64D /* melee1.c */; };
-		0AE77D0B17348236000EF250 /* melee2.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A2867BB172DCD4C004FD64D /* melee2.c */; };
-		0AE77D0C17348236000EF250 /* mon-init.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A2867BD172DCD4C004FD64D /* mon-init.c */; };
-		0AE77D0D17348236000EF250 /* mon-lore.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A2867C0172DCD4C004FD64D /* mon-lore.c */; };
-		0AE77D0E17348236000EF250 /* mon-make.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A2867C3172DCD4C004FD64D /* mon-make.c */; };
-		0AE77D0F17348236000EF250 /* mon-msg.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A2867C6172DCD4C004FD64D /* mon-msg.c */; };
-		0AE77D1017348236000EF250 /* mon-power.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A2867C9172DCD4C004FD64D /* mon-power.c */; };
-		0AE77D1117348236000EF250 /* mon-spell.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A2867CC172DCD4C004FD64D /* mon-spell.c */; };
-		0AE77D1217348236000EF250 /* mon-timed.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A2867CF172DCD4C004FD64D /* mon-timed.c */; };
-		0AE77D1317348236000EF250 /* mon-util.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A2867D2172DCD4C004FD64D /* mon-util.c */; };
-		0AE77D1417348236000EF250 /* chest.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A2867E2172DCD4C004FD64D /* chest.c */; };
-		0AE77D1517348236000EF250 /* identify.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A2867E4172DCD4C004FD64D /* identify.c */; };
-		0AE77D1617348236000EF250 /* obj-desc.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A2867EA172DCD4C004FD64D /* obj-desc.c */; };
-		0AE77D1717348236000EF250 /* obj-flag.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A2867EC172DCD4C004FD64D /* obj-flag.c */; };
-		0AE77D1817348236000EF250 /* obj-info.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A2867EF172DCD4C004FD64D /* obj-info.c */; };
-		0AE77D1917348236000EF250 /* obj-make.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A2867F1172DCD4C004FD64D /* obj-make.c */; };
-		0AE77D1A17348236000EF250 /* obj-power.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A2867F3172DCD4C004FD64D /* obj-power.c */; };
-		0AE77D1B17348236000EF250 /* obj-ui.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A2867F5172DCD4C004FD64D /* obj-ui.c */; };
-		0AE77D1C17348236000EF250 /* obj-util.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A2867F7172DCD4C004FD64D /* obj-util.c */; };
-		0AE77D1D17348236000EF250 /* pval.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A2867FA172DCD4C004FD64D /* pval.c */; };
-		0AE77D1E17348236000EF250 /* randart.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A2867FD172DCD4C004FD64D /* randart.c */; };
-		0AE77D1F17348236000EF250 /* slays.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A2867FF172DCD4C004FD64D /* slays.c */; };
 		0AE77D20173482B6000EF250 /* option.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A286803172DCD4C004FD64D /* option.c */; };
 		0AE77D21173482B6000EF250 /* parser.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A286816172DCD4C004FD64D /* parser.c */; };
 		0AE77D22173482B6000EF250 /* pathfind.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A286819172DCD4C004FD64D /* pathfind.c */; };
-		0AE77D23173482B6000EF250 /* calcs.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A28681D172DCD4C004FD64D /* calcs.c */; };
-		0AE77D24173482B6000EF250 /* class.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A28681F172DCD4D004FD64D /* class.c */; };
-		0AE77D25173482B6000EF250 /* p-util.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A286822172DCD4D004FD64D /* p-util.c */; };
-		0AE77D26173482B6000EF250 /* player.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A286824172DCD4D004FD64D /* player.c */; };
-		0AE77D27173482B6000EF250 /* race.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A286827172DCD4D004FD64D /* race.c */; };
-		0AE77D28173482B6000EF250 /* spell.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A286829172DCD4D004FD64D /* spell.c */; };
-		0AE77D29173482B6000EF250 /* timed.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A28682B172DCD4D004FD64D /* timed.c */; };
 		0AE77D2A173482B6000EF250 /* prefs.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A28682E172DCD4D004FD64D /* prefs.c */; };
 		0AE77D2B173482B6000EF250 /* randname.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A286831172DCD4D004FD64D /* randname.c */; };
 		0AE77D2C173482B6000EF250 /* save.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A286834172DCD4D004FD64D /* save.c */; };
 		0AE77D2D173482B6000EF250 /* savefile.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A286836172DCD4D004FD64D /* savefile.c */; };
 		0AE77D2E173482B6000EF250 /* score.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A286839172DCD4D004FD64D /* score.c */; };
 		0AE77D2F173482B6000EF250 /* signals.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A28683B172DCD4D004FD64D /* signals.c */; };
-		0AE77D30173482B6000EF250 /* spells1.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A28683F172DCD4D004FD64D /* spells1.c */; };
-		0AE77D31173482B6000EF250 /* spells2.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A286841172DCD4D004FD64D /* spells2.c */; };
-		0AE77D32173482B6000EF250 /* squelch.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A286843172DCD4D004FD64D /* squelch.c */; };
 		0AE77D33173482B6000EF250 /* store.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A28684B172DCD4D004FD64D /* store.c */; };
 		0AE77D34173482B6000EF250 /* tables.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A28684E172DCD4D004FD64D /* tables.c */; };
 		0AE77D35173482B6000EF250 /* target.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A286850172DCD4D004FD64D /* target.c */; };
@@ -95,14 +114,9 @@
 		0AE77D3B173482B6000EF250 /* ui-options.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A2868A4172DCD4E004FD64D /* ui-options.c */; };
 		0AE77D3C173482B6000EF250 /* ui-spell.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A2868A6172DCD4E004FD64D /* ui-spell.c */; };
 		0AE77D3D173482B6000EF250 /* ui.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A2868A8172DCD4E004FD64D /* ui.c */; };
-		0AE77D3E173482B6000EF250 /* util.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A2868AB172DCD4E004FD64D /* util.c */; };
-		0AE77D3F173482B6000EF250 /* variable.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A2868AD172DCD4E004FD64D /* variable.c */; };
 		0AE77D40173482B6000EF250 /* wiz-spoil.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A2868C8172DCD4E004FD64D /* wiz-spoil.c */; };
 		0AE77D41173482B6000EF250 /* wiz-stats.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A2868CA172DCD4E004FD64D /* wiz-stats.c */; };
 		0AE77D42173482B6000EF250 /* wizard.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A2868CC172DCD4E004FD64D /* wizard.c */; };
-		0AE77D43173482B6000EF250 /* x-spell.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A2868CF172DCD4E004FD64D /* x-spell.c */; };
-		0AE77D44173482B6000EF250 /* xtra2.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A2868D1172DCD4E004FD64D /* xtra2.c */; };
-		0AE77D45173482B6000EF250 /* xtra3.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A2868D3172DCD4E004FD64D /* xtra3.c */; };
 		0AE77D4617348312000EF250 /* z-bitflag.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A2868D5172DCD4E004FD64D /* z-bitflag.c */; };
 		0AE77D4717348312000EF250 /* z-file.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A2868D9172DCD4E004FD64D /* z-file.c */; };
 		0AE77D4817348312000EF250 /* z-form.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A2868DC172DCD4E004FD64D /* z-form.c */; };
@@ -116,15 +130,6 @@
 		0AE77D5017348312000EF250 /* z-type.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A2868F4172DCD4F004FD64D /* z-type.c */; };
 		0AE77D5117348312000EF250 /* z-util.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A2868F7172DCD4F004FD64D /* z-util.c */; };
 		0AE77D5217348312000EF250 /* z-virt.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A2868FA172DCD4F004FD64D /* z-virt.c */; };
-		0AE77D531734833B000EF250 /* borg1.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A286724172DCD4A004FD64D /* borg1.c */; };
-		0AE77D541734833B000EF250 /* borg2.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A286727172DCD4A004FD64D /* borg2.c */; };
-		0AE77D551734833B000EF250 /* borg3.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A28672A172DCD4A004FD64D /* borg3.c */; };
-		0AE77D561734833B000EF250 /* borg4.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A28672D172DCD4A004FD64D /* borg4.c */; };
-		0AE77D571734833B000EF250 /* borg5.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A286730172DCD4A004FD64D /* borg5.c */; };
-		0AE77D581734833B000EF250 /* borg6.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A286733172DCD4A004FD64D /* borg6.c */; };
-		0AE77D591734833B000EF250 /* borg7.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A286736172DCD4A004FD64D /* borg7.c */; };
-		0AE77D5A1734833B000EF250 /* borg8.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A286739172DCD4A004FD64D /* borg8.c */; };
-		0AE77D5B1734833B000EF250 /* borg9.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A28673C172DCD4B004FD64D /* borg9.c */; };
 		0AE77D5D173486FA000EF250 /* buildid.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A286740172DCD4B004FD64D /* buildid.c */; };
 		0AE77ED517380A1B000EF250 /* scores.raw in Lib files: Apex */ = {isa = PBXBuildFile; fileRef = 0AE77ED417380A14000EF250 /* scores.raw */; };
 		0AE77ED717380A4A000EF250 /* artifact.txt in Lib files: Edit */ = {isa = PBXBuildFile; fileRef = 0AE77D6E173809AB000EF250 /* artifact.txt */; };
@@ -143,7 +148,6 @@
 		0AE77EE417380A4A000EF250 /* pain.txt in Lib files: Edit */ = {isa = PBXBuildFile; fileRef = 0AE77D7C173809AC000EF250 /* pain.txt */; };
 		0AE77EE517380A4A000EF250 /* pit.txt in Lib files: Edit */ = {isa = PBXBuildFile; fileRef = 0AE77D7D173809AC000EF250 /* pit.txt */; };
 		0AE77EE617380A4A000EF250 /* room_template.txt in Lib files: Edit */ = {isa = PBXBuildFile; fileRef = 0AE77D7E173809AC000EF250 /* room_template.txt */; };
-		0AE77EE817380A4A000EF250 /* spell.txt in Lib files: Edit */ = {isa = PBXBuildFile; fileRef = 0AE77D80173809AC000EF250 /* spell.txt */; };
 		0AE77EE917380A4A000EF250 /* store.txt in Lib files: Edit */ = {isa = PBXBuildFile; fileRef = 0AE77D81173809AC000EF250 /* store.txt */; };
 		0AE77EEA17380A4A000EF250 /* terrain.txt in Lib files: Edit */ = {isa = PBXBuildFile; fileRef = 0AE77D82173809AC000EF250 /* terrain.txt */; };
 		0AE77EEB17380A4A000EF250 /* vault.txt in Lib files: Edit */ = {isa = PBXBuildFile; fileRef = 0AE77D83173809AC000EF250 /* vault.txt */; };
@@ -178,7 +182,6 @@
 		0AE77F0C17380AC2000EF250 /* font-sdl.prf in Lib files: Pref */ = {isa = PBXBuildFile; fileRef = 0AE77DAD173809AC000EF250 /* font-sdl.prf */; };
 		0AE77F0D17380AC2000EF250 /* font-win.prf in Lib files: Pref */ = {isa = PBXBuildFile; fileRef = 0AE77DAE173809AC000EF250 /* font-win.prf */; };
 		0AE77F0E17380AC2000EF250 /* font-x11.prf in Lib files: Pref */ = {isa = PBXBuildFile; fileRef = 0AE77DAF173809AC000EF250 /* font-x11.prf */; };
-		0AE77F0F17380AC2000EF250 /* font-xxx.prf in Lib files: Pref */ = {isa = PBXBuildFile; fileRef = 0AE77DB0173809AC000EF250 /* font-xxx.prf */; };
 		0AE77F1017380AC2000EF250 /* font.prf in Lib files: Pref */ = {isa = PBXBuildFile; fileRef = 0AE77DB1173809AC000EF250 /* font.prf */; };
 		0AE77F1117380AC2000EF250 /* graf-dvg.prf in Lib files: Pref */ = {isa = PBXBuildFile; fileRef = 0AE77DB2173809AC000EF250 /* graf-dvg.prf */; };
 		0AE77F1217380AC2000EF250 /* graf-new.prf in Lib files: Pref */ = {isa = PBXBuildFile; fileRef = 0AE77DB3173809AC000EF250 /* graf-new.prf */; };
@@ -195,7 +198,6 @@
 		0AE77F1D17380AC2000EF250 /* xtra-shb.prf in Lib files: Pref */ = {isa = PBXBuildFile; fileRef = 0AE77DBF173809AC000EF250 /* xtra-shb.prf */; };
 		0AE77F1E17380AC2000EF250 /* xtra-xxx.prf in Lib files: Pref */ = {isa = PBXBuildFile; fileRef = 0AE77DC0173809AC000EF250 /* xtra-xxx.prf */; };
 		0AE77F2017380AE6000EF250 /* scores.raw in Lib files: Save */ = {isa = PBXBuildFile; fileRef = 0AE77ED417380A14000EF250 /* scores.raw */; };
-		0AE77F2217380AFC000EF250 /* borg.txt in Lib files: User */ = {isa = PBXBuildFile; fileRef = 0AE77DC7173809AC000EF250 /* borg.txt */; };
 		0AE77F2417380B0F000EF250 /* angband.glade in Lib files: Xtra-base */ = {isa = PBXBuildFile; fileRef = 0AE77DCB173809AC000EF250 /* angband.glade */; };
 		0AE77F2617380B30000EF250 /* 10x14x.fon in Lib files: Xtra/font */ = {isa = PBXBuildFile; fileRef = 0AE77DCE173809AC000EF250 /* 10x14x.fon */; };
 		0AE77F2717380B30000EF250 /* 10x14xb.fon in Lib files: Xtra/font */ = {isa = PBXBuildFile; fileRef = 0AE77DCF173809AC000EF250 /* 10x14xb.fon */; };
@@ -468,6 +470,10 @@
 			dstPath = lib/edit;
 			dstSubfolderSpec = 7;
 			files = (
+				0A17D3B819AD57870015456D /* activation.txt in Lib files: Edit */,
+				0A17D3B919AD57870015456D /* monster_spell.txt in Lib files: Edit */,
+				0A17D3BA19AD57870015456D /* trap.txt in Lib files: Edit */,
+				0A17D3BB19AD57870015456D /* body.txt in Lib files: Edit */,
 				0AE77ED717380A4A000EF250 /* artifact.txt in Lib files: Edit */,
 				0AE77ED817380A4A000EF250 /* ego_item.txt in Lib files: Edit */,
 				0AE77ED917380A4A000EF250 /* flavor.txt in Lib files: Edit */,
@@ -484,7 +490,6 @@
 				0AE77EE417380A4A000EF250 /* pain.txt in Lib files: Edit */,
 				0AE77EE517380A4A000EF250 /* pit.txt in Lib files: Edit */,
 				0AE77EE617380A4A000EF250 /* room_template.txt in Lib files: Edit */,
-				0AE77EE817380A4A000EF250 /* spell.txt in Lib files: Edit */,
 				0AE77EE917380A4A000EF250 /* store.txt in Lib files: Edit */,
 				0AE77EEA17380A4A000EF250 /* terrain.txt in Lib files: Edit */,
 				0AE77EEB17380A4A000EF250 /* vault.txt in Lib files: Edit */,
@@ -559,7 +564,6 @@
 				0AE77F0C17380AC2000EF250 /* font-sdl.prf in Lib files: Pref */,
 				0AE77F0D17380AC2000EF250 /* font-win.prf in Lib files: Pref */,
 				0AE77F0E17380AC2000EF250 /* font-x11.prf in Lib files: Pref */,
-				0AE77F0F17380AC2000EF250 /* font-xxx.prf in Lib files: Pref */,
 				0AE77F1017380AC2000EF250 /* font.prf in Lib files: Pref */,
 				0AE77F1117380AC2000EF250 /* graf-dvg.prf in Lib files: Pref */,
 				0AE77F1217380AC2000EF250 /* graf-new.prf in Lib files: Pref */,
@@ -596,7 +600,6 @@
 			dstPath = lib/user;
 			dstSubfolderSpec = 7;
 			files = (
-				0AE77F2217380AFC000EF250 /* borg.txt in Lib files: User */,
 			);
 			name = "Lib files: User";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -906,6 +909,131 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		0A17D30919AD53340015456D /* spells.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = spells.c; sourceTree = "<group>"; };
+		0A17D30A19AD53340015456D /* gen-cave.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "gen-cave.c"; sourceTree = "<group>"; };
+		0A17D30B19AD53340015456D /* gen-chunk.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "gen-chunk.c"; sourceTree = "<group>"; };
+		0A17D30C19AD53340015456D /* gen-monster.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "gen-monster.c"; sourceTree = "<group>"; };
+		0A17D30D19AD53340015456D /* gen-room.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "gen-room.c"; sourceTree = "<group>"; };
+		0A17D30E19AD53340015456D /* gen-util.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "gen-util.c"; sourceTree = "<group>"; };
+		0A17D30F19AD53340015456D /* list-blow-effects.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "list-blow-effects.h"; sourceTree = "<group>"; };
+		0A17D31019AD53340015456D /* list-elements.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "list-elements.h"; sourceTree = "<group>"; };
+		0A17D31119AD53340015456D /* list-mon-spells.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "list-mon-spells.h"; sourceTree = "<group>"; };
+		0A17D31219AD53340015456D /* mon-blow-effects.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "mon-blow-effects.c"; sourceTree = "<group>"; };
+		0A17D31319AD53340015456D /* mon-init.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "mon-init.c"; sourceTree = "<group>"; };
+		0A17D31419AD53340015456D /* mon-init.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "mon-init.h"; sourceTree = "<group>"; };
+		0A17D31519AD53340015456D /* mon-lore.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "mon-lore.c"; sourceTree = "<group>"; };
+		0A17D31619AD53340015456D /* mon-make.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "mon-make.c"; sourceTree = "<group>"; };
+		0A17D31719AD53340015456D /* mon-melee2.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "mon-melee2.c"; sourceTree = "<group>"; };
+		0A17D31819AD53340015456D /* mon-spell.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "mon-spell.c"; sourceTree = "<group>"; };
+		0A17D31919AD53340015456D /* mon-spell.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "mon-spell.h"; sourceTree = "<group>"; };
+		0A17D31A19AD53340015456D /* mon-timed.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "mon-timed.c"; sourceTree = "<group>"; };
+		0A17D31B19AD53340015456D /* mon-util.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "mon-util.c"; sourceTree = "<group>"; };
+		0A17D31C19AD53340015456D /* monster.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = monster.h; sourceTree = "<group>"; };
+		0A17D31D19AD53340015456D /* obj-info.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "obj-info.c"; sourceTree = "<group>"; };
+		0A17D31E19AD53340015456D /* obj-list.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "obj-list.c"; sourceTree = "<group>"; };
+		0A17D31F19AD53340015456D /* obj-power.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "obj-power.c"; sourceTree = "<group>"; };
+		0A17D32019AD53340015456D /* obj-randart.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "obj-randart.c"; sourceTree = "<group>"; };
+		0A17D32119AD53340015456D /* obj-randart.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "obj-randart.h"; sourceTree = "<group>"; };
+		0A17D32219AD53340015456D /* obj-util.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "obj-util.c"; sourceTree = "<group>"; };
+		0A17D32319AD53340015456D /* object.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = object.h; sourceTree = "<group>"; };
+		0A17D32419AD53340015456D /* player-calcs.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "player-calcs.c"; sourceTree = "<group>"; };
+		0A17D32519AD53340015456D /* player-calcs.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "player-calcs.h"; sourceTree = "<group>"; };
+		0A17D32619AD53340015456D /* player-spell.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "player-spell.c"; sourceTree = "<group>"; };
+		0A17D32719AD53340015456D /* player-spell.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "player-spell.h"; sourceTree = "<group>"; };
+		0A17D32819AD53340015456D /* player-timed.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "player-timed.c"; sourceTree = "<group>"; };
+		0A17D32919AD53340015456D /* player-timed.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "player-timed.h"; sourceTree = "<group>"; };
+		0A17D32A19AD53340015456D /* player.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = player.c; sourceTree = "<group>"; };
+		0A17D32B19AD53340015456D /* player.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = player.h; sourceTree = "<group>"; };
+		0A17D32C19AD53340015456D /* project.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = project.c; sourceTree = "<group>"; };
+		0A17D32D19AD53340015456D /* project.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = project.h; sourceTree = "<group>"; };
+		0A17D32E19AD53340015456D /* ui-game.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "ui-game.c"; sourceTree = "<group>"; };
+		0A17D32F19AD53340015456D /* ui-map.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "ui-map.c"; sourceTree = "<group>"; };
+		0A17D33019AD53340015456D /* ui-map.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "ui-map.h"; sourceTree = "<group>"; };
+		0A17D33119AD53340015456D /* z-dice.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "z-dice.c"; sourceTree = "<group>"; };
+		0A17D33219AD53340015456D /* obj-make.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "obj-make.c"; sourceTree = "<group>"; };
+		0A17D33319AD53340015456D /* main-cocoa.o */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.objfile"; path = "main-cocoa.o"; sourceTree = "<group>"; };
+		0A17D33419AD53340015456D /* cmd-core.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "cmd-core.c"; sourceTree = "<group>"; };
+		0A17D33519AD53340015456D /* cmd-core.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "cmd-core.h"; sourceTree = "<group>"; };
+		0A17D33619AD53340015456D /* get.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = get.c; sourceTree = "<group>"; };
+		0A17D33719AD53340015456D /* get.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = get.h; sourceTree = "<group>"; };
+		0A17D33819AD53340015456D /* hint.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = hint.h; sourceTree = "<group>"; };
+		0A17D33919AD53340015456D /* list-blow-methods.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "list-blow-methods.h"; sourceTree = "<group>"; };
+		0A17D33A19AD53340015456D /* list-equip-slots.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "list-equip-slots.h"; sourceTree = "<group>"; };
+		0A17D33B19AD53340015456D /* list-identify-flags.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "list-identify-flags.h"; sourceTree = "<group>"; };
+		0A17D33C19AD53340015456D /* list-ignore-types.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "list-ignore-types.h"; sourceTree = "<group>"; };
+		0A17D33D19AD53340015456D /* list-kind-flags.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "list-kind-flags.h"; sourceTree = "<group>"; };
+		0A17D33E19AD53340015456D /* list-mon-flags.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "list-mon-flags.h"; sourceTree = "<group>"; };
+		0A17D33F19AD53340015456D /* list-object-flags.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "list-object-flags.h"; sourceTree = "<group>"; };
+		0A17D34019AD53340015456D /* list-object-modifiers.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "list-object-modifiers.h"; sourceTree = "<group>"; };
+		0A17D34119AD53340015456D /* list-options.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "list-options.h"; sourceTree = "<group>"; };
+		0A17D34219AD53340015456D /* list-origins.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "list-origins.h"; sourceTree = "<group>"; };
+		0A17D34319AD53340015456D /* list-player-timed.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "list-player-timed.h"; sourceTree = "<group>"; };
+		0A17D34419AD53340015456D /* list-project-environs.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "list-project-environs.h"; sourceTree = "<group>"; };
+		0A17D34519AD53340015456D /* list-project-monsters.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "list-project-monsters.h"; sourceTree = "<group>"; };
+		0A17D34619AD53340015456D /* list-square-flags.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "list-square-flags.h"; sourceTree = "<group>"; };
+		0A17D34719AD53340015456D /* list-stats.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "list-stats.h"; sourceTree = "<group>"; };
+		0A17D34819AD53340015456D /* list-terrain-flags.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "list-terrain-flags.h"; sourceTree = "<group>"; };
+		0A17D34919AD53340015456D /* list-trap-flags.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "list-trap-flags.h"; sourceTree = "<group>"; };
+		0A17D34A19AD53340015456D /* list-tvals.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "list-tvals.h"; sourceTree = "<group>"; };
+		0A17D34B19AD53340015456D /* mon-blow-effects.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "mon-blow-effects.h"; sourceTree = "<group>"; };
+		0A17D34C19AD53340015456D /* mon-blow-methods.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "mon-blow-methods.c"; sourceTree = "<group>"; };
+		0A17D34D19AD53340015456D /* mon-blow-methods.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "mon-blow-methods.h"; sourceTree = "<group>"; };
+		0A17D34E19AD53340015456D /* mon-constants.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "mon-constants.h"; sourceTree = "<group>"; };
+		0A17D34F19AD53340015456D /* mon-list.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "mon-list.c"; sourceTree = "<group>"; };
+		0A17D35019AD53340015456D /* mon-list.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "mon-list.h"; sourceTree = "<group>"; };
+		0A17D35119AD53340015456D /* mon-lore.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "mon-lore.h"; sourceTree = "<group>"; };
+		0A17D35219AD53340015456D /* mon-make.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "mon-make.h"; sourceTree = "<group>"; };
+		0A17D35319AD53340015456D /* mon-msg.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "mon-msg.c"; sourceTree = "<group>"; };
+		0A17D35419AD53340015456D /* mon-msg.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "mon-msg.h"; sourceTree = "<group>"; };
+		0A17D35519AD53340015456D /* mon-power.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "mon-power.c"; sourceTree = "<group>"; };
+		0A17D35619AD53340015456D /* mon-power.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "mon-power.h"; sourceTree = "<group>"; };
+		0A17D35719AD53340015456D /* mon-timed.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "mon-timed.h"; sourceTree = "<group>"; };
+		0A17D35819AD53340015456D /* mon-util.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "mon-util.h"; sourceTree = "<group>"; };
+		0A17D35919AD53340015456D /* obj-chest.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "obj-chest.c"; sourceTree = "<group>"; };
+		0A17D35A19AD53340015456D /* obj-chest.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "obj-chest.h"; sourceTree = "<group>"; };
+		0A17D35B19AD53340015456D /* obj-desc.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "obj-desc.c"; sourceTree = "<group>"; };
+		0A17D35C19AD53340015456D /* obj-desc.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "obj-desc.h"; sourceTree = "<group>"; };
+		0A17D35D19AD53340015456D /* obj-gear.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "obj-gear.c"; sourceTree = "<group>"; };
+		0A17D35E19AD53340015456D /* obj-gear.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "obj-gear.h"; sourceTree = "<group>"; };
+		0A17D35F19AD53340015456D /* obj-identify.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "obj-identify.c"; sourceTree = "<group>"; };
+		0A17D36019AD53340015456D /* obj-identify.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "obj-identify.h"; sourceTree = "<group>"; };
+		0A17D36119AD53340015456D /* obj-ignore.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "obj-ignore.c"; sourceTree = "<group>"; };
+		0A17D36219AD53340015456D /* obj-ignore.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "obj-ignore.h"; sourceTree = "<group>"; };
+		0A17D36319AD53340015456D /* obj-info.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "obj-info.h"; sourceTree = "<group>"; };
+		0A17D36419AD53340015456D /* obj-list.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "obj-list.h"; sourceTree = "<group>"; };
+		0A17D36519AD53340015456D /* obj-make.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "obj-make.h"; sourceTree = "<group>"; };
+		0A17D36619AD53340015456D /* obj-power.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "obj-power.h"; sourceTree = "<group>"; };
+		0A17D36719AD53340015456D /* obj-properties.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "obj-properties.c"; sourceTree = "<group>"; };
+		0A17D36819AD53340015456D /* obj-properties.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "obj-properties.h"; sourceTree = "<group>"; };
+		0A17D36919AD53340015456D /* obj-slays.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "obj-slays.c"; sourceTree = "<group>"; };
+		0A17D36A19AD53340015456D /* obj-slays.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "obj-slays.h"; sourceTree = "<group>"; };
+		0A17D36B19AD53340015456D /* obj-tval.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "obj-tval.c"; sourceTree = "<group>"; };
+		0A17D36C19AD53340015456D /* obj-tval.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "obj-tval.h"; sourceTree = "<group>"; };
+		0A17D36D19AD53340015456D /* obj-ui.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "obj-ui.c"; sourceTree = "<group>"; };
+		0A17D36E19AD53340015456D /* obj-ui.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "obj-ui.h"; sourceTree = "<group>"; };
+		0A17D36F19AD53340015456D /* obj-util.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "obj-util.h"; sourceTree = "<group>"; };
+		0A17D37019AD53340015456D /* player-class.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "player-class.c"; sourceTree = "<group>"; };
+		0A17D37119AD53340015456D /* player-race.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "player-race.c"; sourceTree = "<group>"; };
+		0A17D37219AD53340015456D /* player-util.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "player-util.c"; sourceTree = "<group>"; };
+		0A17D37319AD53340015456D /* player-util.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "player-util.h"; sourceTree = "<group>"; };
+		0A17D37419AD53340015456D /* score.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = score.h; sourceTree = "<group>"; };
+		0A17D37519AD53340015456D /* signals.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = signals.h; sourceTree = "<group>"; };
+		0A17D37619AD53340015456D /* tables.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = tables.h; sourceTree = "<group>"; };
+		0A17D37719AD53340015456D /* ui-game.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "ui-game.h"; sourceTree = "<group>"; };
+		0A17D37819AD53340015456D /* ui-input.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "ui-input.c"; sourceTree = "<group>"; };
+		0A17D37919AD53340015456D /* ui-input.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "ui-input.h"; sourceTree = "<group>"; };
+		0A17D37A19AD53340015456D /* ui-options.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "ui-options.h"; sourceTree = "<group>"; };
+		0A17D37B19AD53340015456D /* ui-store.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "ui-store.c"; sourceTree = "<group>"; };
+		0A17D37C19AD53340015456D /* z-color.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "z-color.c"; sourceTree = "<group>"; };
+		0A17D37D19AD53340015456D /* z-color.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "z-color.h"; sourceTree = "<group>"; };
+		0A17D37E19AD53340015456D /* z-dice.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "z-dice.h"; sourceTree = "<group>"; };
+		0A17D37F19AD53340015456D /* z-expression.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "z-expression.c"; sourceTree = "<group>"; };
+		0A17D38019AD53340015456D /* z-expression.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "z-expression.h"; sourceTree = "<group>"; };
+		0A17D38119AD53340015456D /* z-msg-list.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "z-msg-list.h"; sourceTree = "<group>"; };
+		0A17D3B419AD56360015456D /* activation.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = activation.txt; sourceTree = "<group>"; };
+		0A17D3B519AD56360015456D /* monster_spell.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = monster_spell.txt; sourceTree = "<group>"; };
+		0A17D3B619AD56360015456D /* trap.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = trap.txt; sourceTree = "<group>"; };
+		0A17D3B719AD56360015456D /* body.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = body.txt; sourceTree = "<group>"; };
 		0A286714172DCD4A004FD64D /* .gitignore */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = .gitignore; sourceTree = "<group>"; };
 		0A286715172DCD4A004FD64D /* .splintrc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = .splintrc; sourceTree = "<group>"; };
 		0A286717172DCD4A004FD64D /* angband.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = angband.h; sourceTree = "<group>"; };
@@ -914,30 +1042,8 @@
 		0A28671D172DCD4A004FD64D /* attack.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = attack.h; sourceTree = "<group>"; };
 		0A28671F172DCD4A004FD64D /* birth.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = birth.c; sourceTree = "<group>"; };
 		0A286720172DCD4A004FD64D /* birth.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = birth.h; sourceTree = "<group>"; };
-		0A286723172DCD4A004FD64D /* borg.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = borg.txt; sourceTree = "<group>"; };
-		0A286724172DCD4A004FD64D /* borg1.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = borg1.c; sourceTree = "<group>"; };
-		0A286725172DCD4A004FD64D /* borg1.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = borg1.h; sourceTree = "<group>"; };
-		0A286727172DCD4A004FD64D /* borg2.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = borg2.c; sourceTree = "<group>"; };
-		0A286728172DCD4A004FD64D /* borg2.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = borg2.h; sourceTree = "<group>"; };
-		0A28672A172DCD4A004FD64D /* borg3.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = borg3.c; sourceTree = "<group>"; };
-		0A28672B172DCD4A004FD64D /* borg3.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = borg3.h; sourceTree = "<group>"; };
-		0A28672D172DCD4A004FD64D /* borg4.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = borg4.c; sourceTree = "<group>"; };
-		0A28672E172DCD4A004FD64D /* borg4.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = borg4.h; sourceTree = "<group>"; };
-		0A286730172DCD4A004FD64D /* borg5.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = borg5.c; sourceTree = "<group>"; };
-		0A286731172DCD4A004FD64D /* borg5.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = borg5.h; sourceTree = "<group>"; };
-		0A286733172DCD4A004FD64D /* borg6.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = borg6.c; sourceTree = "<group>"; };
-		0A286734172DCD4A004FD64D /* borg6.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = borg6.h; sourceTree = "<group>"; };
-		0A286736172DCD4A004FD64D /* borg7.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = borg7.c; sourceTree = "<group>"; };
-		0A286737172DCD4A004FD64D /* borg7.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = borg7.h; sourceTree = "<group>"; };
-		0A286739172DCD4A004FD64D /* borg8.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = borg8.c; sourceTree = "<group>"; };
-		0A28673A172DCD4A004FD64D /* borg8.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = borg8.h; sourceTree = "<group>"; };
-		0A28673C172DCD4B004FD64D /* borg9.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = borg9.c; sourceTree = "<group>"; };
-		0A28673D172DCD4B004FD64D /* borg9.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = borg9.h; sourceTree = "<group>"; };
-		0A28673F172DCD4B004FD64D /* borgread.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = borgread.txt; sourceTree = "<group>"; };
 		0A286740172DCD4B004FD64D /* buildid.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = buildid.c; sourceTree = "<group>"; };
 		0A286741172DCD4B004FD64D /* buildid.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = buildid.h; sourceTree = "<group>"; };
-		0A286743172DCD4B004FD64D /* button.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = button.c; sourceTree = "<group>"; };
-		0A286744172DCD4B004FD64D /* button.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = button.h; sourceTree = "<group>"; };
 		0A286746172DCD4B004FD64D /* cave.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = cave.c; sourceTree = "<group>"; };
 		0A286747172DCD4B004FD64D /* cave.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = cave.h; sourceTree = "<group>"; };
 		0A286749172DCD4B004FD64D /* cmd-context.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "cmd-context.c"; sourceTree = "<group>"; };
@@ -955,17 +1061,13 @@
 		0A286769172DCD4B004FD64D /* death.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = death.h; sourceTree = "<group>"; };
 		0A28676B172DCD4B004FD64D /* debug.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = debug.c; sourceTree = "<group>"; };
 		0A28676C172DCD4B004FD64D /* debug.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = debug.h; sourceTree = "<group>"; };
-		0A28676E172DCD4B004FD64D /* defines.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = defines.h; sourceTree = "<group>"; };
 		0A286770172DCD4B004FD64D /* doxygen.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = doxygen.conf; sourceTree = "<group>"; };
 		0A286771172DCD4B004FD64D /* dungeon.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = dungeon.c; sourceTree = "<group>"; };
 		0A286772172DCD4B004FD64D /* dungeon.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = dungeon.h; sourceTree = "<group>"; };
 		0A286774172DCD4B004FD64D /* effects.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = effects.c; sourceTree = "<group>"; };
 		0A286775172DCD4B004FD64D /* effects.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = effects.h; sourceTree = "<group>"; };
-		0A286777172DCD4B004FD64D /* externs.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = externs.h; sourceTree = "<group>"; };
 		0A286778172DCD4B004FD64D /* files.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = files.c; sourceTree = "<group>"; };
 		0A286779172DCD4B004FD64D /* files.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = files.h; sourceTree = "<group>"; };
-		0A28677B172DCD4B004FD64D /* game-cmd.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "game-cmd.c"; sourceTree = "<group>"; };
-		0A28677C172DCD4B004FD64D /* game-cmd.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "game-cmd.h"; sourceTree = "<group>"; };
 		0A28677E172DCD4B004FD64D /* game-event.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "game-event.c"; sourceTree = "<group>"; };
 		0A28677F172DCD4B004FD64D /* game-event.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "game-event.h"; sourceTree = "<group>"; };
 		0A286781172DCD4B004FD64D /* gen-coverage */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.perl; path = "gen-coverage"; sourceTree = "<group>"; };
@@ -983,11 +1085,9 @@
 		0A286793172DCD4B004FD64D /* keymap.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = keymap.c; sourceTree = "<group>"; };
 		0A286794172DCD4B004FD64D /* keymap.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = keymap.h; sourceTree = "<group>"; };
 		0A286796172DCD4B004FD64D /* list-effects.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "list-effects.h"; sourceTree = "<group>"; };
-		0A286797172DCD4B004FD64D /* list-gf-types.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "list-gf-types.h"; sourceTree = "<group>"; };
 		0A286798172DCD4B004FD64D /* list-player-flags.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "list-player-flags.h"; sourceTree = "<group>"; };
 		0A286799172DCD4B004FD64D /* load.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = load.c; sourceTree = "<group>"; };
 		0A28679B172DCD4B004FD64D /* main-cocoa.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "main-cocoa.m"; sourceTree = "<group>"; };
-		0A28679D172DCD4B004FD64D /* main-crb.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "main-crb.c"; sourceTree = "<group>"; };
 		0A28679E172DCD4B004FD64D /* main-gcu.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "main-gcu.c"; sourceTree = "<group>"; };
 		0A28679F172DCD4B004FD64D /* main-nds.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "main-nds.c"; sourceTree = "<group>"; };
 		0A2867A0172DCD4B004FD64D /* main-sdl.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "main-sdl.c"; sourceTree = "<group>"; };
@@ -999,7 +1099,6 @@
 		0A2867A6172DCD4B004FD64D /* main.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = main.c; sourceTree = "<group>"; };
 		0A2867A7172DCD4B004FD64D /* main.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = main.h; sourceTree = "<group>"; };
 		0A2867A8172DCD4B004FD64D /* Makefile */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.make; path = Makefile; sourceTree = "<group>"; };
-		0A2867A9172DCD4C004FD64D /* Makefile.crb */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = Makefile.crb; sourceTree = "<group>"; };
 		0A2867AA172DCD4C004FD64D /* Makefile.inc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.pascal; path = Makefile.inc; sourceTree = "<group>"; };
 		0A2867AB172DCD4C004FD64D /* Makefile.nds */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = Makefile.nds; sourceTree = "<group>"; };
 		0A2867AC172DCD4C004FD64D /* Makefile.nmake */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = Makefile.nmake; sourceTree = "<group>"; };
@@ -1007,32 +1106,6 @@
 		0A2867AE172DCD4C004FD64D /* Makefile.src */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = Makefile.src; sourceTree = "<group>"; };
 		0A2867AF172DCD4C004FD64D /* Makefile.std */ = {isa = PBXFileReference; explicitFileType = sourcecode.make; fileEncoding = 4; path = Makefile.std; sourceTree = "<group>"; };
 		0A2867B0172DCD4C004FD64D /* Makefile.win */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = Makefile.win; sourceTree = "<group>"; };
-		0A2867B2172DCD4C004FD64D /* constants.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = constants.h; sourceTree = "<group>"; };
-		0A2867B3172DCD4C004FD64D /* list-blow-effects.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "list-blow-effects.h"; sourceTree = "<group>"; };
-		0A2867B4172DCD4C004FD64D /* list-blow-methods.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "list-blow-methods.h"; sourceTree = "<group>"; };
-		0A2867B5172DCD4C004FD64D /* list-mon-flags.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "list-mon-flags.h"; sourceTree = "<group>"; };
-		0A2867B6172DCD4C004FD64D /* list-mon-spells.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "list-mon-spells.h"; sourceTree = "<group>"; };
-		0A2867B7172DCD4C004FD64D /* list-spell-effects.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "list-spell-effects.h"; sourceTree = "<group>"; };
-		0A2867B8172DCD4C004FD64D /* Makefile */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.make; path = Makefile; sourceTree = "<group>"; };
-		0A2867B9172DCD4C004FD64D /* melee1.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = melee1.c; sourceTree = "<group>"; };
-		0A2867BB172DCD4C004FD64D /* melee2.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = melee2.c; sourceTree = "<group>"; };
-		0A2867BD172DCD4C004FD64D /* mon-init.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "mon-init.c"; sourceTree = "<group>"; };
-		0A2867BE172DCD4C004FD64D /* mon-init.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "mon-init.h"; sourceTree = "<group>"; };
-		0A2867C0172DCD4C004FD64D /* mon-lore.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "mon-lore.c"; sourceTree = "<group>"; };
-		0A2867C1172DCD4C004FD64D /* mon-lore.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "mon-lore.h"; sourceTree = "<group>"; };
-		0A2867C3172DCD4C004FD64D /* mon-make.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "mon-make.c"; sourceTree = "<group>"; };
-		0A2867C4172DCD4C004FD64D /* mon-make.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "mon-make.h"; sourceTree = "<group>"; };
-		0A2867C6172DCD4C004FD64D /* mon-msg.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "mon-msg.c"; sourceTree = "<group>"; };
-		0A2867C7172DCD4C004FD64D /* mon-msg.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "mon-msg.h"; sourceTree = "<group>"; };
-		0A2867C9172DCD4C004FD64D /* mon-power.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "mon-power.c"; sourceTree = "<group>"; };
-		0A2867CA172DCD4C004FD64D /* mon-power.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "mon-power.h"; sourceTree = "<group>"; };
-		0A2867CC172DCD4C004FD64D /* mon-spell.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "mon-spell.c"; sourceTree = "<group>"; };
-		0A2867CD172DCD4C004FD64D /* mon-spell.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "mon-spell.h"; sourceTree = "<group>"; };
-		0A2867CF172DCD4C004FD64D /* mon-timed.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "mon-timed.c"; sourceTree = "<group>"; };
-		0A2867D0172DCD4C004FD64D /* mon-timed.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "mon-timed.h"; sourceTree = "<group>"; };
-		0A2867D2172DCD4C004FD64D /* mon-util.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "mon-util.c"; sourceTree = "<group>"; };
-		0A2867D3172DCD4C004FD64D /* mon-util.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "mon-util.h"; sourceTree = "<group>"; };
-		0A2867D5172DCD4C004FD64D /* monster.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = monster.h; sourceTree = "<group>"; };
 		0A2867D7172DCD4C004FD64D /* arm7_main.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = arm7_main.c; sourceTree = "<group>"; };
 		0A2867D8172DCD4C004FD64D /* ds_btn.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ds_btn.h; sourceTree = "<group>"; };
 		0A2867D9172DCD4C004FD64D /* ds_errfont.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ds_errfont.h; sourceTree = "<group>"; };
@@ -1043,53 +1116,17 @@
 		0A2867DE172DCD4C004FD64D /* ds_win.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ds_win.h; sourceTree = "<group>"; };
 		0A2867DF172DCD4C004FD64D /* Makefile.arm7 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = Makefile.arm7; sourceTree = "<group>"; };
 		0A2867E0172DCD4C004FD64D /* Makefile.arm9 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = Makefile.arm9; sourceTree = "<group>"; };
-		0A2867E2172DCD4C004FD64D /* chest.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = chest.c; sourceTree = "<group>"; };
-		0A2867E4172DCD4C004FD64D /* identify.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = identify.c; sourceTree = "<group>"; };
-		0A2867E6172DCD4C004FD64D /* inventory.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = inventory.h; sourceTree = "<group>"; };
-		0A2867E7172DCD4C004FD64D /* list-object-flags.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "list-object-flags.h"; sourceTree = "<group>"; };
-		0A2867E8172DCD4C004FD64D /* list-slays.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "list-slays.h"; sourceTree = "<group>"; };
-		0A2867E9172DCD4C004FD64D /* Makefile */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.make; path = Makefile; sourceTree = "<group>"; };
-		0A2867EA172DCD4C004FD64D /* obj-desc.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "obj-desc.c"; sourceTree = "<group>"; };
-		0A2867EC172DCD4C004FD64D /* obj-flag.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "obj-flag.c"; sourceTree = "<group>"; };
-		0A2867ED172DCD4C004FD64D /* obj-flag.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "obj-flag.h"; sourceTree = "<group>"; };
-		0A2867EF172DCD4C004FD64D /* obj-info.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "obj-info.c"; sourceTree = "<group>"; };
-		0A2867F1172DCD4C004FD64D /* obj-make.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "obj-make.c"; sourceTree = "<group>"; };
-		0A2867F3172DCD4C004FD64D /* obj-power.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "obj-power.c"; sourceTree = "<group>"; };
-		0A2867F5172DCD4C004FD64D /* obj-ui.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "obj-ui.c"; sourceTree = "<group>"; };
-		0A2867F7172DCD4C004FD64D /* obj-util.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "obj-util.c"; sourceTree = "<group>"; };
-		0A2867F9172DCD4C004FD64D /* object.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = object.h; sourceTree = "<group>"; };
-		0A2867FA172DCD4C004FD64D /* pval.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = pval.c; sourceTree = "<group>"; };
-		0A2867FB172DCD4C004FD64D /* pval.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = pval.h; sourceTree = "<group>"; };
-		0A2867FD172DCD4C004FD64D /* randart.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = randart.c; sourceTree = "<group>"; };
-		0A2867FF172DCD4C004FD64D /* slays.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = slays.c; sourceTree = "<group>"; };
-		0A286800172DCD4C004FD64D /* slays.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = slays.h; sourceTree = "<group>"; };
-		0A286802172DCD4C004FD64D /* tvalsval.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = tvalsval.h; sourceTree = "<group>"; };
 		0A286803172DCD4C004FD64D /* option.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = option.c; sourceTree = "<group>"; };
 		0A286804172DCD4C004FD64D /* option.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = option.h; sourceTree = "<group>"; };
 		0A286807172DCD4C004FD64D /* TGCAngband.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = TGCAngband.icns; sourceTree = "<group>"; };
 		0A286808172DCD4C004FD64D /* Angband.xml */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xml; path = Angband.xml; sourceTree = "<group>"; };
-		0A286809172DCD4C004FD64D /* Data.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = Data.icns; sourceTree = "<group>"; };
-		0A28680A172DCD4C004FD64D /* Edit.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = Edit.icns; sourceTree = "<group>"; };
-		0A28680C172DCD4C004FD64D /* English */ = {isa = PBXFileReference; lastKnownFileType = file; name = English; path = English.lproj/._main.nib; sourceTree = "<group>"; };
 		0A28680E172DCD4C004FD64D /* English */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = English; path = English.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		0A286810172DCD4C004FD64D /* English */ = {isa = PBXFileReference; lastKnownFileType = wrapper.nib; name = English; path = English.lproj/main.nib; sourceTree = "<group>"; };
-		0A286812172DCD4C004FD64D /* English */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.make; name = English; path = English.lproj/Makefile; sourceTree = "<group>"; };
-		0A286813172DCD4C004FD64D /* Makefile */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.make; path = Makefile; sourceTree = "<group>"; };
-		0A286814172DCD4C004FD64D /* osx_tables.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = osx_tables.h; sourceTree = "<group>"; };
-		0A286815172DCD4C004FD64D /* Save.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = Save.icns; sourceTree = "<group>"; };
 		0A286816172DCD4C004FD64D /* parser.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = parser.c; sourceTree = "<group>"; };
 		0A286817172DCD4C004FD64D /* parser.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = parser.h; sourceTree = "<group>"; };
 		0A286819172DCD4C004FD64D /* pathfind.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = pathfind.c; sourceTree = "<group>"; };
 		0A28681A172DCD4C004FD64D /* pathfind.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = pathfind.h; sourceTree = "<group>"; };
-		0A28681D172DCD4C004FD64D /* calcs.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = calcs.c; sourceTree = "<group>"; };
-		0A28681F172DCD4D004FD64D /* class.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = class.c; sourceTree = "<group>"; };
-		0A286821172DCD4D004FD64D /* Makefile */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.make; path = Makefile; sourceTree = "<group>"; };
-		0A286822172DCD4D004FD64D /* p-util.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "p-util.c"; sourceTree = "<group>"; };
-		0A286824172DCD4D004FD64D /* player.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = player.c; sourceTree = "<group>"; };
 		0A286825172DCD4D004FD64D /* player.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = player.h; sourceTree = "<group>"; };
-		0A286827172DCD4D004FD64D /* race.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = race.c; sourceTree = "<group>"; };
-		0A286829172DCD4D004FD64D /* spell.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = spell.c; sourceTree = "<group>"; };
-		0A28682B172DCD4D004FD64D /* timed.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = timed.c; sourceTree = "<group>"; };
 		0A28682D172DCD4D004FD64D /* types.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = types.h; sourceTree = "<group>"; };
 		0A28682E172DCD4D004FD64D /* prefs.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = prefs.c; sourceTree = "<group>"; };
 		0A28682F172DCD4D004FD64D /* prefs.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = prefs.h; sourceTree = "<group>"; };
@@ -1102,10 +1139,6 @@
 		0A28683B172DCD4D004FD64D /* signals.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = signals.c; sourceTree = "<group>"; };
 		0A28683D172DCD4D004FD64D /* snd-sdl.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "snd-sdl.c"; sourceTree = "<group>"; };
 		0A28683E172DCD4D004FD64D /* spells.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = spells.h; sourceTree = "<group>"; };
-		0A28683F172DCD4D004FD64D /* spells1.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = spells1.c; sourceTree = "<group>"; };
-		0A286841172DCD4D004FD64D /* spells2.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = spells2.c; sourceTree = "<group>"; };
-		0A286843172DCD4D004FD64D /* squelch.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = squelch.c; sourceTree = "<group>"; };
-		0A286844172DCD4D004FD64D /* squelch.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = squelch.h; sourceTree = "<group>"; };
 		0A286847172DCD4D004FD64D /* db.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = db.c; sourceTree = "<group>"; };
 		0A286848172DCD4D004FD64D /* db.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = db.h; sourceTree = "<group>"; };
 		0A286849172DCD4D004FD64D /* Makefile */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.make; path = Makefile; sourceTree = "<group>"; };
@@ -1180,8 +1213,6 @@
 		0A2868A6172DCD4E004FD64D /* ui-spell.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "ui-spell.c"; sourceTree = "<group>"; };
 		0A2868A8172DCD4E004FD64D /* ui.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ui.c; sourceTree = "<group>"; };
 		0A2868A9172DCD4E004FD64D /* ui.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ui.h; sourceTree = "<group>"; };
-		0A2868AB172DCD4E004FD64D /* util.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = util.c; sourceTree = "<group>"; };
-		0A2868AD172DCD4E004FD64D /* variable.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = variable.c; sourceTree = "<group>"; };
 		0A2868B0172DCD4E004FD64D /* angband.ico */ = {isa = PBXFileReference; lastKnownFileType = image.ico; path = angband.ico; sourceTree = "<group>"; };
 		0A2868B1172DCD4E004FD64D /* angband.rc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = angband.rc; sourceTree = "<group>"; };
 		0A2868B2172DCD4E004FD64D /* angband_visual_studio_step_by_step.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = angband_visual_studio_step_by_step.txt; sourceTree = "<group>"; };
@@ -1206,9 +1237,6 @@
 		0A2868CA172DCD4E004FD64D /* wiz-stats.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "wiz-stats.c"; sourceTree = "<group>"; };
 		0A2868CC172DCD4E004FD64D /* wizard.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = wizard.c; sourceTree = "<group>"; };
 		0A2868CD172DCD4E004FD64D /* wizard.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = wizard.h; sourceTree = "<group>"; };
-		0A2868CF172DCD4E004FD64D /* x-spell.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "x-spell.c"; sourceTree = "<group>"; };
-		0A2868D1172DCD4E004FD64D /* xtra2.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = xtra2.c; sourceTree = "<group>"; };
-		0A2868D3172DCD4E004FD64D /* xtra3.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = xtra3.c; sourceTree = "<group>"; };
 		0A2868D5172DCD4E004FD64D /* z-bitflag.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "z-bitflag.c"; sourceTree = "<group>"; };
 		0A2868D6172DCD4E004FD64D /* z-bitflag.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "z-bitflag.h"; sourceTree = "<group>"; };
 		0A2868D8172DCD4E004FD64D /* z-debug.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "z-debug.h"; sourceTree = "<group>"; };
@@ -1236,6 +1264,7 @@
 		0A2868F8172DCD4F004FD64D /* z-util.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "z-util.h"; sourceTree = "<group>"; };
 		0A2868FA172DCD4F004FD64D /* z-virt.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "z-virt.c"; sourceTree = "<group>"; };
 		0A2868FB172DCD4F004FD64D /* z-virt.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "z-virt.h"; sourceTree = "<group>"; };
+		0A6127BC19AF9B3100C999A1 /* LegendBand.rtf */ = {isa = PBXFileReference; lastKnownFileType = text.rtf; path = LegendBand.rtf; sourceTree = "<group>"; };
 		0A97A70E17D2A23C008FF7CA /* cmd-cave.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "cmd-cave.c"; sourceTree = "<group>"; };
 		0A97A70F17D2A23C008FF7CA /* cmd-know.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "cmd-know.c"; sourceTree = "<group>"; };
 		0A97A71017D2A23C008FF7CA /* cmd-pickup.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "cmd-pickup.c"; sourceTree = "<group>"; };
@@ -1279,7 +1308,6 @@
 		0AE77D7C173809AC000EF250 /* pain.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = pain.txt; sourceTree = "<group>"; };
 		0AE77D7D173809AC000EF250 /* pit.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = pit.txt; sourceTree = "<group>"; };
 		0AE77D7E173809AC000EF250 /* room_template.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = room_template.txt; sourceTree = "<group>"; };
-		0AE77D80173809AC000EF250 /* spell.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = spell.txt; sourceTree = "<group>"; };
 		0AE77D81173809AC000EF250 /* store.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = store.txt; sourceTree = "<group>"; };
 		0AE77D82173809AC000EF250 /* terrain.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = terrain.txt; sourceTree = "<group>"; };
 		0AE77D83173809AC000EF250 /* vault.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = vault.txt; sourceTree = "<group>"; };
@@ -1626,6 +1654,7 @@
 		0A286708172DC791004FD64D = {
 			isa = PBXGroup;
 			children = (
+				0A6127BC19AF9B3100C999A1 /* LegendBand.rtf */,
 				0AE77D67173809AB000EF250 /* lib */,
 				0A286713172DCD4A004FD64D /* src */,
 				0AE77CDA17346EC9000EF250 /* TGCAngband-Cocoa */,
@@ -1637,70 +1666,42 @@
 		0A286713172DCD4A004FD64D /* src */ = {
 			isa = PBXGroup;
 			children = (
-				0A97A71217D2A286008FF7CA /* init.c */,
-				0A97A71317D2A286008FF7CA /* quest.c */,
 				0A286714172DCD4A004FD64D /* .gitignore */,
 				0A286715172DCD4A004FD64D /* .splintrc */,
-				0A286717172DCD4A004FD64D /* angband.h */,
-				0A286718172DCD4A004FD64D /* angband.man */,
+				0A286781172DCD4B004FD64D /* gen-coverage */,
+				0A28678C172DCD4B004FD64D /* HEADER */,
+				0A2867A8172DCD4B004FD64D /* Makefile */,
 				0A28671C172DCD4A004FD64D /* attack.c */,
-				0A28671D172DCD4A004FD64D /* attack.h */,
 				0A28671F172DCD4A004FD64D /* birth.c */,
-				0A286720172DCD4A004FD64D /* birth.h */,
-				0A286722172DCD4A004FD64D /* borg */,
 				0A286740172DCD4B004FD64D /* buildid.c */,
-				0A286741172DCD4B004FD64D /* buildid.h */,
-				0A286743172DCD4B004FD64D /* button.c */,
-				0A286744172DCD4B004FD64D /* button.h */,
 				0A286746172DCD4B004FD64D /* cave.c */,
-				0A286747172DCD4B004FD64D /* cave.h */,
 				0A97A70E17D2A23C008FF7CA /* cmd-cave.c */,
-				0A97A70F17D2A23C008FF7CA /* cmd-know.c */,
-				0A97A71017D2A23C008FF7CA /* cmd-pickup.c */,
-				0A97A71117D2A23C008FF7CA /* cmd-process.c */,
 				0A286749172DCD4B004FD64D /* cmd-context.c */,
+				0A17D33419AD53340015456D /* cmd-core.c */,
+				0A97A70F17D2A23C008FF7CA /* cmd-know.c */,
 				0A28674B172DCD4B004FD64D /* cmd-misc.c */,
 				0A28674D172DCD4B004FD64D /* cmd-obj.c */,
-				0A286759172DCD4B004FD64D /* cmds.h */,
-				0A28675A172DCD4B004FD64D /* cocoa */,
-				0A286767172DCD4B004FD64D /* config.h */,
+				0A97A71017D2A23C008FF7CA /* cmd-pickup.c */,
+				0A97A71117D2A23C008FF7CA /* cmd-process.c */,
 				0A286768172DCD4B004FD64D /* death.c */,
-				0A286769172DCD4B004FD64D /* death.h */,
 				0A28676B172DCD4B004FD64D /* debug.c */,
-				0A28676C172DCD4B004FD64D /* debug.h */,
-				0A28676E172DCD4B004FD64D /* defines.h */,
-				0A28676F172DCD4B004FD64D /* doc */,
 				0A286771172DCD4B004FD64D /* dungeon.c */,
-				0A286772172DCD4B004FD64D /* dungeon.h */,
 				0A286774172DCD4B004FD64D /* effects.c */,
-				0A286775172DCD4B004FD64D /* effects.h */,
-				0A286777172DCD4B004FD64D /* externs.h */,
 				0A286778172DCD4B004FD64D /* files.c */,
-				0A286779172DCD4B004FD64D /* files.h */,
-				0A28677B172DCD4B004FD64D /* game-cmd.c */,
-				0A28677C172DCD4B004FD64D /* game-cmd.h */,
 				0A28677E172DCD4B004FD64D /* game-event.c */,
-				0A28677F172DCD4B004FD64D /* game-event.h */,
-				0A286781172DCD4B004FD64D /* gen-coverage */,
+				0A17D30A19AD53340015456D /* gen-cave.c */,
+				0A17D30B19AD53340015456D /* gen-chunk.c */,
+				0A17D30C19AD53340015456D /* gen-monster.c */,
+				0A17D30D19AD53340015456D /* gen-room.c */,
+				0A17D30E19AD53340015456D /* gen-util.c */,
 				0A286782172DCD4B004FD64D /* generate.c */,
-				0A286783172DCD4B004FD64D /* generate.h */,
+				0A17D33619AD53340015456D /* get.c */,
 				0A286785172DCD4B004FD64D /* grafmode.c */,
-				0A286786172DCD4B004FD64D /* grafmode.h */,
 				0A286788172DCD4B004FD64D /* guid.c */,
-				0A286789172DCD4B004FD64D /* guid.h */,
-				0A28678B172DCD4B004FD64D /* h-basic.h */,
-				0A28678C172DCD4B004FD64D /* HEADER */,
 				0A28678D172DCD4B004FD64D /* history.c */,
-				0A28678E172DCD4B004FD64D /* history.h */,
-				0A286790172DCD4B004FD64D /* init.h */,
+				0A97A71217D2A286008FF7CA /* init.c */,
 				0A286793172DCD4B004FD64D /* keymap.c */,
-				0A286794172DCD4B004FD64D /* keymap.h */,
-				0A286796172DCD4B004FD64D /* list-effects.h */,
-				0A286797172DCD4B004FD64D /* list-gf-types.h */,
-				0A286798172DCD4B004FD64D /* list-player-flags.h */,
 				0A286799172DCD4B004FD64D /* load.c */,
-				0A28679B172DCD4B004FD64D /* main-cocoa.m */,
-				0A28679D172DCD4B004FD64D /* main-crb.c */,
 				0A28679E172DCD4B004FD64D /* main-gcu.c */,
 				0A28679F172DCD4B004FD64D /* main-nds.c */,
 				0A2867A0172DCD4B004FD64D /* main-sdl.c */,
@@ -1710,100 +1711,231 @@
 				0A2867A4172DCD4B004FD64D /* main-x11.c */,
 				0A2867A5172DCD4B004FD64D /* main-xxx.c */,
 				0A2867A6172DCD4B004FD64D /* main.c */,
+				0A17D31219AD53340015456D /* mon-blow-effects.c */,
+				0A17D34C19AD53340015456D /* mon-blow-methods.c */,
+				0A17D31319AD53340015456D /* mon-init.c */,
+				0A17D34F19AD53340015456D /* mon-list.c */,
+				0A17D31519AD53340015456D /* mon-lore.c */,
+				0A17D31619AD53340015456D /* mon-make.c */,
+				0A17D31719AD53340015456D /* mon-melee2.c */,
+				0A17D35319AD53340015456D /* mon-msg.c */,
+				0A17D35519AD53340015456D /* mon-power.c */,
+				0A17D31819AD53340015456D /* mon-spell.c */,
+				0A17D31A19AD53340015456D /* mon-timed.c */,
+				0A17D31B19AD53340015456D /* mon-util.c */,
+				0A17D35919AD53340015456D /* obj-chest.c */,
+				0A17D35B19AD53340015456D /* obj-desc.c */,
+				0A17D35D19AD53340015456D /* obj-gear.c */,
+				0A17D35F19AD53340015456D /* obj-identify.c */,
+				0A17D36119AD53340015456D /* obj-ignore.c */,
+				0A17D31D19AD53340015456D /* obj-info.c */,
+				0A17D31E19AD53340015456D /* obj-list.c */,
+				0A17D33219AD53340015456D /* obj-make.c */,
+				0A17D31F19AD53340015456D /* obj-power.c */,
+				0A17D36719AD53340015456D /* obj-properties.c */,
+				0A17D32019AD53340015456D /* obj-randart.c */,
+				0A17D36919AD53340015456D /* obj-slays.c */,
+				0A17D36B19AD53340015456D /* obj-tval.c */,
+				0A17D36D19AD53340015456D /* obj-ui.c */,
+				0A17D32219AD53340015456D /* obj-util.c */,
+				0A286803172DCD4C004FD64D /* option.c */,
+				0A286816172DCD4C004FD64D /* parser.c */,
+				0A286819172DCD4C004FD64D /* pathfind.c */,
+				0A17D32419AD53340015456D /* player-calcs.c */,
+				0A17D37019AD53340015456D /* player-class.c */,
+				0A17D37119AD53340015456D /* player-race.c */,
+				0A17D32619AD53340015456D /* player-spell.c */,
+				0A17D32819AD53340015456D /* player-timed.c */,
+				0A17D37219AD53340015456D /* player-util.c */,
+				0A17D32A19AD53340015456D /* player.c */,
+				0A28682E172DCD4D004FD64D /* prefs.c */,
+				0A17D32C19AD53340015456D /* project.c */,
+				0A97A71317D2A286008FF7CA /* quest.c */,
+				0A286831172DCD4D004FD64D /* randname.c */,
+				0A286834172DCD4D004FD64D /* save.c */,
+				0A286836172DCD4D004FD64D /* savefile.c */,
+				0A286839172DCD4D004FD64D /* score.c */,
+				0A28683B172DCD4D004FD64D /* signals.c */,
+				0A28683D172DCD4D004FD64D /* snd-sdl.c */,
+				0A17D30919AD53340015456D /* spells.c */,
+				0A28684B172DCD4D004FD64D /* store.c */,
+				0A28684E172DCD4D004FD64D /* tables.c */,
+				0A286850172DCD4D004FD64D /* target.c */,
+				0A286895172DCD4D004FD64D /* trap.c */,
+				0A286899172DCD4D004FD64D /* ui-birth.c */,
+				0A28689C172DCD4D004FD64D /* ui-event.c */,
+				0A17D32E19AD53340015456D /* ui-game.c */,
+				0A17D37819AD53340015456D /* ui-input.c */,
+				0A28689F172DCD4D004FD64D /* ui-knowledge.c */,
+				0A17D32F19AD53340015456D /* ui-map.c */,
+				0A2868A1172DCD4E004FD64D /* ui-menu.c */,
+				0A2868A4172DCD4E004FD64D /* ui-options.c */,
+				0A2868A6172DCD4E004FD64D /* ui-spell.c */,
+				0A17D37B19AD53340015456D /* ui-store.c */,
+				0A2868A8172DCD4E004FD64D /* ui.c */,
+				0A2868C8172DCD4E004FD64D /* wiz-spoil.c */,
+				0A2868CA172DCD4E004FD64D /* wiz-stats.c */,
+				0A2868CC172DCD4E004FD64D /* wizard.c */,
+				0A2868D5172DCD4E004FD64D /* z-bitflag.c */,
+				0A17D37C19AD53340015456D /* z-color.c */,
+				0A17D33119AD53340015456D /* z-dice.c */,
+				0A17D37F19AD53340015456D /* z-expression.c */,
+				0A2868D9172DCD4E004FD64D /* z-file.c */,
+				0A2868DC172DCD4E004FD64D /* z-form.c */,
+				0A2868DF172DCD4E004FD64D /* z-msg.c */,
+				0A2868E2172DCD4E004FD64D /* z-quark.c */,
+				0A2868E5172DCD4E004FD64D /* z-queue.c */,
+				0A2868E8172DCD4E004FD64D /* z-rand.c */,
+				0A2868EB172DCD4E004FD64D /* z-set.c */,
+				0A2868EE172DCD4E004FD64D /* z-term.c */,
+				0A2868F1172DCD4E004FD64D /* z-textblock.c */,
+				0A2868F4172DCD4F004FD64D /* z-type.c */,
+				0A2868F7172DCD4F004FD64D /* z-util.c */,
+				0A2868FA172DCD4F004FD64D /* z-virt.c */,
+				0A286717172DCD4A004FD64D /* angband.h */,
+				0A28671D172DCD4A004FD64D /* attack.h */,
+				0A286720172DCD4A004FD64D /* birth.h */,
+				0A286741172DCD4B004FD64D /* buildid.h */,
+				0A286747172DCD4B004FD64D /* cave.h */,
+				0A17D33519AD53340015456D /* cmd-core.h */,
+				0A286759172DCD4B004FD64D /* cmds.h */,
+				0A286767172DCD4B004FD64D /* config.h */,
+				0A286769172DCD4B004FD64D /* death.h */,
+				0A28676C172DCD4B004FD64D /* debug.h */,
+				0A286772172DCD4B004FD64D /* dungeon.h */,
+				0A286775172DCD4B004FD64D /* effects.h */,
+				0A286779172DCD4B004FD64D /* files.h */,
+				0A28677F172DCD4B004FD64D /* game-event.h */,
+				0A286783172DCD4B004FD64D /* generate.h */,
+				0A17D33719AD53340015456D /* get.h */,
+				0A286786172DCD4B004FD64D /* grafmode.h */,
+				0A286789172DCD4B004FD64D /* guid.h */,
+				0A28678B172DCD4B004FD64D /* h-basic.h */,
+				0A17D33819AD53340015456D /* hint.h */,
+				0A28678E172DCD4B004FD64D /* history.h */,
+				0A286790172DCD4B004FD64D /* init.h */,
+				0A286794172DCD4B004FD64D /* keymap.h */,
+				0A17D30F19AD53340015456D /* list-blow-effects.h */,
+				0A17D33919AD53340015456D /* list-blow-methods.h */,
+				0A286796172DCD4B004FD64D /* list-effects.h */,
+				0A17D31019AD53340015456D /* list-elements.h */,
+				0A17D33A19AD53340015456D /* list-equip-slots.h */,
+				0A17D33B19AD53340015456D /* list-identify-flags.h */,
+				0A17D33C19AD53340015456D /* list-ignore-types.h */,
+				0A17D33D19AD53340015456D /* list-kind-flags.h */,
+				0A17D33E19AD53340015456D /* list-mon-flags.h */,
+				0A17D31119AD53340015456D /* list-mon-spells.h */,
+				0A17D33F19AD53340015456D /* list-object-flags.h */,
+				0A17D34019AD53340015456D /* list-object-modifiers.h */,
+				0A17D34119AD53340015456D /* list-options.h */,
+				0A17D34219AD53340015456D /* list-origins.h */,
+				0A286798172DCD4B004FD64D /* list-player-flags.h */,
+				0A17D34319AD53340015456D /* list-player-timed.h */,
+				0A17D34419AD53340015456D /* list-project-environs.h */,
+				0A17D34519AD53340015456D /* list-project-monsters.h */,
+				0A17D34619AD53340015456D /* list-square-flags.h */,
+				0A17D34719AD53340015456D /* list-stats.h */,
+				0A17D34819AD53340015456D /* list-terrain-flags.h */,
+				0A17D34919AD53340015456D /* list-trap-flags.h */,
+				0A17D34A19AD53340015456D /* list-tvals.h */,
 				0A2867A7172DCD4B004FD64D /* main.h */,
-				0A2867A8172DCD4B004FD64D /* Makefile */,
-				0A2867A9172DCD4C004FD64D /* Makefile.crb */,
+				0A17D34B19AD53340015456D /* mon-blow-effects.h */,
+				0A17D34D19AD53340015456D /* mon-blow-methods.h */,
+				0A17D34E19AD53340015456D /* mon-constants.h */,
+				0A17D31419AD53340015456D /* mon-init.h */,
+				0A17D35019AD53340015456D /* mon-list.h */,
+				0A17D35119AD53340015456D /* mon-lore.h */,
+				0A17D35219AD53340015456D /* mon-make.h */,
+				0A17D35419AD53340015456D /* mon-msg.h */,
+				0A17D35619AD53340015456D /* mon-power.h */,
+				0A17D31919AD53340015456D /* mon-spell.h */,
+				0A17D35719AD53340015456D /* mon-timed.h */,
+				0A17D35819AD53340015456D /* mon-util.h */,
+				0A17D31C19AD53340015456D /* monster.h */,
+				0A17D35A19AD53340015456D /* obj-chest.h */,
+				0A17D35C19AD53340015456D /* obj-desc.h */,
+				0A17D35E19AD53340015456D /* obj-gear.h */,
+				0A17D36019AD53340015456D /* obj-identify.h */,
+				0A17D36219AD53340015456D /* obj-ignore.h */,
+				0A17D36319AD53340015456D /* obj-info.h */,
+				0A17D36419AD53340015456D /* obj-list.h */,
+				0A17D36519AD53340015456D /* obj-make.h */,
+				0A17D36619AD53340015456D /* obj-power.h */,
+				0A17D36819AD53340015456D /* obj-properties.h */,
+				0A17D32119AD53340015456D /* obj-randart.h */,
+				0A17D36A19AD53340015456D /* obj-slays.h */,
+				0A17D36C19AD53340015456D /* obj-tval.h */,
+				0A17D36E19AD53340015456D /* obj-ui.h */,
+				0A17D36F19AD53340015456D /* obj-util.h */,
+				0A17D32319AD53340015456D /* object.h */,
+				0A286804172DCD4C004FD64D /* option.h */,
+				0A286817172DCD4C004FD64D /* parser.h */,
+				0A28681A172DCD4C004FD64D /* pathfind.h */,
+				0A17D32519AD53340015456D /* player-calcs.h */,
+				0A17D32719AD53340015456D /* player-spell.h */,
+				0A17D32919AD53340015456D /* player-timed.h */,
+				0A17D37319AD53340015456D /* player-util.h */,
+				0A17D32B19AD53340015456D /* player.h */,
+				0A28682F172DCD4D004FD64D /* prefs.h */,
+				0A17D32D19AD53340015456D /* project.h */,
+				0A286832172DCD4D004FD64D /* randname.h */,
+				0A286837172DCD4D004FD64D /* savefile.h */,
+				0A17D37419AD53340015456D /* score.h */,
+				0A17D37519AD53340015456D /* signals.h */,
+				0A28683E172DCD4D004FD64D /* spells.h */,
+				0A28684C172DCD4D004FD64D /* store.h */,
+				0A17D37619AD53340015456D /* tables.h */,
+				0A286851172DCD4D004FD64D /* target.h */,
+				0A286892172DCD4D004FD64D /* textui.h */,
+				0A286896172DCD4D004FD64D /* trap.h */,
+				0A28689A172DCD4D004FD64D /* ui-birth.h */,
+				0A28689D172DCD4D004FD64D /* ui-event.h */,
+				0A17D37719AD53340015456D /* ui-game.h */,
+				0A17D37919AD53340015456D /* ui-input.h */,
+				0A17D33019AD53340015456D /* ui-map.h */,
+				0A2868A2172DCD4E004FD64D /* ui-menu.h */,
+				0A17D37A19AD53340015456D /* ui-options.h */,
+				0A2868A9172DCD4E004FD64D /* ui.h */,
+				0A2868CD172DCD4E004FD64D /* wizard.h */,
+				0A2868D6172DCD4E004FD64D /* z-bitflag.h */,
+				0A17D37D19AD53340015456D /* z-color.h */,
+				0A2868D8172DCD4E004FD64D /* z-debug.h */,
+				0A17D37E19AD53340015456D /* z-dice.h */,
+				0A17D38019AD53340015456D /* z-expression.h */,
+				0A2868DA172DCD4E004FD64D /* z-file.h */,
+				0A2868DD172DCD4E004FD64D /* z-form.h */,
+				0A17D38119AD53340015456D /* z-msg-list.h */,
+				0A2868E0172DCD4E004FD64D /* z-msg.h */,
+				0A2868E3172DCD4E004FD64D /* z-quark.h */,
+				0A2868E6172DCD4E004FD64D /* z-queue.h */,
+				0A2868E9172DCD4E004FD64D /* z-rand.h */,
+				0A2868EC172DCD4E004FD64D /* z-set.h */,
+				0A2868EF172DCD4E004FD64D /* z-term.h */,
+				0A2868F2172DCD4E004FD64D /* z-textblock.h */,
+				0A2868F5172DCD4F004FD64D /* z-type.h */,
+				0A2868F8172DCD4F004FD64D /* z-util.h */,
+				0A2868FB172DCD4F004FD64D /* z-virt.h */,
 				0A2867AA172DCD4C004FD64D /* Makefile.inc */,
+				0A28679B172DCD4B004FD64D /* main-cocoa.m */,
+				0A286718172DCD4A004FD64D /* angband.man */,
 				0A2867AB172DCD4C004FD64D /* Makefile.nds */,
 				0A2867AC172DCD4C004FD64D /* Makefile.nmake */,
+				0A17D33319AD53340015456D /* main-cocoa.o */,
 				0A2867AD172DCD4C004FD64D /* Makefile.osx */,
 				0A2867AE172DCD4C004FD64D /* Makefile.src */,
 				0A2867AF172DCD4C004FD64D /* Makefile.std */,
 				0A2867B0172DCD4C004FD64D /* Makefile.win */,
+				0A286722172DCD4A004FD64D /* borg */,
+				0A28675A172DCD4B004FD64D /* cocoa */,
+				0A28676F172DCD4B004FD64D /* doc */,
 				0A2867B1172DCD4C004FD64D /* monster */,
 				0A2867D6172DCD4C004FD64D /* nds */,
 				0A2867E1172DCD4C004FD64D /* object */,
-				0A286803172DCD4C004FD64D /* option.c */,
-				0A286804172DCD4C004FD64D /* option.h */,
 				0A286806172DCD4C004FD64D /* osx */,
-				0A286816172DCD4C004FD64D /* parser.c */,
-				0A286817172DCD4C004FD64D /* parser.h */,
-				0A286819172DCD4C004FD64D /* pathfind.c */,
-				0A28681A172DCD4C004FD64D /* pathfind.h */,
 				0A28681C172DCD4C004FD64D /* player */,
-				0A28682E172DCD4D004FD64D /* prefs.c */,
-				0A28682F172DCD4D004FD64D /* prefs.h */,
-				0A286831172DCD4D004FD64D /* randname.c */,
-				0A286832172DCD4D004FD64D /* randname.h */,
-				0A286834172DCD4D004FD64D /* save.c */,
-				0A286836172DCD4D004FD64D /* savefile.c */,
-				0A286837172DCD4D004FD64D /* savefile.h */,
-				0A286839172DCD4D004FD64D /* score.c */,
-				0A28683B172DCD4D004FD64D /* signals.c */,
-				0A28683D172DCD4D004FD64D /* snd-sdl.c */,
-				0A28683E172DCD4D004FD64D /* spells.h */,
-				0A28683F172DCD4D004FD64D /* spells1.c */,
-				0A286841172DCD4D004FD64D /* spells2.c */,
-				0A286843172DCD4D004FD64D /* squelch.c */,
-				0A286844172DCD4D004FD64D /* squelch.h */,
 				0A286846172DCD4D004FD64D /* stats */,
-				0A28684B172DCD4D004FD64D /* store.c */,
-				0A28684C172DCD4D004FD64D /* store.h */,
-				0A28684E172DCD4D004FD64D /* tables.c */,
-				0A286850172DCD4D004FD64D /* target.c */,
-				0A286851172DCD4D004FD64D /* target.h */,
 				0A286853172DCD4D004FD64D /* tests */,
-				0A286892172DCD4D004FD64D /* textui.h */,
-				0A286895172DCD4D004FD64D /* trap.c */,
-				0A286896172DCD4D004FD64D /* trap.h */,
-				0A286899172DCD4D004FD64D /* ui-birth.c */,
-				0A28689A172DCD4D004FD64D /* ui-birth.h */,
-				0A28689C172DCD4D004FD64D /* ui-event.c */,
-				0A28689D172DCD4D004FD64D /* ui-event.h */,
-				0A28689F172DCD4D004FD64D /* ui-knowledge.c */,
-				0A2868A1172DCD4E004FD64D /* ui-menu.c */,
-				0A2868A2172DCD4E004FD64D /* ui-menu.h */,
-				0A2868A4172DCD4E004FD64D /* ui-options.c */,
-				0A2868A6172DCD4E004FD64D /* ui-spell.c */,
-				0A2868A8172DCD4E004FD64D /* ui.c */,
-				0A2868A9172DCD4E004FD64D /* ui.h */,
-				0A2868AB172DCD4E004FD64D /* util.c */,
-				0A2868AD172DCD4E004FD64D /* variable.c */,
 				0A2868AF172DCD4E004FD64D /* win */,
-				0A2868C8172DCD4E004FD64D /* wiz-spoil.c */,
-				0A2868CA172DCD4E004FD64D /* wiz-stats.c */,
-				0A2868CC172DCD4E004FD64D /* wizard.c */,
-				0A2868CD172DCD4E004FD64D /* wizard.h */,
-				0A2868CF172DCD4E004FD64D /* x-spell.c */,
-				0A2868D1172DCD4E004FD64D /* xtra2.c */,
-				0A2868D3172DCD4E004FD64D /* xtra3.c */,
-				0A2868D5172DCD4E004FD64D /* z-bitflag.c */,
-				0A2868D6172DCD4E004FD64D /* z-bitflag.h */,
-				0A2868D8172DCD4E004FD64D /* z-debug.h */,
-				0A2868D9172DCD4E004FD64D /* z-file.c */,
-				0A2868DA172DCD4E004FD64D /* z-file.h */,
-				0A2868DC172DCD4E004FD64D /* z-form.c */,
-				0A2868DD172DCD4E004FD64D /* z-form.h */,
-				0A2868DF172DCD4E004FD64D /* z-msg.c */,
-				0A2868E0172DCD4E004FD64D /* z-msg.h */,
-				0A2868E2172DCD4E004FD64D /* z-quark.c */,
-				0A2868E3172DCD4E004FD64D /* z-quark.h */,
-				0A2868E5172DCD4E004FD64D /* z-queue.c */,
-				0A2868E6172DCD4E004FD64D /* z-queue.h */,
-				0A2868E8172DCD4E004FD64D /* z-rand.c */,
-				0A2868E9172DCD4E004FD64D /* z-rand.h */,
-				0A2868EB172DCD4E004FD64D /* z-set.c */,
-				0A2868EC172DCD4E004FD64D /* z-set.h */,
-				0A2868EE172DCD4E004FD64D /* z-term.c */,
-				0A2868EF172DCD4E004FD64D /* z-term.h */,
-				0A2868F1172DCD4E004FD64D /* z-textblock.c */,
-				0A2868F2172DCD4E004FD64D /* z-textblock.h */,
-				0A2868F4172DCD4F004FD64D /* z-type.c */,
-				0A2868F5172DCD4F004FD64D /* z-type.h */,
-				0A2868F7172DCD4F004FD64D /* z-util.c */,
-				0A2868F8172DCD4F004FD64D /* z-util.h */,
-				0A2868FA172DCD4F004FD64D /* z-virt.c */,
-				0A2868FB172DCD4F004FD64D /* z-virt.h */,
 			);
 			name = src;
 			path = ../src;
@@ -1812,26 +1944,6 @@
 		0A286722172DCD4A004FD64D /* borg */ = {
 			isa = PBXGroup;
 			children = (
-				0A286723172DCD4A004FD64D /* borg.txt */,
-				0A286724172DCD4A004FD64D /* borg1.c */,
-				0A286725172DCD4A004FD64D /* borg1.h */,
-				0A286727172DCD4A004FD64D /* borg2.c */,
-				0A286728172DCD4A004FD64D /* borg2.h */,
-				0A28672A172DCD4A004FD64D /* borg3.c */,
-				0A28672B172DCD4A004FD64D /* borg3.h */,
-				0A28672D172DCD4A004FD64D /* borg4.c */,
-				0A28672E172DCD4A004FD64D /* borg4.h */,
-				0A286730172DCD4A004FD64D /* borg5.c */,
-				0A286731172DCD4A004FD64D /* borg5.h */,
-				0A286733172DCD4A004FD64D /* borg6.c */,
-				0A286734172DCD4A004FD64D /* borg6.h */,
-				0A286736172DCD4A004FD64D /* borg7.c */,
-				0A286737172DCD4A004FD64D /* borg7.h */,
-				0A286739172DCD4A004FD64D /* borg8.c */,
-				0A28673A172DCD4A004FD64D /* borg8.h */,
-				0A28673C172DCD4B004FD64D /* borg9.c */,
-				0A28673D172DCD4B004FD64D /* borg9.h */,
-				0A28673F172DCD4B004FD64D /* borgread.txt */,
 			);
 			path = borg;
 			sourceTree = "<group>";
@@ -1863,32 +1975,6 @@
 		0A2867B1172DCD4C004FD64D /* monster */ = {
 			isa = PBXGroup;
 			children = (
-				0A2867B2172DCD4C004FD64D /* constants.h */,
-				0A2867B3172DCD4C004FD64D /* list-blow-effects.h */,
-				0A2867B4172DCD4C004FD64D /* list-blow-methods.h */,
-				0A2867B5172DCD4C004FD64D /* list-mon-flags.h */,
-				0A2867B6172DCD4C004FD64D /* list-mon-spells.h */,
-				0A2867B7172DCD4C004FD64D /* list-spell-effects.h */,
-				0A2867B8172DCD4C004FD64D /* Makefile */,
-				0A2867B9172DCD4C004FD64D /* melee1.c */,
-				0A2867BB172DCD4C004FD64D /* melee2.c */,
-				0A2867BD172DCD4C004FD64D /* mon-init.c */,
-				0A2867BE172DCD4C004FD64D /* mon-init.h */,
-				0A2867C0172DCD4C004FD64D /* mon-lore.c */,
-				0A2867C1172DCD4C004FD64D /* mon-lore.h */,
-				0A2867C3172DCD4C004FD64D /* mon-make.c */,
-				0A2867C4172DCD4C004FD64D /* mon-make.h */,
-				0A2867C6172DCD4C004FD64D /* mon-msg.c */,
-				0A2867C7172DCD4C004FD64D /* mon-msg.h */,
-				0A2867C9172DCD4C004FD64D /* mon-power.c */,
-				0A2867CA172DCD4C004FD64D /* mon-power.h */,
-				0A2867CC172DCD4C004FD64D /* mon-spell.c */,
-				0A2867CD172DCD4C004FD64D /* mon-spell.h */,
-				0A2867CF172DCD4C004FD64D /* mon-timed.c */,
-				0A2867D0172DCD4C004FD64D /* mon-timed.h */,
-				0A2867D2172DCD4C004FD64D /* mon-util.c */,
-				0A2867D3172DCD4C004FD64D /* mon-util.h */,
-				0A2867D5172DCD4C004FD64D /* monster.h */,
 			);
 			path = monster;
 			sourceTree = "<group>";
@@ -1913,27 +1999,6 @@
 		0A2867E1172DCD4C004FD64D /* object */ = {
 			isa = PBXGroup;
 			children = (
-				0A2867E2172DCD4C004FD64D /* chest.c */,
-				0A2867E4172DCD4C004FD64D /* identify.c */,
-				0A2867E6172DCD4C004FD64D /* inventory.h */,
-				0A2867E7172DCD4C004FD64D /* list-object-flags.h */,
-				0A2867E8172DCD4C004FD64D /* list-slays.h */,
-				0A2867E9172DCD4C004FD64D /* Makefile */,
-				0A2867EA172DCD4C004FD64D /* obj-desc.c */,
-				0A2867EC172DCD4C004FD64D /* obj-flag.c */,
-				0A2867ED172DCD4C004FD64D /* obj-flag.h */,
-				0A2867EF172DCD4C004FD64D /* obj-info.c */,
-				0A2867F1172DCD4C004FD64D /* obj-make.c */,
-				0A2867F3172DCD4C004FD64D /* obj-power.c */,
-				0A2867F5172DCD4C004FD64D /* obj-ui.c */,
-				0A2867F7172DCD4C004FD64D /* obj-util.c */,
-				0A2867F9172DCD4C004FD64D /* object.h */,
-				0A2867FA172DCD4C004FD64D /* pval.c */,
-				0A2867FB172DCD4C004FD64D /* pval.h */,
-				0A2867FD172DCD4C004FD64D /* randart.c */,
-				0A2867FF172DCD4C004FD64D /* slays.c */,
-				0A286800172DCD4C004FD64D /* slays.h */,
-				0A286802172DCD4C004FD64D /* tvalsval.h */,
 			);
 			path = object;
 			sourceTree = "<group>";
@@ -1943,15 +2008,8 @@
 			children = (
 				0A286807172DCD4C004FD64D /* TGCAngband.icns */,
 				0A286808172DCD4C004FD64D /* Angband.xml */,
-				0A286809172DCD4C004FD64D /* Data.icns */,
-				0A28680A172DCD4C004FD64D /* Edit.icns */,
-				0A28680B172DCD4C004FD64D /* ._main.nib */,
 				0A28680D172DCD4C004FD64D /* InfoPlist.strings */,
 				0A28680F172DCD4C004FD64D /* main.nib */,
-				0A286811172DCD4C004FD64D /* Makefile */,
-				0A286813172DCD4C004FD64D /* Makefile */,
-				0A286814172DCD4C004FD64D /* osx_tables.h */,
-				0A286815172DCD4C004FD64D /* Save.icns */,
 			);
 			path = osx;
 			sourceTree = "<group>";
@@ -1959,15 +2017,7 @@
 		0A28681C172DCD4C004FD64D /* player */ = {
 			isa = PBXGroup;
 			children = (
-				0A28681D172DCD4C004FD64D /* calcs.c */,
-				0A28681F172DCD4D004FD64D /* class.c */,
-				0A286821172DCD4D004FD64D /* Makefile */,
-				0A286822172DCD4D004FD64D /* p-util.c */,
-				0A286824172DCD4D004FD64D /* player.c */,
 				0A286825172DCD4D004FD64D /* player.h */,
-				0A286827172DCD4D004FD64D /* race.c */,
-				0A286829172DCD4D004FD64D /* spell.c */,
-				0A28682B172DCD4D004FD64D /* timed.c */,
 				0A28682D172DCD4D004FD64D /* types.h */,
 			);
 			path = player;
@@ -2273,7 +2323,9 @@
 			isa = PBXGroup;
 			children = (
 				0AE77D6D173809AB000EF250 /* .deps */,
+				0A17D3B419AD56360015456D /* activation.txt */,
 				0AE77D6E173809AB000EF250 /* artifact.txt */,
+				0A17D3B719AD56360015456D /* body.txt */,
 				0AE77D6F173809AC000EF250 /* ego_item.txt */,
 				0AE77D70173809AC000EF250 /* flavor.txt */,
 				0AE77D71173809AC000EF250 /* hints.txt */,
@@ -2281,6 +2333,7 @@
 				0AE77D73173809AC000EF250 /* Makefile */,
 				0AE77D74173809AC000EF250 /* monster.txt */,
 				0AE77D75173809AC000EF250 /* monster_base.txt */,
+				0A17D3B519AD56360015456D /* monster_spell.txt */,
 				0AE77D76173809AC000EF250 /* names.txt */,
 				0AE77D77173809AC000EF250 /* object.txt */,
 				0AE77D78173809AC000EF250 /* object_base.txt */,
@@ -2290,9 +2343,9 @@
 				0AE77D7C173809AC000EF250 /* pain.txt */,
 				0AE77D7D173809AC000EF250 /* pit.txt */,
 				0AE77D7E173809AC000EF250 /* room_template.txt */,
-				0AE77D80173809AC000EF250 /* spell.txt */,
 				0AE77D81173809AC000EF250 /* store.txt */,
 				0AE77D82173809AC000EF250 /* terrain.txt */,
+				0A17D3B619AD56360015456D /* trap.txt */,
 				0AE77D83173809AC000EF250 /* vault.txt */,
 			);
 			path = edit;
@@ -2803,6 +2856,55 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				0A17D3A619AD546D0015456D /* spells.c in Sources */,
+				0A17D3A719AD546D0015456D /* gen-cave.c in Sources */,
+				0A17D3A819AD546D0015456D /* gen-chunk.c in Sources */,
+				0A17D3A919AD546D0015456D /* gen-monster.c in Sources */,
+				0A17D3AA19AD546D0015456D /* gen-room.c in Sources */,
+				0A17D3AB19AD546D0015456D /* gen-util.c in Sources */,
+				0A17D3AC19AD546D0015456D /* mon-blow-effects.c in Sources */,
+				0A17D3AD19AD546D0015456D /* mon-init.c in Sources */,
+				0A17D3AE19AD546D0015456D /* mon-lore.c in Sources */,
+				0A17D3AF19AD546D0015456D /* mon-make.c in Sources */,
+				0A17D3B019AD546D0015456D /* mon-melee2.c in Sources */,
+				0A17D3B119AD546D0015456D /* mon-spell.c in Sources */,
+				0A17D3B219AD546D0015456D /* mon-timed.c in Sources */,
+				0A17D3B319AD546D0015456D /* mon-util.c in Sources */,
+				0A17D38219AD545E0015456D /* obj-info.c in Sources */,
+				0A17D38319AD545E0015456D /* obj-list.c in Sources */,
+				0A17D38419AD545E0015456D /* obj-power.c in Sources */,
+				0A17D38519AD545E0015456D /* obj-randart.c in Sources */,
+				0A17D38619AD545E0015456D /* obj-util.c in Sources */,
+				0A17D38719AD545E0015456D /* player-calcs.c in Sources */,
+				0A17D38819AD545E0015456D /* player-spell.c in Sources */,
+				0A17D38919AD545E0015456D /* player-timed.c in Sources */,
+				0A17D38A19AD545E0015456D /* player.c in Sources */,
+				0A17D38B19AD545E0015456D /* project.c in Sources */,
+				0A17D38C19AD545E0015456D /* ui-game.c in Sources */,
+				0A17D38D19AD545E0015456D /* ui-map.c in Sources */,
+				0A17D38E19AD545E0015456D /* z-dice.c in Sources */,
+				0A17D38F19AD545E0015456D /* obj-make.c in Sources */,
+				0A17D39019AD545E0015456D /* cmd-core.c in Sources */,
+				0A17D39219AD545E0015456D /* mon-blow-methods.c in Sources */,
+				0A17D39319AD545E0015456D /* mon-list.c in Sources */,
+				0A17D39419AD545E0015456D /* mon-msg.c in Sources */,
+				0A17D39519AD545E0015456D /* mon-power.c in Sources */,
+				0A17D39619AD545E0015456D /* obj-chest.c in Sources */,
+				0A17D39719AD545E0015456D /* obj-desc.c in Sources */,
+				0A17D39819AD545E0015456D /* obj-gear.c in Sources */,
+				0A17D39919AD545E0015456D /* obj-identify.c in Sources */,
+				0A17D39A19AD545E0015456D /* obj-ignore.c in Sources */,
+				0A17D39B19AD545E0015456D /* obj-properties.c in Sources */,
+				0A17D39C19AD545E0015456D /* obj-slays.c in Sources */,
+				0A17D39D19AD545E0015456D /* obj-tval.c in Sources */,
+				0A17D39E19AD545E0015456D /* obj-ui.c in Sources */,
+				0A17D39F19AD545E0015456D /* player-class.c in Sources */,
+				0A17D3A019AD545E0015456D /* player-race.c in Sources */,
+				0A17D3A119AD545E0015456D /* player-util.c in Sources */,
+				0A17D3A219AD545E0015456D /* ui-input.c in Sources */,
+				0A17D3A319AD545E0015456D /* ui-store.c in Sources */,
+				0A17D3A419AD545E0015456D /* z-color.c in Sources */,
+				0A17D3A519AD545E0015456D /* z-expression.c in Sources */,
 				0A97A71417D2A295008FF7CA /* init.c in Sources */,
 				0A97A71517D2A295008FF7CA /* quest.c in Sources */,
 				0A97A71617D2A295008FF7CA /* cmd-cave.c in Sources */,
@@ -2813,7 +2915,6 @@
 				0AE77CEF1734815A000EF250 /* main-cocoa.m in Sources */,
 				0AE77CF017348236000EF250 /* attack.c in Sources */,
 				0AE77CF117348236000EF250 /* birth.c in Sources */,
-				0AE77CF217348236000EF250 /* button.c in Sources */,
 				0AE77CF317348236000EF250 /* cave.c in Sources */,
 				0AE77CF417348236000EF250 /* cmd-context.c in Sources */,
 				0AE77CF517348236000EF250 /* cmd-misc.c in Sources */,
@@ -2823,7 +2924,6 @@
 				0AE77CFE17348236000EF250 /* dungeon.c in Sources */,
 				0AE77CFF17348236000EF250 /* effects.c in Sources */,
 				0AE77D0017348236000EF250 /* files.c in Sources */,
-				0AE77D0117348236000EF250 /* game-cmd.c in Sources */,
 				0AE77D0217348236000EF250 /* game-event.c in Sources */,
 				0AE77D0317348236000EF250 /* generate.c in Sources */,
 				0AE77D0417348236000EF250 /* grafmode.c in Sources */,
@@ -2831,47 +2931,15 @@
 				0AE77D0617348236000EF250 /* history.c in Sources */,
 				0AE77D0817348236000EF250 /* keymap.c in Sources */,
 				0AE77D0917348236000EF250 /* load.c in Sources */,
-				0AE77D0A17348236000EF250 /* melee1.c in Sources */,
-				0AE77D0B17348236000EF250 /* melee2.c in Sources */,
-				0AE77D0C17348236000EF250 /* mon-init.c in Sources */,
-				0AE77D0D17348236000EF250 /* mon-lore.c in Sources */,
-				0AE77D0E17348236000EF250 /* mon-make.c in Sources */,
-				0AE77D0F17348236000EF250 /* mon-msg.c in Sources */,
-				0AE77D1017348236000EF250 /* mon-power.c in Sources */,
-				0AE77D1117348236000EF250 /* mon-spell.c in Sources */,
-				0AE77D1217348236000EF250 /* mon-timed.c in Sources */,
-				0AE77D1317348236000EF250 /* mon-util.c in Sources */,
-				0AE77D1417348236000EF250 /* chest.c in Sources */,
-				0AE77D1517348236000EF250 /* identify.c in Sources */,
-				0AE77D1617348236000EF250 /* obj-desc.c in Sources */,
-				0AE77D1717348236000EF250 /* obj-flag.c in Sources */,
-				0AE77D1817348236000EF250 /* obj-info.c in Sources */,
-				0AE77D1917348236000EF250 /* obj-make.c in Sources */,
-				0AE77D1A17348236000EF250 /* obj-power.c in Sources */,
-				0AE77D1B17348236000EF250 /* obj-ui.c in Sources */,
-				0AE77D1C17348236000EF250 /* obj-util.c in Sources */,
-				0AE77D1D17348236000EF250 /* pval.c in Sources */,
-				0AE77D1E17348236000EF250 /* randart.c in Sources */,
-				0AE77D1F17348236000EF250 /* slays.c in Sources */,
 				0AE77D20173482B6000EF250 /* option.c in Sources */,
 				0AE77D21173482B6000EF250 /* parser.c in Sources */,
 				0AE77D22173482B6000EF250 /* pathfind.c in Sources */,
-				0AE77D23173482B6000EF250 /* calcs.c in Sources */,
-				0AE77D24173482B6000EF250 /* class.c in Sources */,
-				0AE77D25173482B6000EF250 /* p-util.c in Sources */,
-				0AE77D26173482B6000EF250 /* player.c in Sources */,
-				0AE77D27173482B6000EF250 /* race.c in Sources */,
-				0AE77D28173482B6000EF250 /* spell.c in Sources */,
-				0AE77D29173482B6000EF250 /* timed.c in Sources */,
 				0AE77D2A173482B6000EF250 /* prefs.c in Sources */,
 				0AE77D2B173482B6000EF250 /* randname.c in Sources */,
 				0AE77D2C173482B6000EF250 /* save.c in Sources */,
 				0AE77D2D173482B6000EF250 /* savefile.c in Sources */,
 				0AE77D2E173482B6000EF250 /* score.c in Sources */,
 				0AE77D2F173482B6000EF250 /* signals.c in Sources */,
-				0AE77D30173482B6000EF250 /* spells1.c in Sources */,
-				0AE77D31173482B6000EF250 /* spells2.c in Sources */,
-				0AE77D32173482B6000EF250 /* squelch.c in Sources */,
 				0AE77D33173482B6000EF250 /* store.c in Sources */,
 				0AE77D34173482B6000EF250 /* tables.c in Sources */,
 				0AE77D35173482B6000EF250 /* target.c in Sources */,
@@ -2883,23 +2951,9 @@
 				0AE77D3B173482B6000EF250 /* ui-options.c in Sources */,
 				0AE77D3C173482B6000EF250 /* ui-spell.c in Sources */,
 				0AE77D3D173482B6000EF250 /* ui.c in Sources */,
-				0AE77D3E173482B6000EF250 /* util.c in Sources */,
-				0AE77D3F173482B6000EF250 /* variable.c in Sources */,
 				0AE77D40173482B6000EF250 /* wiz-spoil.c in Sources */,
 				0AE77D41173482B6000EF250 /* wiz-stats.c in Sources */,
 				0AE77D42173482B6000EF250 /* wizard.c in Sources */,
-				0AE77D43173482B6000EF250 /* x-spell.c in Sources */,
-				0AE77D44173482B6000EF250 /* xtra2.c in Sources */,
-				0AE77D45173482B6000EF250 /* xtra3.c in Sources */,
-				0AE77D531734833B000EF250 /* borg1.c in Sources */,
-				0AE77D541734833B000EF250 /* borg2.c in Sources */,
-				0AE77D551734833B000EF250 /* borg3.c in Sources */,
-				0AE77D561734833B000EF250 /* borg4.c in Sources */,
-				0AE77D571734833B000EF250 /* borg5.c in Sources */,
-				0AE77D581734833B000EF250 /* borg6.c in Sources */,
-				0AE77D591734833B000EF250 /* borg7.c in Sources */,
-				0AE77D5A1734833B000EF250 /* borg8.c in Sources */,
-				0AE77D5B1734833B000EF250 /* borg9.c in Sources */,
 				0AE77D4617348312000EF250 /* z-bitflag.c in Sources */,
 				0AE77D4717348312000EF250 /* z-file.c in Sources */,
 				0AE77D4817348312000EF250 /* z-form.c in Sources */,
@@ -2919,14 +2973,6 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXVariantGroup section */
-		0A28680B172DCD4C004FD64D /* ._main.nib */ = {
-			isa = PBXVariantGroup;
-			children = (
-				0A28680C172DCD4C004FD64D /* English */,
-			);
-			name = ._main.nib;
-			sourceTree = "<group>";
-		};
 		0A28680D172DCD4C004FD64D /* InfoPlist.strings */ = {
 			isa = PBXVariantGroup;
 			children = (
@@ -2941,14 +2987,6 @@
 				0A286810172DCD4C004FD64D /* English */,
 			);
 			name = main.nib;
-			sourceTree = "<group>";
-		};
-		0A286811172DCD4C004FD64D /* Makefile */ = {
-			isa = PBXVariantGroup;
-			children = (
-				0A286812172DCD4C004FD64D /* English */,
-			);
-			name = Makefile;
 			sourceTree = "<group>";
 		};
 		0AE5279417D2C477004F0CC8 /* MainMenu.nib */ = {

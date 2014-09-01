@@ -526,3 +526,7 @@ effect:SUMMON:32
 dice:8
 power:500
 
+name:ENTANGLE
+hit:100
+effect:TIMED_INC:ENTANGLED
+dice:1d4

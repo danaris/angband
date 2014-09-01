@@ -204,6 +204,10 @@ typedef struct player_state {
 
 	bitflag flags[OF_SIZE];	/* Status flags from race and items */
 	struct element_info el_info[ELEM_MAX]; /* Resists from race and items */
+	
+	s16b bonus_move;
+	
+	//struct aura auras[AURA_MAX];
 } player_state;
 
 /**

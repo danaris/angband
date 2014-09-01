@@ -689,6 +689,17 @@ static const char *show_speed(void)
 	return buffer;
 }
 
+/*#include "tables.h"
+static const char *show_bonus_move(void)
+{
+	static char buffer[10];
+	int tmp = player->state.bonus_move / extract_energy[player->state.speed];
+	
+	if (tmp == 0) return "None";
+	strnfmt(buffer, sizeof(buffer), "+%d Move", tmp);
+	return buffer;
+}*/
+
 static byte max_color(int val, int max)
 {
 	return val < max ? TERM_YELLOW : TERM_L_GREEN;
@@ -731,6 +742,7 @@ static struct panel *get_panel_midleft(void) {
 	panel_line(p, TERM_L_GREEN, "Burden", "%.1f lbs",
 			player->upkeep->total_weight / 10.0F);
 	panel_line(p, TERM_L_GREEN, "Speed", "%s", show_speed());
+	//panel_line(p, TERM_L_GREEN, "Bonus Move", "%s", show_bonus_move());
 	panel_line(p, TERM_L_GREEN, "Max Depth", "%s", show_depth());
 
 	return p;

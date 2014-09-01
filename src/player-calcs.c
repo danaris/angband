@@ -34,6 +34,7 @@
 #include "player-util.h"
 #include "spells.h"
 #include "ui.h"
+#include "tables.h"
 
 /*
  * Stat Table (INT) -- Magic devices
@@ -1920,6 +1921,14 @@ void calc_bonuses(object_type gear[], player_state *state, bool known_only)
 	/* Temporary "fast" */
 	if (player->timed[TMD_FAST] || player->timed[TMD_SPRINT])
 		state->speed += 10;
+	
+	/* If we have bonus move (single or double), apply it appropriately *
+	if (player->timed[TMD_BONUS_MOVE] || player->timed[TMD_BONUS_MOVE_2X]) {
+		player->state.bonus_move += extract_energy[player->state.speed];
+		if (player->timed[TMD_BONUS_MOVE_2X]) {
+			player->state.bonus_move += extract_energy[player->state.speed];
+		}
+	}*/
 
 	/* Temporary "slow" */
 	if (player->timed[TMD_SLOW])
@@ -2211,8 +2220,7 @@ static void update_bonuses(void)
 			player->upkeep->update |= (PU_MANA | PU_SPELLS);
 		}
 	}
-
-
+	
 	/* Hack -- Telepathy Change */
 	if (of_has(state->flags, OF_TELEPATHY) != of_has(old.flags, OF_TELEPATHY))
 	{
@@ -2228,7 +2236,7 @@ static void update_bonuses(void)
 	}
 
 	/* Redraw speed (if needed) */
-	if (state->speed != old.speed)
+	if (state->speed != old.speed /*|| state->bonus_move != old.bonus_move*/)
 	{
 		/* Redraw speed */
 		player->upkeep->redraw |= (PR_SPEED);

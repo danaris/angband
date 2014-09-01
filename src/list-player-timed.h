@@ -9,6 +9,7 @@
 /* symbol		on_begin									on_end											on_increase									on_decrease									flag_redraw							flag_update										msg				code fail */
 TMD(FAST,		"You feel yourself moving faster!",			"You feel yourself slow down.",					NULL,										NULL,										0,									PU_BONUS,										MSG_SPEED,		0,	0)
 TMD(SLOW,		"You feel yourself moving slower!",			"You feel yourself speed up.",					NULL,										NULL,										0,									PU_BONUS,										MSG_SLOW,		1,	OF_FREE_ACT)
+TMD(ENTANGLED,		"Your legs are ensnared!",			"You are free to move once more.",					NULL,										NULL,										0,									PU_BONUS,										MSG_ENTANGLED,		1,	OF_PROT_STUN)
 TMD(BLIND,		"You are blind.",							"You blink and your eyes clear.",				NULL,										NULL,										PR_MAP,								PU_FORGET_VIEW | PU_UPDATE_VIEW | PU_MONSTERS,	MSG_BLIND,		1,	OF_PROT_BLIND ) 
 TMD(PARALYZED,	"You are paralysed!",						"You can move again.",							NULL,										NULL,										0,									0,												MSG_PARALYZED,	1,	OF_FREE_ACT)
 TMD(CONFUSED,	"You are confused!",						"You are no longer confused.",					"You are more confused!",					"You feel a little less confused.",			0,									0,												MSG_CONFUSED,	1,	OF_PROT_CONF)
@@ -36,4 +37,6 @@ TMD(TELEPATHY,	"Your mind expands.",						"Your horizons are once more limited."
 TMD(STONESKIN,	"Your skin turns to stone.",				"A fleshy shade returns to your skin.",			NULL,										NULL,										0,									PU_BONUS,										MSG_GENERIC,	0,	0)
 TMD(TERROR,		"You feel the need to run away, and fast!",	"The urge to run dissipates.",					NULL,										NULL,										0,									PU_BONUS,										MSG_AFRAID,		0,	0)
 TMD(SPRINT,		"You start sprinting.",						"You suddenly stop sprinting.",					NULL,										NULL,										0,									PU_BONUS,										MSG_SPEED,		0,	0)
+TMD(BONUS_MOVE,	"Your feet feel more nimble.",				"Your feet feel less nimble.",					"Your feet feel even nimbler!",				"Your feet feel less nimble.",				0,									PU_BONUS,										MSG_SPEED,		0,	0)
+TMD(BONUS_MOVE_2X,	"Your feet feel incredibly nimble.",	"Your feet feel less nimble.",					"Your feet feel even nimbler!",				"Your feet feel less nimble.",				0,									PU_BONUS,										MSG_SPEED,		0,	0)
 TMD(BOLD,		"You feel bold.",							"You no longer feel bold.",						"You feel even bolder!",					"You feel less bold.",						0,									PU_BONUS,										MSG_BOLD,		0,	0)

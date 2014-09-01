@@ -36,7 +36,7 @@
 #include "player-util.h"
 #include "tables.h"
 #include "trap.h"
-
+#include "player-timed.h"
 
 
 /*
@@ -457,6 +457,12 @@ void move_player(int dir, bool disarm)
 			cmd_set_repeat(99);
 
 		do_cmd_alter_aux(dir);
+	}
+	
+	/* Entangled characters can't move */
+	
+	else if (player->timed[TMD_ENTANGLED]) {
+		msgt(MSG_ENTANGLED, "You cannot move with your legs entangled!");
 	}
 
 	/* Cannot walk through walls */

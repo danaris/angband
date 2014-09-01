@@ -128,6 +128,17 @@ struct element_info {
 	bitflag flags;
 };
 
+/* Aura type */
+struct aura {
+	char *name;
+	int element;
+	int power;
+	int radius;
+	bool retaliate;
+	int *conditions; // MON_TMD_MAX
+	struct aura *next;
+};
+
 /**
  * Activation structure
  */
