@@ -983,9 +983,9 @@ bool effect_handler_DETECT_DOORS(effect_handler_context_t *context)
 
 	/* Pick an area to detect */
 	y1 = player->py - y_dist;
-	y2 = player->py + y_dist;
+	y2 = player->py + y_dist + 1;
 	x1 = player->px - x_dist;
-	x2 = player->px + x_dist;
+	x2 = player->px + x_dist + 1;
 
 	if (y1 < 0) y1 = 0;
 	if (x1 < 0) x1 = 0;
