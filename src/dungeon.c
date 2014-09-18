@@ -1131,6 +1131,7 @@ static void process_player(void)
 			} else {
 				player->energy -= player->upkeep->energy_use;
 			}*/
+			player->energy -= player->upkeep->energy_use;
 
 			/* Increment the total energy counter */
 			player->total_energy += player->upkeep->energy_use;
