@@ -1675,7 +1675,16 @@ void play_game(bool new_game)
 
 	/* Generate a dungeon level if needed */
 	if (!character_dungeon)
+	{
 		cave_generate(&cave, player);
+		/* Free old and allocate new known level */
+		if (cave_k)
+			cave_free(cave_k);
+		cave_k = cave_new(cave->height, cave->width);
+		if (!cave->depth)
+			cave_known();
+	}
+
 
 
 	/* Character is now "complete" */
@@ -1801,6 +1810,12 @@ void play_game(bool new_game)
 
 		/* Make a new level */
 		cave_generate(&cave, player);
+		/* Free old and allocate new known level */
+		if (cave_k)
+			cave_free(cave_k);
+		cave_k = cave_new(cave->height, cave->width);
+		if (!cave->depth)
+			cave_known();
 	}
 
 	/* Disallow big cursor */
