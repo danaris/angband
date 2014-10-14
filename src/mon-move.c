@@ -1640,10 +1640,10 @@ void process_monsters(struct chunk *c, byte minimum_energy)
 			/* Process the monster */
 			process_monster(c, m_ptr);
 		}
-
-		/* Monster is no longer current */
-		c->mon_current = -1;
 	}
+	
+	/* Monsters are no longer current */
+	c->mon_current = -1;
 
 	/* Update monster visibility after this */
 	/* XXX This may not be necessary */
