@@ -437,12 +437,17 @@ static int monster_critical(random_value dice, int rlev, int dam)
 /*
  * Determine if a monster attack against the player succeeds.
  */
-bool check_hit(struct player *p, int power, int level)
+bool check_hit(struct player *p, int power, int level, bool blinded)
 {
 	int chance, ac;
 
 	/* Calculate the "attack quality" */
 	chance = (power + (level * 3));
+	
+	/* If the monster is blind, reduce chance to hit by 20% */
+	if (blinded) {
+		chance = chance * 4 / 5;
+	}
 
 	/* Total armor */
 	ac = p->state.ac + p->state.to_a;
@@ -531,7 +536,7 @@ bool make_attack_normal(struct monster *m_ptr, struct player *p)
 		power = monster_blow_effect_power(effect);
 
 		/* Monster hits player */
-		if (!effect || check_hit(p, power, rlev)) {
+		if (!effect || check_hit(p, power, rlev, m_ptr->m_timed[MON_TMD_BLIND])) {
 			melee_effect_handler_f effect_handler;
 
 			/* Always disturbing */

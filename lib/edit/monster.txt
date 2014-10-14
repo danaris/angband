@@ -2580,8 +2580,6 @@ power:14:2:5040:5:40
 B:BITE:HURT:1d8
 F:EVIL | GROUP_AI
 F:RAND_25 | BASH_DOOR
-S:1_IN_8
-S:ENTANGLE
 friends:100:2d7:Same
 D:It is a large wolf with eyes full of cunning.
 

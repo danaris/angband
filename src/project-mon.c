@@ -714,6 +714,18 @@ static void project_monster_handler_OLD_CONF(project_monster_handler_context_t *
 	project_monster_timed_no_damage(context, MON_TMD_CONF);
 }
 
+/* Entangle (Use "dam" as "power") */
+static void project_monster_handler_ENTANGLE(project_monster_handler_context_t *context)
+{
+	project_monster_timed_no_damage(context, MON_TMD_ENTANGLED);
+}
+
+/* Blind (Use "dam" as "power") */
+static void project_monster_handler_BLIND(project_monster_handler_context_t *context)
+{
+	project_monster_timed_no_damage(context, MON_TMD_BLIND);
+}
+
 /* Sleep (Use "dam" as "power") */
 static void project_monster_handler_OLD_SLEEP(project_monster_handler_context_t *context)
 {

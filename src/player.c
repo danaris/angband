@@ -17,6 +17,7 @@
 #include "mon-util.h" /* monster_desc */
 #include "ui-map.h" /* move_cursor_relative */
 #include "target.h"
+#include "mon-desc.h"
 
 
 /*
