@@ -12,7 +12,6 @@ PROGNAME = angband
 
 HEADERS = \
 	angband.h \
-	birth.h \
 	cmds.h \
 	cmd-core.h \
 	config.h \
@@ -35,7 +34,6 @@ HEADERS = \
 	z-expression.h \
 	z-file.h \
 	z-form.h \
-	z-msg.h \
 	z-quark.h \
 	z-queue.h \
 	z-rand.h \
@@ -52,7 +50,6 @@ ZFILES = \
 	z-expression.o \
 	z-file.o \
 	z-form.o \
-	z-msg.o \
 	z-quark.o \
 	z-queue.o \
 	z-rand.o \
@@ -86,9 +83,10 @@ WINMAINFILES = \
 X11MAINFILES = main-x11.o
 
 ANGFILES = \
-	attack.o \
-	birth.o \
 	cave.o \
+	cave-map.o \
+	cave-square.o \
+	cave-view.o \
 	cmd-cave.o \
 	cmd-core.o \
 	cmd-context.o \
@@ -97,11 +95,9 @@ ANGFILES = \
 	cmd-obj.o \
 	cmd-pickup.o \
 	cmd-process.o \
-	death.o \
 	debug.o \
 	dungeon.o \
 	effects.o \
-	files.o \
 	game-event.o \
 	generate.o \
 	gen-cave.o \
@@ -115,18 +111,22 @@ ANGFILES = \
 	init.o \
 	keymap.o \
 	load.o \
+	message.o \
+	mon-attack.o \
 	mon-blow-effects.o \
 	mon-blow-methods.o \
+	mon-desc.o \
+	mon-init.o \
 	mon-list.o \
 	mon-lore.o \
 	mon-make.o \
-	mon-melee2.o \
+	mon-move.o \
 	mon-msg.o \
 	mon-power.o \
 	mon-spell.o \
+	mon-summon.o \
 	mon-timed.o \
 	mon-util.o \
-	mon-init.o \
 	obj-chest.o \
 	obj-desc.o \
 	obj-gear.o \
@@ -145,35 +145,43 @@ ANGFILES = \
 	option.o \
 	parser.o \
 	randname.o \
-	pathfind.o \
 	prefs.o \
+	player-attack.o \
+	player-birth.o \
 	player-calcs.o \
 	player-class.o \
+	player-path.o \
 	player-race.o \
 	player-spell.o \
 	player-timed.o \
 	player-util.o \
 	player.o \
 	project.o \
+	project-feat.o \
+	project-mon.o \
+	project-obj.o \
+	project-player.o \
 	quest.o \
 	score.o \
 	signals.o \
 	save.o \
 	savefile.o \
-	spells.o \
 	store.o \
 	tables.o \
 	target.o \
 	trap.o \
 	ui.o \
 	ui-birth.o \
+	ui-death.o \
 	ui-event.o \
 	ui-game.o \
+	ui-help.o \
 	ui-input.o \
 	ui-knowledge.o \
 	ui-map.o \
 	ui-menu.o \
 	ui-options.o \
+	ui-player.o \
 	ui-spell.o \
 	ui-store.o \
 	wiz-spoil.o \

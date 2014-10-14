@@ -34,10 +34,9 @@
 #include "obj-power.h"
 #include "obj-tval.h"
 #include "obj-util.h"
-#include "spells.h"
 #include "store.h"
 #include "target.h"
-#include "z-debug.h"
+#include "debug.h"
 
 /*** Constants and definitions ***/
 
@@ -60,7 +59,7 @@ struct hint *hints;
 struct store *store_at(struct chunk *c, int y, int x)
 {
 	if (square_isshop(c, player->py, player->px))
-		return &stores[square_shopnum(cave, player->py, player->px)];
+		return &stores[square_shopnum(cave, player->py, player->px)-1];
 
 	return NULL;
 }
@@ -80,11 +79,14 @@ static struct store *store_new(int idx) {
 /*
  * Get rid of stores at cleanup. Gets rid of everything.
  */
-void free_stores(void)
+void cleanup_stores(void)
 {
 	struct owner *o;
 	struct owner *next;
 	int i, j;
+
+	if (!stores)
+		return;
 
 	/* Free the store inventories */
 	for (i = 0; i < MAX_STORES; i++)
@@ -282,6 +284,13 @@ void store_reset(void) {
 		for (j = 0; j < 10; j++) store_maint(s);
 	}
 }
+
+
+struct init_module store_module = {
+	.name = "store",
+	.init = store_init,
+	.cleanup = cleanup_stores
+};
 
 
 

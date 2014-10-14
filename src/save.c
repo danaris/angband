@@ -21,6 +21,7 @@
 #include "dungeon.h"
 #include "history.h"
 #include "init.h"
+#include "mon-lore.h"
 #include "mon-make.h"
 #include "monster.h"
 #include "object.h"
@@ -207,17 +208,17 @@ static void wr_monster(const monster_type *m_ptr)
 /**
  * Write a trap record
  */
-static void wr_trap(trap_type *t_ptr)
+static void wr_trap(struct trap *trap)
 {
     size_t i;
 
-    wr_byte(t_ptr->t_idx);
-    wr_byte(t_ptr->fy);
-    wr_byte(t_ptr->fx);
-    wr_byte(t_ptr->xtra);
+    wr_byte(trap->t_idx);
+    wr_byte(trap->fy);
+    wr_byte(trap->fx);
+    wr_byte(trap->xtra);
 
     for (i = 0; i < TRF_SIZE; i++)
-		wr_byte(t_ptr->flags[i]);
+		wr_byte(trap->flags[i]);
 }
 
 /*
@@ -327,56 +328,20 @@ void wr_messages(void)
 
 void wr_monster_memory(void)
 {
-	size_t i;
 	int r_idx;
 
-	wr_u16b(z_info->r_max);
-	wr_byte(RF_SIZE);
-	wr_byte(RSF_SIZE);
-	wr_byte(MONSTER_BLOW_MAX);
-	for (r_idx = 0; r_idx < z_info->r_max; r_idx++)
-	{
+	for (r_idx = 0; r_idx < z_info->r_max; r_idx++) {
 		monster_race *r_ptr = &r_info[r_idx];
 		monster_lore *l_ptr = &l_list[r_idx];
 
-		/* Count sights/deaths/kills */
-		wr_s16b(l_ptr->sights);
-		wr_s16b(l_ptr->deaths);
-		wr_s16b(l_ptr->pkills);
-		wr_s16b(l_ptr->tkills);
-
-		/* Count wakes and ignores */
-		wr_byte(l_ptr->wake);
-		wr_byte(l_ptr->ignore);
-
-		/* Count drops */
-		wr_byte(l_ptr->drop_gold);
-		wr_byte(l_ptr->drop_item);
-
-		/* Count spells */
-		wr_byte(l_ptr->cast_innate);
-		wr_byte(l_ptr->cast_spell);
-
-		/* Count blows of each type */
-		for (i = 0; i < MONSTER_BLOW_MAX; i++)
-			wr_byte(l_ptr->blows[i]);
-
-		/* Memorize flags */
-		for (i = 0; i < RF_SIZE; i++)
-			wr_byte(l_ptr->flags[i]);
-
-		for (i = 0; i < RSF_SIZE; i++)
-			wr_byte(l_ptr->spell_flags[i]);
-
-		/* Monster limit per level */
-		wr_byte(r_ptr->max_num);
-
-		/* XXX */
-		wr_byte(0);
-		wr_byte(0);
-		wr_byte(0);
+		/* Names and kill counts */
+		if (!r_ptr->name || !l_ptr->pkills) continue;
+		wr_string(r_ptr->name);
+		wr_u16b(l_ptr->pkills);
 	}
+	wr_string("No more monsters");
 }
+
 
 
 void wr_object_memory(void)
@@ -591,34 +556,18 @@ void wr_ignore(void)
 
 void wr_misc(void)
 {
-	wr_u32b(0L);
-
 	/* Random artifact seed */
 	wr_u32b(seed_randart);
 
-
-	/* XXX Ignore some flags */
-	wr_u32b(0L);
-	wr_u32b(0L);
-	wr_u32b(0L);
-
-
 	/* Write the "object seeds" */
 	wr_u32b(seed_flavor);
-
 
 	/* Special stuff */
 	wr_u16b(player->total_winner);
 	wr_u16b(player->noscore);
 
-
 	/* Write death */
 	wr_byte(player->is_dead);
-
-	/* Write feeling */
-	wr_byte(cave->feeling);
-	wr_u16b(cave->feeling_squares);
-	wr_s32b(cave->created_at);
 
 	/* Current turn */
 	wr_s32b(turn);
@@ -744,83 +693,65 @@ void wr_dungeon(void)
 	/*** Simple "Run-Length-Encoding" of cave ***/
 
     /* Loop across bytes of cave->info */
-    for (i = 0; i < SQUARE_SIZE; i++)
-    {
-	/* Note that this will induce two wasted bytes */
-	count = 0;
-	prev_char = 0;
+    for (i = 0; i < SQUARE_SIZE; i++) {
+		count = 0;
+		prev_char = 0;
 
-	/* Dump the cave */
-	for (y = 0; y < cave->height; y++)
-	{
-		for (x = 0; x < cave->width; x++)
-		{
-			/* Extract the important cave->info flags */
-			tmp8u = cave->info[y][x][i];
+		/* Dump for each grid */
+		for (y = 0; y < cave->height; y++) {
+			for (x = 0; x < cave->width; x++) {
+				/* Extract the important cave->info flags */
+				tmp8u = cave->info[y][x][i];
 
-			/* If the run is broken, or too full, flush it */
-			if ((tmp8u != prev_char) || (count == MAX_UCHAR))
-			{
-				wr_byte((byte)count);
-				wr_byte((byte)prev_char);
-				prev_char = tmp8u;
-				count = 1;
+				/* If the run is broken, or too full, flush it */
+				if ((tmp8u != prev_char) || (count == MAX_UCHAR)) {
+					wr_byte((byte)count);
+					wr_byte((byte)prev_char);
+					prev_char = tmp8u;
+					count = 1;
+				} else /* Continue the run */
+					count++;
 			}
+		}
 
-			/* Continue the run */
-			else
-			{
-				count++;
-			}
+		/* Flush the data (if any) */
+		if (count) {
+			wr_byte((byte)count);
+			wr_byte((byte)prev_char);
 		}
 	}
 
-	/* Flush the data (if any) */
-	if (count)
-	{
-		wr_byte((byte)count);
-		wr_byte((byte)prev_char);
-	}
-	}
-
-	/*** Simple "Run-Length-Encoding" of cave ***/
-
-	/* Note that this will induce two wasted bytes */
+	/* Now the terrain */
 	count = 0;
 	prev_char = 0;
 
-	/* Dump the cave */
-	for (y = 0; y < cave->height; y++)
-	{
-		for (x = 0; x < cave->width; x++)
-		{
+	/* Dump for each grid */
+	for (y = 0; y < cave->height; y++) {
+		for (x = 0; x < cave->width; x++) {
 			/* Extract a byte */
 			tmp8u = cave->feat[y][x];
 
 			/* If the run is broken, or too full, flush it */
-			if ((tmp8u != prev_char) || (count == MAX_UCHAR))
-			{
+			if ((tmp8u != prev_char) || (count == MAX_UCHAR)) {
 				wr_byte((byte)count);
 				wr_byte((byte)prev_char);
 				prev_char = tmp8u;
 				count = 1;
-			}
-
-			/* Continue the run */
-			else
-			{
+			} else /* Continue the run */
 				count++;
-			}
 		}
 	}
 
 	/* Flush the data (if any) */
-	if (count)
-	{
+	if (count) {
 		wr_byte((byte)count);
 		wr_byte((byte)prev_char);
 	}
 
+	/* Write feeling */
+	wr_byte(cave->feeling);
+	wr_u16b(cave->feeling_squares);
+	wr_s32b(cave->created_at);
 
 	/*** Compact ***/
 
@@ -966,9 +897,9 @@ void wr_chunks(void)
 		wr_u16b(c->trap_max);
 
 		for (i = 0; i < c->trap_max; i++) {
-			trap_type *t_ptr = &c->traps[i];
+			struct trap *trap = &c->traps[i];
 
-			wr_trap(t_ptr);
+			wr_trap(trap);
 		}
 	}
 }
@@ -1057,9 +988,9 @@ void wr_traps(void)
 
     for (i = 0; i < cave_trap_max(cave); i++)
     {
-		trap_type *t_ptr = cave_trap(cave, i);
+		struct trap *trap = cave_trap(cave, i);
 
-		wr_trap(t_ptr);
+		wr_trap(trap);
     }
 
     /* Expansion */

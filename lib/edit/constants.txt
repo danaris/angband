@@ -1,0 +1,93 @@
+# File: constants.txt
+
+
+# This file is used to initialize game constants for Angband.
+
+## Level Maxima ##
+
+# Maximum number of objects on the level
+level-max:objects:1024
+
+# Maximum number of monsters on the level
+level-max:monsters:1024
+
+# Maximum number of traps on the level
+level-max:traps:1024
+
+## Monster Generation ##
+
+# 1/per-turn-chance of new monster generation
+mon-gen:chance:500
+
+# Minimum number of monsters generated on a level
+mon-gen:level-min:14
+
+# Number of townsfolk generated in the day */
+mon-gen:town-day:4
+
+# Number of townsfolk generated in the night */
+mon-gen:town-night:8
+
+# Maximum number of breeding monsters allowed on a level
+mon-gen:repro-max:100
+
+# Chance of a generated monster's level being inflated is one-in-this
+mon-gen:ood-chance:25
+
+# Maximum out-of-depth amount for monster generation
+mon-gen:ood-amount:10
+
+## Monster Gameplay ##
+
+# Rune of protection resistance to monster breaking
+mon-play:break-glyph:550
+
+# High value slows multiplication
+mon-play:mult-rate:8
+
+# Percent of player exp drained per hit
+mon-play:life-drain:2
+
+# Maximum flow depth when using for monster flow calculation
+mon-play:flow-depth:32
+
+## Dungeon Generation ##
+
+# Number of possible room centres (and hence rooms) on a normal level
+dun-gen:cent-max:100
+
+# Number of possible door locations
+dun-gen:door-max:200
+
+# Number of possible places to pierce room walls with tunnels
+dun-gen:wall-max:500
+
+# Number of tunnel grids
+dun-gen:tunn-max:900
+
+# Average number of objects to place in rooms
+dun-gen:amt-room:9
+
+# Average number of objects to place in rooms/corridors
+dun-gen:amt-item:3
+
+# Average amount of treasure to place in rooms/corridors
+dun-gen:amt-gold:3
+
+# Maximum number of pits or nests allowed per level
+dun-gen:pit-max:2
+
+## Dungeon Dimensions ##
+
+# Max number of grids in each dungeon level (vertically)
+dun-dim:dungeon-hgt:66
+
+# Max number of grids in each dungeon level (horizontally)
+dun-dim:dungeon-wid:198
+
+# Max number of grids in each town level (vertically)
+dun-dim:town-hgt:22
+
+# Max number of grids in each town level (horizontally)
+dun-dim:town-wid:66
+

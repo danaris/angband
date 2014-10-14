@@ -20,7 +20,6 @@
 #include "cave.h"
 #include "cmds.h"
 #include "effects.h"
-#include "files.h"
 #include "init.h"
 #include "mon-lore.h"
 #include "mon-make.h"
@@ -37,10 +36,10 @@
 #include "object.h"
 #include "player-timed.h"
 #include "project.h"
-#include "spells.h"
 #include "target.h"
 #include "ui-event.h"
 #include "ui-game.h"
+#include "ui-help.h"
 #include "ui-input.h"
 #include "ui-map.h"
 #include "ui-menu.h"
@@ -125,7 +124,7 @@ static void do_cmd_wiz_hack_ben(void)
 	struct keypress kp;
 
 
-	for (i = 0; i < MONSTER_FLOW_DEPTH; ++i)
+	for (i = 0; i < z_info->max_flow_depth; ++i)
 	{
 		/* Update map */
 		for (y = Term->offset_y; y < Term->offset_y + SCREEN_HGT; y++)
@@ -251,7 +250,7 @@ static void do_cmd_wiz_bamf(void)
 
 	/* Teleport to the target */
 	else
-		teleport_player_to(y, x);
+		effect_simple(EF_TELEPORT_TO, "0", y, x, 0, NULL);
 }
 
 
@@ -1342,15 +1341,10 @@ static void do_cmd_rerate(void)
  */
 static void do_cmd_wiz_summon(int num)
 {
-	int py = player->py;
-	int px = player->px;
-
 	int i;
 
 	for (i = 0; i < num; i++)
-	{
-		(void)summon_specific(py, px, player->depth, 0, 1);
-	}
+		effect_simple(EF_SUMMON, "1", 0, 0, 0, NULL);
 }
 
 
@@ -1511,13 +1505,12 @@ static void do_cmd_wiz_features(void)
 	int featb[] = {FEAT_BROKEN};
 	int featu[] = {FEAT_LESS};
 	int featz[] = {FEAT_MORE};
-	int feats[] = { FEAT_SHOP_HEAD, FEAT_SHOP_HEAD + 1, FEAT_SHOP_HEAD + 2, FEAT_SHOP_HEAD + 3, FEAT_SHOP_HEAD + 4, FEAT_SHOP_HEAD + 5, FEAT_SHOP_HEAD + 6, FEAT_SHOP_HEAD + 7 };
 	int featt[] = {FEAT_LESS, FEAT_MORE};
-	int featc[] = {FEAT_DOOR_HEAD, FEAT_DOOR_HEAD + 1, FEAT_DOOR_HEAD + 2, FEAT_DOOR_HEAD + 3, FEAT_DOOR_HEAD + 4, FEAT_DOOR_HEAD + 5, FEAT_DOOR_HEAD + 6, FEAT_DOOR_HEAD + 7, FEAT_DOOR_HEAD + 8, FEAT_DOOR_HEAD + 9, FEAT_DOOR_HEAD + 10, FEAT_DOOR_HEAD + 11, FEAT_DOOR_HEAD + 12, FEAT_DOOR_HEAD + 13, FEAT_DOOR_HEAD + 14, FEAT_DOOR_HEAD + 15};
-	int featd[] = {FEAT_DOOR_HEAD, FEAT_DOOR_HEAD + 1, FEAT_DOOR_HEAD + 2, FEAT_DOOR_HEAD + 3, FEAT_DOOR_HEAD + 4, FEAT_DOOR_HEAD + 5, FEAT_DOOR_HEAD + 6, FEAT_DOOR_HEAD + 7, FEAT_DOOR_HEAD + 8, FEAT_DOOR_HEAD + 9, FEAT_DOOR_HEAD + 10, FEAT_DOOR_HEAD + 11, FEAT_DOOR_HEAD + 12, FEAT_DOOR_HEAD + 13, FEAT_DOOR_HEAD + 14, FEAT_DOOR_HEAD + 15, FEAT_OPEN, FEAT_BROKEN, FEAT_SECRET};
+	int featc[] = {FEAT_CLOSED};
+	int featd[] = {FEAT_CLOSED, FEAT_OPEN, FEAT_BROKEN, FEAT_SECRET};
 	int feath[] = {FEAT_SECRET};
-	int featm[] = {FEAT_MAGMA, FEAT_MAGMA_H, FEAT_MAGMA_K};
-	int featq[] = {FEAT_QUARTZ, FEAT_QUARTZ_H, FEAT_QUARTZ_K};
+	int featm[] = {FEAT_MAGMA, FEAT_MAGMA_K};
+	int featq[] = {FEAT_QUARTZ, FEAT_QUARTZ_K};
 	int featg[] = {FEAT_GRANITE};
 	int featp[] = {FEAT_PERM};
 	int featr[] = {FEAT_RUBBLE};
@@ -1530,29 +1523,33 @@ static void do_cmd_wiz_features(void)
 	/* Choose a feature (type) */
 	switch (cmd.code)
 	{
-		/* */
+		/* Floors */
 		case 'f': feat = featf; length = 1; break;
-		/* */
+		/* Open doors */
 		case 'o': feat = feato; length = 1; break;
-		/* */
+		/* Broken doors */
 		case 'b': feat = featb; length = 1; break;
-		/* */
+		/* Upstairs */
 		case 'u': feat = featu; length = 1; break;
-		/* */
+		/* Downstairs */
 		case 'z': feat = featz; length = 1; break;
-		/* */
-		case 's': feat = feats; length = 8; break;
-		/* */
+		/* Stairs */
 		case 't': feat = featt; length = 2; break;
-		/* */
-		case 'c': feat = featc; length = 16; break;
-		/* */
-		case 'd': feat = featd; length = 19; break;
+		/* Closed doors */
+		case 'c': feat = featc; length = 8; break;
+		/* Doors */
+		case 'd': feat = featd; length = 11; break;
+		/* Secret doors */
 		case 'h': feat = feath; length = 1; break;
+		/* Magma */
 		case 'm': feat = featm; length = 3; break;
+		/* Quartz */
 		case 'q': feat = featq; length = 3; break;
+		/* Granite */
 		case 'g': feat = featg; length = 1; break;
+		/* Permanent wall */
 		case 'p': feat = featp; length = 1; break;
+		/* Rubble */
 		case 'r': feat = featr; length = 1; break;
 	}
 
@@ -1678,9 +1675,9 @@ static void do_cmd_wiz_advance(void)
 	player->upkeep->update |= (PU_BONUS | PU_HP | PU_MANA | PU_SPELLS);
 
 	/* Redraw everything */
-	player->upkeep->redraw |= (PR_BASIC | PR_EXTRA | PR_MAP | PR_INVEN | PR_EQUIP |
-	                  PR_MESSAGE | PR_MONSTER | PR_OBJECT |
-					  PR_MONLIST | PR_ITEMLIST);
+	player->upkeep->redraw |= (PR_BASIC | PR_EXTRA | PR_MAP | PR_INVEN |
+			PR_EQUIP | PR_MESSAGE | PR_MONSTER | PR_OBJECT | PR_MONLIST |
+			PR_ITEMLIST);
 
 	/* Hack -- update */
 	handle_stuff(player->upkeep);
@@ -2004,7 +2001,8 @@ void do_cmd_debug(void)
 		/* Phase Door */
 		case 'p':
 		{
-			teleport_player(10);
+			const char *near = "10";
+			effect_simple(EF_TELEPORT, near, 0, 1, 0, NULL);
 			break;
 		}
 
@@ -2097,7 +2095,8 @@ void do_cmd_debug(void)
 		/* Teleport */
 		case 't':
 		{
-			teleport_player(100);
+			const char *far = "100";
+			effect_simple(EF_TELEPORT, far, 0, 1, 0, NULL);
 			break;
 		}
 

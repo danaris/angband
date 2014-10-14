@@ -20,43 +20,7 @@
 #ifndef INCLUDED_MONSTER_CONSTANTS_H
 #define INCLUDED_MONSTER_CONSTANTS_H
 
-/** Monster generation info **/
 
-/* There is a 1/500 chance per round of creating a new monster */
-#define MAX_M_ALLOC_CHANCE	500
-
-/* Normal levels get at least 14 monsters */
-#define MIN_M_ALLOC_LEVEL	14
-
-/* The town starts out with 4 residents during the day */
-#define MIN_M_ALLOC_TD		4
-
-/* The town starts out with 8 residents during the night */
-#define MIN_M_ALLOC_TN		8
-
-/*
- * A monster can only "multiply" (reproduce) if there are fewer than 100
- * monsters on the level capable of such spontaneous reproduction.  This
- * is a hack which prevents the "mon_list[]" array from exploding due to
- * reproducing monsters.  Messy, but necessary.
- */
-#define MAX_REPRO	100
-
-
-/*
- * Maximum flow depth when using "MONSTER_FLOW"
- */
-#define MONSTER_FLOW_DEPTH 32
-
-
-/*** Monster blow constants ***/
-#define MONSTER_BLOW_MAX 4
-
-/*
- * XXX Hack: player immunity to mana draining cannot be represented by 
- * m_ptr->known_pflags, so we need this.
- */
-#define SM_IMM_MANA		0x00000800
 
 /*** Monster flags ***/
 
@@ -64,6 +28,7 @@
  * Special Monster Flags (all temporary)
  */
 #define MFLAG_VIEW	0x01	/* Monster is in line of sight */
+#define MFLAG_ACTV	0x02	/* Monster is in active mode */
 /* xxx */
 #define MFLAG_NICE	0x20	/* Monster is still being nice */
 #define MFLAG_SHOW	0x40	/* Monster is recently memorized */
@@ -125,14 +90,5 @@ enum
 	RF_DROP_3, \
 	RF_DROP_2, \
 	RF_DROP_1
-
-/*
- * Some monster types are different.
- */
-#define monster_is_unusual(R) \
-	flags_test((R)->flags, RF_SIZE, RF_DEMON, RF_UNDEAD, RF_STUPID, RF_NONLIVING, FLAG_END)
-
-#define monster_is_nonliving(R) \
-	flags_test((R)->flags, RF_SIZE, RF_DEMON, RF_UNDEAD, RF_NONLIVING, FLAG_END)
 
 #endif /* INCLUDED_MONSTER_CONSTANTS_H */

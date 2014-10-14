@@ -29,13 +29,13 @@
 #include "object.h"
 #include "prefs.h"
 #include "project.h"
-#include "spells.h"
 #include "ui-game.h"
 
 bool arg_wizard;			/* Command arg -- Request wizard mode */
+bool arg_power;				/* Command arg -- Generate monster power */
 bool arg_rebalance;			/* Command arg -- Rebalance monsters */
 int arg_graphics;			/* Command arg -- Request graphics mode */
-bool arg_graphics_nice;			/* Command arg -- Request nice graphics mode */
+bool arg_graphics_nice;		/* Command arg -- Request nice graphics mode */
 
 /*** Pref file saving code ***/
 
@@ -181,21 +181,6 @@ void dump_monsters(ang_file *fff)
 	}
 }
 
-static void get_pref_name(char *buf, size_t max, const char *name) {
-	size_t j, k;
-	/* Copy across the name, stripping modifiers & and ~) */
-	size_t len = strlen(name);
-	for (j = 0, k = 0; j < len && k < max; j++) {
-		if (j == 0 && name[0] == '&' && name[1] == ' ')
-			j += 2;
-		if (name[j] == '~')
-			continue;
-
-		buf[k++] = name[j];
-	}
-	buf[k] = 0;
-}
-
 /* Dump objects */
 void dump_objects(ang_file *fff)
 {
@@ -210,7 +195,7 @@ void dump_objects(ang_file *fff)
 
 		if (!k_ptr->name || !k_ptr->tval) continue;
 
-		get_pref_name(name, sizeof name, k_ptr->name);
+		object_short_name(name, sizeof name, k_ptr->name);
 		file_putf(fff, "K:%s:%s:%d:%d\n", tval_find_name(k_ptr->tval),
 				name, k_ptr->x_attr, k_ptr->x_char);
 	}
@@ -226,7 +211,7 @@ void dump_autoinscriptions(ang_file *f) {
 		if (!k->name || !k->tval) continue;
 		note = get_autoinscription(k);
 		if (note) {
-			get_pref_name(name, sizeof name, k->name);
+			object_short_name(name, sizeof name, k->name);
 			file_putf(f, "inscribe:%s:%s:%s\n", tval_find_name(k->tval), name, note);
 		}
 	}
@@ -677,7 +662,7 @@ static enum parser_error parse_prefs_f(struct parser *p)
 	else if (streq(lighting, "all"))
 		light_idx = LIGHTING_MAX;
 	else
-		return PARSE_ERROR_GENERIC; /* xxx fixme */
+		return PARSE_ERROR_INVALID_LIGHTING;
 
 	if (light_idx < LIGHTING_MAX)
 	{
@@ -893,7 +878,7 @@ static enum parser_error parse_prefs_m(struct parser *p)
 	msg_index = message_lookup_by_name(type);
 
 	if (msg_index < 0)
-		return PARSE_ERROR_GENERIC;
+		return PARSE_ERROR_INVALID_MESSAGE;
 
 	if (strlen(attr) > 1)
 		a = color_text_to_attr(attr);

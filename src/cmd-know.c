@@ -22,7 +22,6 @@
 #include "cave.h"
 #include "cmds.h"
 #include "dungeon.h"
-#include "files.h"
 #include "history.h"
 #include "init.h"
 #include "mon-lore.h"
@@ -40,6 +39,7 @@
 #include "target.h"
 #include "ui-map.h"
 #include "ui-menu.h"
+#include "ui-player.h"
 #include "ui.h"
 
 
@@ -174,10 +174,10 @@ void do_cmd_change_name(void)
 
 					if (get_file(fname, buf, sizeof buf))
 					{
-						if (file_character(buf, FALSE) != 0)
-							msg("Character dump failed!");
-						else
+						if (dump_save(buf))
 							msg("Character dump successful.");
+						else
+							msg("Character dump failed!");
 					}
 					break;
 				}

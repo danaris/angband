@@ -17,7 +17,7 @@ int teardown_tests(void *state) {
 }
 
 int test_n0(void *state) {
-	enum parser_error r = parser_parse(state, "N:544:Carcharoth, the Jaws of Thirst");
+	enum parser_error r = parser_parse(state, "name:544:Carcharoth, the Jaws of Thirst");
 	struct monster_race *mr;
 
 	eq(r, PARSE_ERROR_NONE);
@@ -68,7 +68,7 @@ int test_i0(void *state) {
 }
 
 int test_w0(void *state) {
-	enum parser_error r = parser_parse(state, "W:42:11:27:4");
+	enum parser_error r = parser_parse(state, "power:42:11:27:6:4");
 	struct monster_race *mr;
 
 	eq(r, PARSE_ERROR_NONE);
@@ -77,6 +77,7 @@ int test_w0(void *state) {
 	eq(mr->level, 42);
 	eq(mr->rarity, 11);
 	eq(mr->power, 27);
+	eq(mr->scaled_power, 6);
 	eq(mr->mexp, 4);
 	ok;
 }
@@ -90,22 +91,22 @@ int test_b0(void *state) {
 	require(mr);
 	require(mr->blow[0].method);
 	require(mr->blow[0].effect);
-	eq(mr->blow[0].d_dice, 9);
-	eq(mr->blow[0].d_side, 12);
+	eq(mr->blow[0].dice.dice, 9);
+	eq(mr->blow[0].dice.sides, 12);
 	ok;
 }
 
 int test_b1(void *state) {
-	enum parser_error r = parser_parse(state, "B:BITE:FIRE:6d8");
+	enum parser_error r = parser_parse(state, "B:BITE:FIRE:6d8:0");
 	struct monster_race *mr;
 
 	eq(r, PARSE_ERROR_NONE);
 	mr = parser_priv(state);
 	require(mr);
-	require(mr->blow[1].method);
-	require(mr->blow[1].effect);
-	eq(mr->blow[1].d_dice, 6);
-	eq(mr->blow[1].d_side, 8);
+	require(mr->blow[0].next->method);
+	require(mr->blow[0].next->effect);
+	eq(mr->blow[0].next->dice.dice, 6);
+	eq(mr->blow[0].next->dice.sides, 8);
 	ok;
 }
 
@@ -133,8 +134,8 @@ int test_d0(void *state) {
 	ok;
 }
 
-int test_s0(void *state) {
-	enum parser_error r = parser_parse(state, "S:1_IN_4 | BR_DARK | S_HOUND");
+int test_sf0(void *state) {
+	enum parser_error r = parser_parse(state, "spell-freq:4");
 	struct monster_race *mr;
 
 	eq(r, PARSE_ERROR_NONE);
@@ -142,6 +143,16 @@ int test_s0(void *state) {
 	require(mr);
 	eq(mr->freq_spell, 25);
 	eq(mr->freq_innate, 25);
+	ok;
+}
+
+int test_s0(void *state) {
+	enum parser_error r = parser_parse(state, "S:BR_DARK | S_HOUND");
+	struct monster_race *mr;
+
+	eq(r, PARSE_ERROR_NONE);
+	mr = parser_priv(state);
+	require(mr);
 	require(mr->spell_flags);
 	ok;
 }
@@ -157,6 +168,7 @@ struct test tests[] = {
 	{ "b1", test_b1 },
 	{ "f0", test_f0 },
 	{ "d0", test_d0 },
+	{ "sf0", test_sf0 },
 	{ "s0", test_s0 },
 	{ NULL, NULL }
 };

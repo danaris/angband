@@ -15,6 +15,7 @@
 
 #include "angband.h"
 #include "init.h"
+#include "mon-lore.h"
 #include "monster.h"
 #include "obj-tval.h"
 #include "player.h"
@@ -729,6 +730,60 @@ static struct monster_base TEST_DATA test_rb_info = {
 
 #define _NOBLOW { .method = RBM_NONE, .effect = RBE_NONE, .d_dice = 0, .d_side = 0 }
 
+static struct monster_blow TEST_DATA test_blow[4] = {
+	{
+		.method = RBM_HIT,
+		.effect = RBE_HURT,
+		.dice = {
+			.base = 0,
+			.dice = 3,
+			.sides = 1,
+			.m_bonus = 0,
+		},
+		.times_seen = 1,
+	},
+	{
+		.method = RBM_NONE,
+		.effect = RBE_NONE,
+		.dice = {
+			.base = 0,
+			.dice = 0,
+			.sides = 0,
+			.m_bonus = 0,
+		},
+		.times_seen = 0,
+	},
+	{
+		.method = RBM_NONE,
+		.effect = RBE_NONE,
+		.dice = {
+			.base = 0,
+			.dice = 0,
+			.sides = 0,
+			.m_bonus = 0,
+		},
+		.times_seen = 0,
+	},
+	{
+		.method = RBM_NONE,
+		.effect = RBE_NONE,
+		.dice = {
+			.base = 0,
+			.dice = 0,
+			.sides = 0,
+			.m_bonus = 0,
+		},
+		.times_seen = 0,
+	}
+};
+
+static bool TEST_DATA test_blows_known[4] = {
+	TRUE,
+	FALSE,
+	FALSE,
+	FALSE,
+};
+
 static struct monster_race TEST_DATA test_r_human = {
 	.next = NULL,
 	.ridx = 0,
@@ -745,21 +800,10 @@ static struct monster_race TEST_DATA test_r_human = {
 	.mexp = 50,
 	.power = 1,
 	.scaled_power = 1,
-	.highest_threat = 5,
 	.freq_innate = 0,
 	.freq_spell = 0,
 
-	.blow = {
-		{
-			.method = RBM_HIT,
-			.effect = RBE_HURT,
-			.d_dice = 3,
-			.d_side = 1,
-		},
-		_NOBLOW,
-		_NOBLOW,
-		_NOBLOW,
-	},
+	.blow = &test_blow[0],
 
 	.level = 1,
 	.rarity = 1,
@@ -776,41 +820,65 @@ static struct monster_race TEST_DATA test_r_human = {
 	.drops = NULL,
 };
 
+static monster_lore TEST_DATA test_lore = {
+	.ridx = 0,
+	.sights = 1,
+	.deaths = 0,
+	.pkills = 0,
+	.tkills = 5,
+	.wake = 1,
+	.ignore = 4,
+	.drop_gold = 0,
+	.drop_item = 0,
+	.cast_innate = 0,
+	.cast_spell = 0,
+
+	.blows = &test_blow[0],
+
+	.flags = "\0\0\0\0\0\0\0\0\0\0",
+	.spell_flags = "\0\0\0\0\0\0\0\0\0\0\0",
+	.drops = NULL,
+	.friends = NULL,
+	.friends_base = NULL,
+	.mimic_kinds = NULL,
+	.all_known = FALSE,
+	.blow_known = &test_blows_known[0],
+	.armour_known = FALSE,
+	.drop_known = FALSE,
+	.sleep_known = FALSE,
+	.spell_freq_known = FALSE
+};
+
 #undef _NOBLOW
 
-static struct maxima TEST_DATA test_z_info = {
-	.f_max   = 2,
-	.k_max   = 2,
-	.a_max   = 2,
-	.e_max   = 2,
-	.r_max   = 2,
-	.mp_max  = 2,
-	.s_max   = 2,
-	.pit_max = 2,
-	.o_max   = 2,
-	.m_max   = 2,
+static struct angband_constants TEST_DATA test_z_info = {
+	.f_max    = 2,
+	.trap_max = 2,
+	.k_max    = 2,
+	.a_max    = 2,
+	.e_max    = 2,
+	.r_max    = 2,
+	.mp_max   = 2,
+	.s_max    = 2,
+	.pit_max  = 2,
+	.act_max  = 2,
+	.level_object_max  = 2,
+	.level_monster_max = 2,
+	.level_trap_max    = 2,
 };
 
 static struct object TEST_DATA test_gear[MAX_GEAR];
+
+static struct equip_slot TEST_DATA test_slot_light = {
+	.type = 5,
+	.name = "light",
+	.index = 0,
+};
 
 static struct player_body TEST_DATA test_player_body = {
 	.next    = NULL,
 	.name    = "Humanoid",
 	.count   = 12,
-	.slots   = {
-		{ .type = 1, .name = "weapon", .index = 0 },
-		{ .type = 2, .name = "shooting", .index = 0 },
-		{ .type = 3, .name = "right hand", .index = 0 },
-		{ .type = 3, .name = "left hand", .index = 0 },
-		{ .type = 4, .name = "neck", .index = 0 },
-		{ .type = 5, .name = "light", .index = 0 },
-		{ .type = 6, .name = "body", .index = 0 },
-		{ .type = 7, .name = "back", .index = 0 },
-		{ .type = 8, .name = "arm", .index = 0 },
-		{ .type = 9, .name = "head", .index = 0 },
-		{ .type = 10, .name = "hands", .index = 0 },
-		{ .type = 11, .name = "feet", .index = 0 },
-	},
 };
 
 static struct player_upkeep TEST_DATA test_player_upkeep = {

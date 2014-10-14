@@ -20,6 +20,7 @@
 #include "cave.h"
 #include "cmd-core.h"
 #include "keymap.h"
+#include "mon-desc.h"
 #include "mon-lore.h"
 #include "mon-util.h"
 #include "monster.h"
@@ -396,7 +397,7 @@ static bool target_set_interactive_accept(int y, int x)
 	}
 
     /* Traps */
-    if (square_visible_trap(cave, y, x))
+    if (square_isvisibletrap(cave, y, x))
 		return(TRUE);
 
 	/* Scan all objects in the grid */
@@ -921,10 +922,9 @@ static ui_event target_set_interactive_aux(int y, int x, int mode)
 		}
 
 		/* A trap */
-		if (square_visible_trap(cave, y, x)) 
+		if (square_isvisibletrap(cave, y, x)) 
 		{
-			trap_type *t_ptr = cave_trap(cave, 
-										 square_visible_trap_idx(cave, y, x));
+			struct trap *trap = cave_trap(cave, square_trap_idx(cave, y, x));
 
 			/* Not boring */
 			boring = FALSE;
@@ -945,19 +945,19 @@ static ui_event target_set_interactive_aux(int y, int x, int mode)
 				}
 
 				/* Pick proper indefinite article */
-				s3 = (is_a_vowel(t_ptr->kind->name[0])) ? "an " : "a ";
+				s3 = (is_a_vowel(trap->kind->name[0])) ? "an " : "a ";
 
 				/* Describe, and prompt for recall */
 				if (player->wizard) 
 				{
 					strnfmt(out_val, sizeof(out_val),
 							"%s%s%s%s, %s (%d:%d, cost=%d, when=%d).", s1, s2, s3,
-							t_ptr->kind->name, coords, y, x, (int)cave->cost[y][x], (int)cave->when[y][x]);
+							trap->kind->name, coords, y, x, (int)cave->cost[y][x], (int)cave->when[y][x]);
 				} 
 				else 
 				{
 					strnfmt(out_val, sizeof(out_val), "%s%s%s%s, %s.", 
-							s1, s2, s3, t_ptr->kind->name, coords);
+							s1, s2, s3, trap->kind->name, coords);
 				}
 
 				prt(out_val, 0, 0);
@@ -979,7 +979,7 @@ static ui_event target_set_interactive_aux(int y, int x, int mode)
 		}
 	
 		/* Double break */
-		if (square_visible_trap(cave, y, x))
+		if (square_isvisibletrap(cave, y, x))
 			break;
 	
 		/* Assume not floored */
@@ -1222,7 +1222,7 @@ bool target_set_closest(int mode)
  * The first two result from information being lost from the dungeon arrays,
  * which requires changes elsewhere
  */
-static int draw_path(u16b path_n, u16b *path_g, wchar_t *c, int *a, int y1, int x1)
+static int draw_path(u16b path_n, struct loc *path_g, wchar_t *c, int *a, int y1, int x1)
 {
 	int i;
 	bool on_screen;
@@ -1240,8 +1240,8 @@ static int draw_path(u16b path_n, u16b *path_g, wchar_t *c, int *a, int y1, int 
 		byte colour;
 
 		/* Find the co-ordinates on the level. */
-		int y = GRID_Y(path_g[i]);
-		int x = GRID_X(path_g[i]);
+		int y = path_g[i].y;
+		int x = path_g[i].x;
 
 		/*
 		 * As path[] is a straight line and the screen is oblong,
@@ -1302,11 +1302,12 @@ static int draw_path(u16b path_n, u16b *path_g, wchar_t *c, int *a, int y1, int 
  * Load the attr/char at each point along "path" which is on screen from
  * "a" and "c". This was saved in draw_path().
  */
-static void load_path(u16b path_n, u16b *path_g, wchar_t *c, int *a) {
+static void load_path(u16b path_n, struct loc *path_g, wchar_t *c, int *a)
+{
 	int i;
 	for (i = 0; i < path_n; i++) {
-		int y = GRID_Y(path_g[i]);
-		int x = GRID_X(path_g[i]);
+		int y = path_g[i].y;
+		int x = path_g[i].x;
 
 		if (!panel_contains(y, x)) continue;
 		move_cursor_relative(y, x);
@@ -1370,7 +1371,7 @@ bool target_set_interactive(int mode, int x, int y)
 	int px = player->px;
 
 	int path_n;
-	u16b path_g[256];
+	struct loc path_g[256];
 
 	int i, d, m, t, bd;
 	int wid, hgt, help_prompt_loc;

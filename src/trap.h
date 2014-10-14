@@ -1,45 +1,18 @@
-/* trap.h - trap interface */
+/**
+   \file trap.h 
+   \brief trap predicates, structs and functions
+ */
 
 #ifndef TRAP_H
 #define TRAP_H
-
-/*** Trap Indexes (see "lib/edit/trap.txt") ***/
-
-/** Nothing */
-#define TRAP_NONE	0x00
-
-/* Runes  */
-#define RUNE_PROTECT    0x03
-
-/* Traps */
-#define TRAP_HEAD	    0x10
-#define TRAP_TAIL	    0x1F
-#define TRAP_TRAPDOOR	0x10
-#if 0 //Currently unused and annoying - NRM
-#define TRAP_PIT_OPEN   0x11
-#define TRAP_PIT_SPIKED 0x12
-#define TRAP_PIT_POISON 0x13
-#define TRAP_SUMMON	    0x14
-#define TRAP_PORTAL	    0x15
-#define TRAP_SPOT_FIRE  0x16
-#define TRAP_SPOT_ACID  0x17
-#define TRAP_DART_SLOW  0x18
-#define TRAP_DART_STR   0x19
-#define TRAP_DART_DEX   0x1A
-#define TRAP_DART_CON   0x1B
-#define TRAP_GAS_BLIND  0x1C
-#define TRAP_GAS_CONFU  0x1D
-#define TRAP_GAS_POISON 0x1E
-#define TRAP_GAS_SLEEP  0x1F
-#endif
 
 /*** Trap flags ***/
 
 enum
 {
-#define TRF(a,b) TRF_##a,
-#include "list-trap-flags.h"
-#undef TRF
+	#define TRF(a,b) TRF_##a,
+	#include "list-trap-flags.h"
+	#undef TRF
 	TRF_MAX
 };
 
@@ -64,62 +37,64 @@ enum
 #define trf_diff(f1, f2)        flag_diff(f1, f2, TRF_SIZE)
 
 
-/*
+/**
  * A trap template.
  */
-typedef struct trap
+struct trap_kind
 {
-    char *name;		      /**< Name  */
-    char *text;		      /**< Text  */
-	
-    struct trap *next;
-    int tidx;
+	char *name;					/**< Name  */
+	char *text;					/**< Text  */
+	char *desc;					/**< Short description  */
 
-    byte d_attr;              /**< Default trap attribute */
-    wchar_t d_char;              /**< Default trap character */
+	struct trap_kind *next;
+	int tidx;					/**< Trap kind index */
 
-    byte x_attr;              /**< Desired trap attribute */
-    wchar_t x_char;              /**< Desired trap character */
+	byte d_attr;				/**< Default trap attribute */
+	wchar_t d_char;				/**< Default trap character */
 
-    int rarity;              /**< Rarity */
-    int min_depth;           /**< Minimum depth */
-    int max_num;             /**< Unused */
+	byte x_attr;				/**< Desired trap attribute */
+	wchar_t x_char				;/**< Desired trap character */
 
-    bitflag flags[TRF_SIZE]; /**< Trap flags (all traps of this kind) */
+	int rarity;					/**< Rarity */
+	int min_depth;				/**< Minimum depth */
+	int max_num;				/**< Unused */
 
-	struct effect *effect;   /**< Effect on entry to grid */
-} trap_kind;
+	bitflag flags[TRF_SIZE];	/**< Trap flags (all traps of this kind) */
 
-extern trap_kind *trap_info;
+	struct effect *effect;		/**< Effect on entry to grid */
+};
 
-/*
+struct trap_kind *trap_info;
+
+/**
  * An actual trap.
  */
-typedef struct trap_type
+struct trap
 {
-    byte t_idx;               /**< Trap kind index */
-    struct trap *kind;
+	byte t_idx;					/**< Trap kind index */
+	struct trap_kind *kind;
 
-    byte fy;                  /**< Location of trap */
-    byte fx;
-	
-    byte xtra;
-	
-    bitflag flags[TRF_SIZE]; /**< Trap flags (only this particular trap) */
-} trap_type;
+	byte fy;					/**< Location of trap */
+	byte fx;
 
+	byte xtra;					/**< Used for door locks, so far */
+
+	bitflag flags[TRF_SIZE];	/**< Trap flags (only this particular trap) */
+};
+
+struct trap_kind *lookup_trap(const char *desc);
 bool square_trap_specific(struct chunk *c, int y, int x, int t_idx);
-bool square_visible_trap(struct chunk *c, int y, int x);
-bool square_invisible_trap(struct chunk *c, int y, int x);
-bool square_player_trap(struct chunk *c, int y, int x);
-int square_visible_trap_idx(struct chunk *c, int y, int x);
+bool square_trap_flag(struct chunk *c, int y, int x, int flag);
+int square_trap_idx(struct chunk *c, int y, int x);
 bool get_trap_graphics(struct chunk *c, int t_idx, int *a, wchar_t *ch, bool require_visible);
 bool square_reveal_trap(struct chunk *c, int y, int x, int chance, bool domsg);
 bool trap_check_hit(int power);
-extern void hit_trap(int y, int x);
+void hit_trap(int y, int x);
 void place_trap(struct chunk *c, int y, int x, int t_idx, int trap_level);
 void wipe_trap_list(struct chunk *c);
 bool square_remove_trap(struct chunk *c, int y, int x, bool domsg, int t_idx);
 void square_remove_trap_kind(struct chunk *c, int y, int x, bool domsg, int t_idx);
+void square_set_door_lock(struct chunk *c, int y, int x, int power);
+int square_door_power(struct chunk *c, int y, int x);
 
 #endif /* !TRAP_H */

@@ -20,8 +20,8 @@
 #include "cave.h"
 #include "cmds.h"
 #include "cmd-core.h"
-#include "files.h"
 #include "keymap.h"
+#include "mon-desc.h"
 #include "mon-lore.h"
 #include "mon-util.h"
 #include "obj-chest.h"
@@ -40,6 +40,7 @@
 #include "textui.h"
 #include "ui-input.h"
 #include "ui-menu.h"
+#include "ui-player.h"
 #include "wizard.h"
 
 #define ADD_LABEL(text, cmd, valid) { \
@@ -518,7 +519,7 @@ int context_menu_cave(struct chunk *c, int y, int x, int adjacent, int mx, int m
 			}
 		}
 
-		if (square_istrap(c, y, x)) {
+		if (square_isknowntrap(c, y, x)) {
 			ADD_LABEL("Disarm", CMD_DISARM, MN_ROW_VALID);
 			ADD_LABEL("Jump Onto", CMD_JUMP, MN_ROW_VALID);
 		}

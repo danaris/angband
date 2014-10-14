@@ -1,6 +1,6 @@
 /**
-   \file obj-util.c
-   \brief Object list maintenance and other object utilities
+ * \file obj-util.c
+ * \brief Object list maintenance and other object utilities
  *
  * Copyright (c) 1997 Ben Harrison, James E. Wilson, Robert A. Koeneke
  *
@@ -41,7 +41,6 @@
 #include "player-util.h"
 #include "prefs.h"
 #include "randname.h"
-#include "spells.h"
 #include "z-queue.h"
 
 object_base *kb_info;
@@ -842,7 +841,7 @@ s16b o_pop(struct chunk *c)
 	int i;
 
 	/* Initial allocation */
-	if (cave_object_max(c) < z_info->o_max) {
+	if (cave_object_max(c) < z_info->level_object_max) {
 		/* Get next space */
 		i = cave_object_max(c);
 
@@ -1738,6 +1737,22 @@ int lookup_sval(int tval, const char *name)
 	return -1;
 }
 
+void object_short_name(char *buf, size_t max, const char *name)
+{
+	size_t j, k;
+	/* Copy across the name, stripping modifiers & and ~) */
+	size_t len = strlen(name);
+	for (j = 0, k = 0; j < len && k < max; j++) {
+		if (j == 0 && name[0] == '&' && name[1] == ' ')
+			j += 2;
+		if (name[j] == '~')
+			continue;
+
+		buf[k++] = name[j];
+	}
+	buf[k] = 0;
+}
+
 /**
  * Sort comparator for objects using only tval and sval.
  * -1 if o1 should be first
@@ -2043,7 +2058,7 @@ bool obj_can_fail(const struct object *o)
  * Returns the number of items placed into the list.
  *
  * Maximum space that can be used is
- * [INVEN_PACK + QUIVER_SIZE + EQUIP_MAX_SLOTS + MAX_FLOOR_STACK],
+ * INVEN_PACK + QUIVER_SIZE + player->body.count + MAX_FLOOR_STACK,
  * though practically speaking much smaller numbers are likely.
  */
 int scan_items(int *item_list, size_t item_list_max, int mode,
@@ -2099,16 +2114,21 @@ int scan_items(int *item_list, size_t item_list_max, int mode,
  */
 bool item_is_available(int item, bool (*tester)(const object_type *), int mode)
 {
-	int item_list[INVEN_PACK + QUIVER_SIZE + EQUIP_MAX_SLOTS + MAX_FLOOR_STACK];
+	int item_max = INVEN_PACK + QUIVER_SIZE + player->body.count +
+		MAX_FLOOR_STACK;
+	int *item_list = mem_zalloc(item_max * sizeof(int));
 	int item_num;
 	int i;
 
 	item_num = scan_items(item_list, N_ELEMENTS(item_list), mode, tester);
 
 	for (i = 0; i < item_num; i++)
-		if (item_list[i] == item)
+		if (item_list[i] == item) {
+			mem_free(item_list);
 			return TRUE;
+		}
 
+	mem_free(item_list);
 	return FALSE;
 }
 

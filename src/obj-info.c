@@ -18,7 +18,6 @@
  */
 
 #include "angband.h"
-#include "attack.h"
 #include "effects.h"
 #include "cmds.h"
 #include "init.h"
@@ -30,6 +29,7 @@
 #include "obj-slays.h"
 #include "obj-tval.h"
 #include "obj-util.h"
+#include "player-attack.h"
 #include "project.h"
 #include "tables.h"
 #include "z-textblock.h"
@@ -60,7 +60,7 @@ struct blow_info {
 
 static const flag_type elements[] =
 {
-	#define ELEM(a, b, c, d, e, f, g, col, h, fh, oh, mh, ph)	{ ELEM_##a, b },
+	#define ELEM(a, b, c, d, e, f, g, col)	{ ELEM_##a, b },
     #include "list-elements.h"
     #undef ELEM
 };

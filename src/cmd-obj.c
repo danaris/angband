@@ -18,7 +18,6 @@
  */
 
 #include "angband.h"
-#include "attack.h"
 #include "cave.h"
 #include "cmds.h"
 #include "effects.h"
@@ -32,10 +31,10 @@
 #include "obj-tval.h"
 #include "obj-ui.h"
 #include "obj-util.h"
+#include "player-attack.h"
 #include "player-spell.h"
 #include "player-timed.h"
 #include "player-util.h"
-#include "spells.h"
 #include "target.h"
 #include "trap.h"
 #include "ui-menu.h"
@@ -196,6 +195,39 @@ static void activation_message(object_type *o_ptr)
 	strnfcat(buf, 1024, &end, in_cursor);
 
 	msg("%s", buf);
+}
+
+
+/*
+ * Hopefully this is OK now
+ */
+static bool item_tester_unknown(const object_type *o_ptr)
+{
+	return object_is_known(o_ptr) ? FALSE : TRUE;
+}
+
+/**
+ * Return TRUE if there are any objects available to identify (whether on
+ * floor or in gear)
+ */
+bool spell_identify_unknown_available(void)
+{
+	int floor_list[MAX_FLOOR_STACK];
+	int floor_num;
+	int i;
+	bool unidentified_gear = FALSE;
+
+	floor_num = scan_floor(floor_list, N_ELEMENTS(floor_list), player->py,
+						   player->px, 0x0B, item_tester_unknown);
+
+	for (i = 0; i < player->max_gear; i++) {
+		if (item_test(item_tester_unknown, i)) {
+			unidentified_gear = TRUE;
+			break;
+		}
+	}
+
+	return unidentified_gear || floor_num > 0;
 }
 
 
@@ -564,6 +596,7 @@ static void use_aux(struct command *cmd, int item, enum use use, int snd)
 	int px = player->px, py = player->py;
 	int boost, level;
 	enum use;
+	struct trap_kind *rune = lookup_trap("glyph of warding");
 
 	/* Get arguments */
 	assert(cmd_get_arg_item(cmd, "item", &item) == CMD_OK);
@@ -694,7 +727,7 @@ static void use_aux(struct command *cmd, int item, enum use use, int snd)
 	player->upkeep->update |= PU_INVEN;
 	
 	/* Hack to make Glyph of Warding work properly */
-	if (square_trap_specific(cave, py, px, RUNE_PROTECT))
+	if (square_trap_specific(cave, py, px, rune->tidx))
 	{
 		/* Push objects off the grid */
 		if (cave->o_idx[py][px]) push_object(py, px);

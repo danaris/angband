@@ -22,15 +22,19 @@
 #include "effects.h"
 #include "dungeon.h"
 #include "generate.h"
+#include "init.h"
+#include "mon-desc.h"
 #include "mon-lore.h"
 #include "mon-make.h"
 #include "mon-spell.h"
+#include "mon-summon.h"
 #include "mon-util.h"
 #include "obj-chest.h"
 #include "obj-desc.h"
 #include "obj-gear.h"
 #include "obj-identify.h"
 #include "obj-ignore.h"
+#include "obj-make.h"
 #include "obj-power.h"
 #include "obj-tval.h"
 #include "obj-ui.h"
@@ -38,7 +42,6 @@
 #include "player-timed.h"
 #include "player-util.h"
 #include "project.h"
-#include "spells.h"
 #include "tables.h"
 #include "target.h"
 #include "trap.h"
@@ -152,6 +155,10 @@ static bool project_aimed(int typ, int dir, int dam, int flg)
 
 	/* Pass through the target if needed */
 	flg |= (PROJECT_THRU);
+
+	/* Can hurt the player */
+	if (source > 0)
+		flg |= (PROJECT_PLAY);
 
 	/* Use the adjacent grid in the given direction as target */
 	ty = py + ddy[dir];
@@ -519,7 +526,8 @@ bool effect_handler_DRAIN_STAT(effect_handler_context_t *context)
 
 		/* Message */
 		msgt(MSG_DRAIN_STAT, "You feel very %s.", desc_stat_neg[stat]);
-		take_hit(player, dam, "stat drain");
+		if (dam)
+			take_hit(player, dam, "stat drain");
 
 		/* Notice */
 		context->ident = TRUE;
@@ -632,10 +640,7 @@ bool effect_handler_DRAIN_MANA(effect_handler_context_t *context)
 
 	if (!player->csp) {
 		msg("The draining fails.");
-		if (OPT(birth_ai_learn) && !(mon->smart & SM_IMM_MANA)) {
-			msg("%s notes that you have no mana!", m_name);
-			mon->smart |= SM_IMM_MANA;
-		}
+		update_smart_learn(mon, player, 0, PF_NO_MANA, -1);
 		return TRUE;
 	}
 
@@ -686,6 +691,75 @@ bool effect_handler_RESTORE_MANA(effect_handler_context_t *context)
 		context->ident = TRUE;
 	}
 	return TRUE;
+}
+
+/*
+ * Hack -- Removes curse from an object.
+ */
+static void uncurse_object(object_type *o_ptr)
+{
+	bitflag f[OF_SIZE];
+
+	create_mask(f, FALSE, OFT_CURSE, OFT_MAX);
+
+	of_diff(o_ptr->flags, f);
+}
+
+
+/*
+ * Removes curses from items in inventory.
+ *
+ * \param heavy removes heavy curses if true
+ *
+ * \returns number of items uncursed
+ */
+static int remove_curse_aux(bool heavy)
+{
+	int i, cnt = 0;
+
+	/* Attempt to uncurse items being worn */
+	for (i = 0; i < player->body.count; i++)
+	{
+		object_type *o_ptr = equipped_item_by_slot(player, i);
+
+		if (!o_ptr->kind) continue;
+		if (!cursed_p(o_ptr->flags)) continue;
+
+		/* Heavily cursed items need a special spell */
+		if (of_has(o_ptr->flags, OF_HEAVY_CURSE) && !heavy) continue;
+
+		/* Perma-cursed items can never be removed */
+		if (of_has(o_ptr->flags, OF_PERMA_CURSE)) continue;
+
+		/* Uncurse, and update things */
+		uncurse_object(o_ptr);
+
+		player->upkeep->update |= (PU_BONUS);
+		player->upkeep->redraw |= (PR_EQUIP);
+
+		/* Count the uncursings */
+		cnt++;
+	}
+
+	/* Return "something uncursed" */
+	return (cnt);
+}
+
+
+/*
+ * Remove most curses
+ */
+bool remove_curse(void)
+{
+	return (remove_curse_aux(FALSE));
+}
+
+/*
+ * Remove all curses
+ */
+bool remove_all_curse(void)
+{
+	return (remove_curse_aux(TRUE));
 }
 
 /**
@@ -877,17 +951,15 @@ bool effect_handler_DETECT_TRAPS(effect_handler_context_t *context)
 	int y_dist = context->value.dice;
 	int x_dist = context->value.sides;
 
-	bool silent = (context->p2==1);
-
 	bool detect = FALSE;
 
 	object_type *o_ptr;
 
 	/* Pick an area to detect */
 	y1 = player->py - y_dist;
-	y2 = player->py + y_dist + 1;
+	y2 = player->py + y_dist;
 	x1 = player->px - x_dist;
-	x2 = player->px + x_dist + 1;
+	x2 = player->px + x_dist;
 
 	if (y1 < 0) y1 = 0;
 	if (x1 < 0) x1 = 0;
@@ -901,7 +973,7 @@ bool effect_handler_DETECT_TRAPS(effect_handler_context_t *context)
 			if (!square_in_bounds_fully(cave, y, x)) continue;
 
 			/* Detect traps */
-			if (square_player_trap(cave, y, x))
+			if (square_isplayertrap(cave, y, x))
 				/* Reveal trap */
 				if (square_reveal_trap(cave, y, x, 100, FALSE))
 					detect = TRUE;
@@ -936,7 +1008,7 @@ bool effect_handler_DETECT_TRAPS(effect_handler_context_t *context)
 			if (!square_in_bounds_fully(cave, y, x)) continue;
 
 			/* See if this grid is on the edge */
-			if (dtrap_edge(y, x)) {
+			if (square_dtrap_edge(cave, y, x)) {
 				sqinfo_on(cave->info[y][x], SQUARE_DEDGE);
 			} else {
 				sqinfo_off(cave->info[y][x], SQUARE_DEDGE);
@@ -948,14 +1020,12 @@ bool effect_handler_DETECT_TRAPS(effect_handler_context_t *context)
 	}
 
 	/* Describe */
-	if (!silent) {
-		if (detect)
-			msg("You sense the presence of traps!");
+	if (detect)
+		msg("You sense the presence of traps!");
 
-		/* Trap detection always makes you aware, even if no traps are present */
-		else
-			msg("You sense no traps.");
-	}
+	/* Trap detection always makes you aware, even if no traps are present */
+	else
+		msg("You sense no traps.");
 
 	/* Mark the redraw flag */
 	player->upkeep->redraw |= (PR_DTRAP);
@@ -977,15 +1047,13 @@ bool effect_handler_DETECT_DOORS(effect_handler_context_t *context)
 	int y_dist = context->value.dice;
 	int x_dist = context->value.sides;
 
-	bool silent = (context->p2==1);
-
 	bool doors = FALSE;
 
 	/* Pick an area to detect */
 	y1 = player->py - y_dist;
-	y2 = player->py + y_dist + 1;
+	y2 = player->py + y_dist;
 	x1 = player->px - x_dist;
-	x2 = player->px + x_dist + 1;
+	x2 = player->px + x_dist;
 
 	if (y1 < 0) y1 = 0;
 	if (x1 < 0) x1 = 0;
@@ -1016,13 +1084,11 @@ bool effect_handler_DETECT_DOORS(effect_handler_context_t *context)
 		}
 	}
 
-	if (!silent) {
-		/* Describe */
-		if (doors)
-			msg("You sense the presence of doors!");
-		else if (context->aware)
-			msg("You sense no doors.");
-	}
+	/* Describe */
+	if (doors)
+		msg("You sense the presence of doors!");
+	else if (context->aware)
+		msg("You sense no doors.");
 
 	return TRUE;
 }
@@ -1110,8 +1176,6 @@ bool effect_handler_DETECT_GOLD(effect_handler_context_t *context)
 	for (y = y1; y < y2; y++) {
 		for (x = x1; x < x2; x++) {
 			if (!square_in_bounds_fully(cave, y, x)) continue;
-
-			square_show_vein(cave, y, x);
 
 			/* Magma/Quartz + Known Gold */
 			if (square_hasgoldvein(cave, y, x)) {
@@ -1314,7 +1378,7 @@ bool effect_handler_DETECT_VISIBLE_MONSTERS(effect_handler_context_t *context)
 				player->upkeep->redraw |= (PR_MONSTER);
 
 			/* Update the monster */
-			update_mon(m_ptr, FALSE);
+			update_mon(m_ptr, cave, FALSE);
 
 			/* Detect */
 			monsters = TRUE;
@@ -1386,7 +1450,7 @@ bool effect_handler_DETECT_INVISIBLE_MONSTERS(effect_handler_context_t *context)
 			m_ptr->mflag |= (MFLAG_MARK | MFLAG_SHOW);
 
 			/* Update the monster */
-			update_mon(m_ptr, FALSE);
+			update_mon(m_ptr, cave, FALSE);
 
 			/* Detect */
 			monsters = TRUE;
@@ -1459,7 +1523,7 @@ bool effect_handler_DETECT_EVIL(effect_handler_context_t *context)
 			m_ptr->mflag |= (MFLAG_MARK | MFLAG_SHOW);
 
 			/* Update the monster */
-			update_mon(m_ptr, FALSE);
+			update_mon(m_ptr, cave, FALSE);
 
 			/* Detect */
 			monsters = TRUE;
@@ -1585,6 +1649,283 @@ bool effect_handler_DISENCHANT(effect_handler_context_t *context)
 
 	return TRUE;
 }
+
+/**
+ * Bit flags for the enchant() function
+ */
+#define ENCH_TOHIT   0x01
+#define ENCH_TODAM   0x02
+#define ENCH_TOAC    0x04
+
+/**
+ * Used by the enchant() function (chance of failure)
+ */
+static const int enchant_table[16] =
+{
+	0, 10,  20, 40, 80,
+	160, 280, 400, 550, 700,
+	800, 900, 950, 970, 990,
+	1000
+};
+
+/*
+ * Hook to specify "weapon"
+ */
+static bool item_tester_hook_weapon(const object_type *o_ptr)
+{
+	return tval_is_weapon(o_ptr);
+}
+
+
+/*
+ * Hook to specify "armour"
+ */
+static bool item_tester_hook_armour(const object_type *o_ptr)
+{
+	return tval_is_armor(o_ptr);
+}
+
+/**
+ * Tries to increase an items bonus score, if possible.
+ *
+ * \returns true if the bonus was increased
+ */
+static bool enchant_score(s16b *score, bool is_artifact)
+{
+	int chance;
+
+	/* Artifacts resist enchantment half the time */
+	if (is_artifact && randint0(100) < 50) return FALSE;
+
+	/* Figure out the chance to enchant */
+	if (*score < 0) chance = 0;
+	else if (*score > 15) chance = 1000;
+	else chance = enchant_table[*score];
+
+	/* If we roll less-than-or-equal to chance, it fails */
+	if (randint1(1000) <= chance) return FALSE;
+
+	/* Increment the score */
+	++*score;
+
+	return TRUE;
+}
+
+/**
+ * Tries to uncurse a cursed item, if possible
+ *
+ * \returns true if a curse was broken
+ */
+static bool enchant_curse(object_type *o_ptr, bool is_artifact)
+{
+	/* If the item isn't cursed (or is perma-cursed) this doesn't work */
+	if (!cursed_p(o_ptr->flags) || of_has(o_ptr->flags, OF_PERMA_CURSE)) 
+		return FALSE;
+
+	/* Artifacts resist enchanting curses away half the time */
+	if (is_artifact && randint0(100) < 50) return FALSE;
+
+	/* Normal items are uncursed 25% of the tiem */
+	if (randint0(100) >= 25) return FALSE;
+
+	/* Uncurse the item */
+	msg("The curse is broken!");
+	uncurse_object(o_ptr);
+	return TRUE;
+}
+
+/**
+ * Helper function for enchant() which tries to do the two things that
+ * enchanting an item does, namely increasing its bonuses and breaking curses
+ *
+ * \returns true if a bonus was increased or a curse was broken
+ */
+static bool enchant2(object_type *o_ptr, s16b *score)
+{
+	bool result = FALSE;
+	bool is_artifact = o_ptr->artifact ? TRUE : FALSE;
+	if (enchant_score(score, is_artifact)) result = TRUE;
+	if (enchant_curse(o_ptr, is_artifact)) result = TRUE;
+	return result;
+}
+
+/**
+ * Enchant an item
+ *
+ * Revamped!  Now takes item pointer, number of times to try enchanting, and a
+ * flag of what to try enchanting.  Artifacts resist enchantment some of the
+ * time. Also, any enchantment attempt (even unsuccessful) kicks off a parallel
+ * attempt to uncurse a cursed item.
+ *
+ * Note that an item can technically be enchanted all the way to +15 if you
+ * wait a very, very, long time.  Going from +9 to +10 only works about 5% of
+ * the time, and from +10 to +11 only about 1% of the time.
+ *
+ * Note that this function can now be used on "piles" of items, and the larger
+ * the pile, the lower the chance of success.
+ *
+ * \returns true if the item was changed in some way
+ */
+bool enchant(object_type *o_ptr, int n, int eflag)
+{
+	int i, prob;
+	bool res = FALSE;
+
+	/* Large piles resist enchantment */
+	prob = o_ptr->number * 100;
+
+	/* Missiles are easy to enchant */
+	if (tval_is_ammo(o_ptr)) prob = prob / 20;
+
+	/* Try "n" times */
+	for (i = 0; i < n; i++)
+	{
+		/* Roll for pile resistance */
+		if (prob > 100 && randint0(prob) >= 100) continue;
+
+		/* Try the three kinds of enchantment we can do */
+		if ((eflag & ENCH_TOHIT) && enchant2(o_ptr, &o_ptr->to_h)) res = TRUE;
+		if ((eflag & ENCH_TODAM) && enchant2(o_ptr, &o_ptr->to_d)) res = TRUE;
+		if ((eflag & ENCH_TOAC)  && enchant2(o_ptr, &o_ptr->to_a)) res = TRUE;
+	}
+
+	/* Failure */
+	if (!res) return (FALSE);
+
+	/* Recalculate bonuses, gear */
+	player->upkeep->update |= (PU_BONUS | PU_INVEN);
+
+	/* Combine the pack (later) */
+	player->upkeep->notice |= (PN_COMBINE);
+
+	/* Redraw stuff */
+	player->upkeep->redraw |= (PR_INVEN | PR_EQUIP );
+
+	/* Success */
+	return (TRUE);
+}
+
+
+
+/*
+ * Enchant an item (in the inventory or on the floor)
+ * Note that "num_ac" requires armour, else weapon
+ * Returns TRUE if attempted, FALSE if cancelled
+ */
+bool enchant_spell(int num_hit, int num_dam, int num_ac)
+{
+	int item;
+	bool okay = FALSE;
+
+	object_type *o_ptr;
+
+	char o_name[80];
+
+	const char *q, *s;
+
+	/* Get an item */
+	q = "Enchant which item? ";
+	s = "You have nothing to enchant.";
+	if (!get_item(&item, q, s, 0, 
+		num_ac ? item_tester_hook_armour : item_tester_hook_weapon,
+		(USE_EQUIP | USE_INVEN | USE_QUIVER | USE_FLOOR))) return (FALSE);
+
+	o_ptr = object_from_item_idx(item);
+
+
+	/* Description */
+	object_desc(o_name, sizeof(o_name), o_ptr, ODESC_BASE);
+
+	/* Describe */
+	msg("%s %s glow%s brightly!",
+	           ((item >= 0) ? "Your" : "The"), o_name,
+	           ((o_ptr->number > 1) ? "" : "s"));
+
+	/* Enchant */
+	if (enchant(o_ptr, num_hit, ENCH_TOHIT)) okay = TRUE;
+	if (enchant(o_ptr, num_dam, ENCH_TODAM)) okay = TRUE;
+	if (enchant(o_ptr, num_ac, ENCH_TOAC)) okay = TRUE;
+
+	/* Failure */
+	if (!okay)
+	{
+		flush();
+
+		/* Message */
+		msg("The enchantment failed.");
+	}
+
+	/* Something happened */
+	return (TRUE);
+}
+
+
+/*
+ * Brand weapons (or ammo)
+ *
+ * Turns the (non-magical) object into an ego-item of 'brand_type'.
+ */
+void brand_object(object_type *o_ptr, const char *name)
+{
+	int i;
+	ego_item_type *e_ptr;
+	bool ok = FALSE;
+
+	/* you can never modify artifacts / ego-items */
+	/* you can never modify cursed / worthless items */
+	if (o_ptr->kind && !cursed_p(o_ptr->flags) && o_ptr->kind->cost &&
+	    !o_ptr->artifact && !o_ptr->ego)
+	{
+		char o_name[80];
+		char brand[20];
+
+		object_desc(o_name, sizeof(o_name), o_ptr, ODESC_BASE);
+		strnfmt(brand, sizeof(brand), "of %s", name);
+
+		/* Describe */
+		msg("The %s %s surrounded with an aura of %s.", o_name,
+			(o_ptr->number > 1) ? "are" : "is", name);
+
+		/* Get the right ego type for the object */
+		for (i = 0; i < z_info->e_max; i++) {
+			e_ptr = &e_info[i];
+
+			/* Match the name */
+			if (!e_ptr->name) continue;
+			if (streq(e_ptr->name, brand)) {
+				struct ego_poss_item *poss;
+				for (poss = e_ptr->poss_items; poss; poss = poss->next)
+					if (poss->kidx == o_ptr->kind->kidx)
+						ok = TRUE;
+			}
+			if (ok) break;
+		}
+
+		/* Make it an ego item */
+		o_ptr->ego = &e_info[i];
+		ego_apply_magic(o_ptr, 0);
+		object_notice_ego(o_ptr);
+
+		/* Update the gear */
+		player->upkeep->update |= (PU_INVEN);
+
+		/* Combine the pack (later) */
+		player->upkeep->notice |= (PN_COMBINE);
+
+		/* Window stuff */
+		player->upkeep->redraw |= (PR_INVEN | PR_EQUIP);
+
+		/* Enchant */
+		enchant(o_ptr, randint0(3) + 4, ENCH_TOHIT | ENCH_TODAM);
+	}
+	else
+	{
+		flush();
+		msg("The branding failed.");
+	}
+}
+
+
 
 
 /**
@@ -1851,43 +2192,32 @@ bool effect_handler_AGGRAVATE(effect_handler_context_t *context)
 
 /**
  * Summon context->value monsters of context->p1 type.
- * Better handling of context->p1 is sorely needed
  */
 bool effect_handler_SUMMON(effect_handler_context_t *context)
 {
-	int i;
 	int summon_max = effect_calculate_value(context, FALSE);
-	int type = context->p1 ? context->p1 : 0;
+	int summon_type = context->p1 ? context->p1 : S_ANY;
 	struct monster *mon = cave_monster(cave, cave->mon_current);
-	int msgtyp = MSG_SUM_MONSTER;
+	int message_type = summon_message_type(summon_type);
 	int count = 0, val = 0, attempts = 0;
 
-	if (type == S_ANIMAL) msgtyp = MSG_SUM_ANIMAL;
-	else if (type == S_SPIDER) msgtyp = MSG_SUM_SPIDER;
-	else if (type == S_HOUND) msgtyp = MSG_SUM_HOUND;
-	else if (type == S_HYDRA) msgtyp = MSG_SUM_HYDRA;
-	else if (type == S_AINU) msgtyp = MSG_SUM_AINU;
-	else if (type == S_DEMON) msgtyp = MSG_SUM_DEMON;
-	else if (type == S_UNDEAD) msgtyp = MSG_SUM_UNDEAD;
-	else if (type == S_DRAGON) msgtyp = MSG_SUM_DRAGON;
-	else if (type == S_HI_DEMON) msgtyp = MSG_SUM_HI_DEMON;
-	else if (type == S_HI_UNDEAD) msgtyp = MSG_SUM_HI_UNDEAD;
-	else if (type == S_HI_DRAGON) msgtyp = MSG_SUM_HI_DRAGON;
-	else if (type == S_WRAITH) msgtyp = MSG_SUM_WRAITH;
-	else if (type == S_UNIQUE) msgtyp = MSG_SUM_UNIQUE;
-
-	sound(msgtyp);
+	sound(message_type);
 
 	/* Monster summon */
 	if (mon) {
 		int rlev = mon->race->level;
+
+		/* Set the kin_base if necessary */
+		if (summon_type == S_KIN)
+			kin_base = mon->race->base;
 
 		/* Continue summoning until we reach the current dungeon level */
 		while ((val < player->depth * rlev) && (attempts < summon_max)) {
 			int temp;
 
 			/* Get a monster */
-			temp = summon_specific(mon->fy, mon->fx, rlev, type, 0);
+			temp = summon_specific(mon->fy, mon->fx, rlev, summon_type, FALSE,
+								   FALSE);
 
 			val += temp * temp;
 
@@ -1901,13 +2231,15 @@ bool effect_handler_SUMMON(effect_handler_context_t *context)
 
 		/* In the special case that uniques or wraiths were summoned but all
 		 * were dead S_HI_UNDEAD is used instead */
-		if ((!count) && ((type == S_WRAITH) || (type == S_UNIQUE))) {
-			type = S_HI_UNDEAD;
+		if ((!count) &&
+			((summon_type == S_WRAITH) || (summon_type == S_UNIQUE))) {
+			summon_type = S_HI_UNDEAD;
 			while ((val < player->depth * rlev) && (attempts < summon_max)) {
 				int temp;
 
 				/* Get a monster */
-				temp = summon_specific(mon->fy, mon->fx, rlev, type, 0);
+				temp = summon_specific(mon->fy, mon->fx, rlev, summon_type,
+									   FALSE, FALSE);
 
 				val += temp * temp;
 
@@ -1921,8 +2253,11 @@ bool effect_handler_SUMMON(effect_handler_context_t *context)
 		}
 	} else {
 		/* If not a monster summon, it's simple */
-		for (i = 0; i < summon_max; i++)
-			count += summon_specific(player->py, player->px, player->depth, type, 1);
+		while (summon_max) {
+			count += summon_specific(player->py, player->px, player->depth,
+									 summon_type, TRUE, FALSE);
+			summon_max--;
+		}
 	}
 
 	/* Identify if some monsters arrive */
@@ -1931,8 +2266,8 @@ bool effect_handler_SUMMON(effect_handler_context_t *context)
 
 	/* Message for the blind */
 	if (count && player->timed[TMD_BLIND])
-		msgt(msgtyp, "You hear %s appear nearby.", (count > 1 ?
-												  "many things" : "something"));
+		msgt(message_type, "You hear %s appear nearby.",
+			 (count > 1 ? "many things" : "something"));
 
 	/* Summoner failed */
 	if (mon && !count)
@@ -2079,15 +2414,186 @@ bool effect_handler_PROBE(effect_handler_context_t *context)
 }
 
 /**
+ * Thrust the player or a monster away from the source of a projection.   
+ *
+ * Monsters and players can be pushed past monsters or players weaker than 
+ * they are.
+ * If set, context->p1 and context->p2 act as y and x coordinates
+ */
+bool effect_handler_THRUST_AWAY(effect_handler_context_t *context)
+{
+	int y, x, yy, xx;
+	int i, d, first_d;
+	int angle;
+
+	int c_y, c_x;
+
+	int who = (cave->mon_current > 0) ? cave->mon_current : -1;
+	s16b t_y = context->p1, t_x = context->p2;
+	int grids_away = effect_calculate_value(context, FALSE);
+
+	/*** Find a suitable endpoint for testing. ***/
+
+	/* Get location of caster (assumes index of caster is not zero) */
+	if (who > 0) {
+		c_y = cave_monster(cave, who)->fy;
+		c_x = cave_monster(cave, who)->fx;
+	} else {
+		c_y = player->py;
+		c_x = player->px;
+	}
+
+	/* Ask for a target if none given */
+	if (!(t_y && t_x))
+		target_get(&t_x, &t_y);
+
+	/* Determine where target is in relation to caster. */
+	y = t_y - c_y + 20;
+	x = t_x - c_x + 20;
+
+	/* Find the angle (/2) of the line from caster to target. */
+	angle = get_angle_to_grid[y][x];
+
+	/* Start at the target grid. */
+	y = t_y;
+	x = t_x;
+
+	/* Up to the number of grids requested, force the target away from the
+	 * source of the projection, until it hits something it can't travel
+	 * around. */
+	for (i = 0; i < grids_away; i++) {
+		/* Randomize initial direction. */
+		first_d = randint0(8);
+
+		/* Look around. */
+		for (d = first_d; d < 8 + first_d; d++) {
+			/* Reject angles more than 44 degrees from line. */
+			if (d % 8 == 0) {	/* 135 */
+				if ((angle > 157) || (angle < 114))
+					continue;
+			}
+			if (d % 8 == 1) {	/* 45 */
+				if ((angle > 66) || (angle < 23))
+					continue;
+			}
+			if (d % 8 == 2) {	/* 0 */
+				if ((angle > 21) && (angle < 159))
+					continue;
+			}
+			if (d % 8 == 3) {	/* 90 */
+				if ((angle > 112) || (angle < 68))
+					continue;
+			}
+			if (d % 8 == 4) {	/* 158 */
+				if ((angle > 179) || (angle < 136))
+					continue;
+			}
+			if (d % 8 == 5) {	/* 113 */
+				if ((angle > 134) || (angle < 91))
+					continue;
+			}
+			if (d % 8 == 6) {	/* 22 */
+				if ((angle > 44) || (angle < 1))
+					continue;
+			}
+			if (d % 8 == 7) {	/* 67 */
+				if ((angle > 89) || (angle < 46))
+					continue;
+			}
+
+			/* Extract adjacent location */
+			yy = y + ddy_ddd[d % 8];
+			xx = x + ddx_ddd[d % 8];
+
+			/* Cannot switch places with stronger monsters. */
+			if (cave->m_idx[yy][xx] != 0) {
+				/* A monster is trying to pass. */
+				if (cave->m_idx[y][x] > 0) {
+
+					monster_type *m_ptr = square_monster(cave, y, x);
+
+					if (cave->m_idx[yy][xx] > 0) {
+						monster_type *n_ptr = square_monster(cave, yy, xx);
+
+						/* Monsters cannot pass by stronger monsters. */
+						if (n_ptr->race->mexp > m_ptr->race->mexp)
+							continue;
+					} else {
+						/* Monsters cannot pass by stronger characters. */
+						if (player->lev * 2 > m_ptr->race->level)
+							continue;
+					}
+				}
+
+				/* The player is trying to pass. */
+				if (cave->m_idx[y][x] < 0) {
+					if (cave->m_idx[yy][xx] > 0) {
+						monster_type *n_ptr = square_monster(cave, yy, xx);
+
+						/* Players cannot pass by stronger monsters. */
+						if (n_ptr->race->level > player->lev * 2)
+							continue;
+					}
+				}
+			}
+
+			/* Check for obstruction. */
+			if (!square_isprojectable(cave, yy, xx)) {
+				/* Some features allow entrance, but not exit. */
+				if (square_ispassable(cave, yy, xx)) {
+					/* Travel down the path. */
+					monster_swap(y, x, yy, xx);
+
+					/* Jump to new location. */
+					y = yy;
+					x = xx;
+
+					/* We can't travel any more. */
+					i = grids_away;
+
+					/* Stop looking. */
+					break;
+				}
+
+				/* If there are walls everywhere, stop here. */
+				else if (d == (8 + first_d - 1)) {
+					/* Message for player. */
+					if (cave->m_idx[y][x] < 0)
+						msg("You come to rest next to a wall.");
+					i = grids_away;
+				}
+			} else {
+				/* Travel down the path. */
+				monster_swap(y, x, yy, xx);
+
+				/* Jump to new location. */
+				y = yy;
+				x = xx;
+
+				/* Stop looking at previous location. */
+				break;
+			}
+		}
+	}
+
+	/* Clear the projection mark. */
+	sqinfo_off(cave->info[y][x], SQUARE_PROJECT);
+
+	return TRUE;
+}
+
+/**
  * Teleport player or monster up to context->value.base grids away.
  *
  * If no spaces are readily available, the distance may increase.
  * Try very hard to move the player/monster at least a quarter that distance.
- * Setting context->p1 allows monsters to teleport the player away
+ * Setting context->p2 allows monsters to teleport the player away.
+ * Setting context->p1 and context->p2 treats them as y and x coordinates
+ * and teleports the monster from that grid.
  */
 bool effect_handler_TELEPORT(effect_handler_context_t *context)
 {
-	int y_start, x_start;
+	int y_start = context->p1, x_start = context->p2;
 	int dis = context->value.base;
 	int d, i, min, y, x;
 	int midx = cave->mon_current;
@@ -2098,7 +2604,10 @@ bool effect_handler_TELEPORT(effect_handler_context_t *context)
 
 	context->ident = TRUE;
 
-	if (is_player) {
+	/* Establish the coordinates to teleport from, if we don't know already */
+	if (y_start && x_start) {
+		/* We're good */
+	} else if (is_player) {
 		y_start = player->py;
 		x_start = player->px;
 
@@ -2167,12 +2676,9 @@ bool effect_handler_TELEPORT(effect_handler_context_t *context)
 
 	/* Move player */
 	monster_swap(y_start, x_start, y, x);
-	
-	/* If the player was entangled, they got free by teleporting */
-	if (player->timed[TMD_ENTANGLED]) {
-		msg("Your legs are now free.");
-		player->timed[TMD_ENTANGLED] = FALSE;
-	}
+
+	/* Clear any projection marker to prevent double processing */
+	sqinfo_off(cave->info[y][x], SQUARE_PROJECT);
 
 	/* Lots of updates after monster_swap */
 	handle_stuff(player->upkeep);
@@ -2182,6 +2688,7 @@ bool effect_handler_TELEPORT(effect_handler_context_t *context)
 
 /**
  * Teleport player to a grid near the given location
+ * Setting context->p1 and context->p2 treats them as y and x coordinates
  *
  * This function is slightly obsessive about correctness.
  * This function allows teleporting into vaults (!)
@@ -2203,7 +2710,10 @@ bool effect_handler_TELEPORT_TO(effect_handler_context_t *context)
 	context->ident = TRUE;
 
 	/* Where are we going? */
-	if (midx > 0) {
+	if (context->p1 && context->p2) {
+		ny = context->p1;
+		nx = context->p2;
+	} else if (midx > 0) {
 		mon = cave_monster(cave, midx);
 		if (!mon) return TRUE;
 		ny = mon->fy;
@@ -2237,6 +2747,9 @@ bool effect_handler_TELEPORT_TO(effect_handler_context_t *context)
 
 	/* Move player */
 	monster_swap(py, px, y, x);
+
+	/* Clear any projection marker to prevent double processing */
+	sqinfo_off(cave->info[y][x], SQUARE_PROJECT);
 
 	/* Lots of updates after monster_swap */
 	handle_stuff(player->upkeep);
@@ -2655,7 +3168,7 @@ bool effect_handler_EARTHQUAKE(effect_handler_context_t *context)
 				square_light_spot(cave, yy, xx);
 
 			/* Destroy location (if valid) */
-			else if (square_valid_bold(yy, xx)) {
+			else if (square_changeable(cave, yy, xx)) {
 				delete_object(yy, xx);
 				square_earthquake(cave, yy, xx);
 			}
@@ -2768,6 +3281,7 @@ bool effect_handler_BALL(effect_handler_context_t *context)
 		struct monster *mon = cave_monster(cave, cave->mon_current);
 		source = cave->mon_current;
 		if (rf_has(mon->race->flags, RF_POWERFUL)) rad++;
+		flg |= PROJECT_PLAY;
 	} else {
 		if (context->p3) rad += player->lev / context->p3;
 		source = -1;
@@ -2813,6 +3327,7 @@ bool effect_handler_BREATH(effect_handler_context_t *context)
 	if (cave->mon_current > 0) {
 		struct monster *mon = cave_monster(cave, cave->mon_current);
 		source = cave->mon_current;
+		flg |= PROJECT_PLAY;
 
 		/* Breath parameters for monsters are monster-dependent */
 		dam = breath_dam(type, mon->hp); 
@@ -3547,7 +4062,8 @@ bool effect_handler_TRAP_RUNE_SUMMON(effect_handler_context_t *context)
 	square_destroy_trap(cave, player->py, player->px);
 
 	for (i = 0; i < num; i++)
-		(void)summon_specific(player->py, player->px, player->depth, 0, 1);
+		(void)summon_specific(player->py, player->px, player->depth, 0, TRUE,
+							  FALSE);
 
 	return TRUE;
 }
@@ -3555,8 +4071,10 @@ bool effect_handler_TRAP_RUNE_SUMMON(effect_handler_context_t *context)
 bool effect_handler_TRAP_RUNE_TELEPORT(effect_handler_context_t *context)
 {
 	int radius = effect_calculate_value(context, FALSE);
+	char dist[5];
+	strnfmt(dist, sizeof(dist), "%d", radius);
 	msg("You hit a teleport trap!");
-	teleport_player(radius);
+	effect_simple(EF_TELEPORT, dist, 0, 1, 0, NULL);
 	return TRUE;
 }
 
@@ -3564,7 +4082,7 @@ bool effect_handler_TRAP_SPOT_FIRE(effect_handler_context_t *context)
 {
 	int dam = effect_calculate_value(context, FALSE);
 	msg("You are enveloped in flames!");
-	dam = adjust_dam(GF_FIRE, dam, RANDOMISE, 0);
+	dam = adjust_dam(player, GF_FIRE, dam, RANDOMISE, 0);
 	if (dam) {
 		take_hit(player, dam, "a fire trap");
 		inven_damage(player, GF_FIRE, MIN(dam * 5, 300));
@@ -3576,7 +4094,7 @@ bool effect_handler_TRAP_SPOT_ACID(effect_handler_context_t *context)
 {
 	int dam = effect_calculate_value(context, FALSE);
 	msg("You are splashed with acid!");
-	dam = adjust_dam(GF_ACID, dam, RANDOMISE, 0);
+	dam = adjust_dam(player, GF_ACID, dam, RANDOMISE, 0);
 	if (dam) {
 		take_hit(player, dam, "an acid trap");
 		inven_damage(player, GF_ACID, MIN(dam * 5, 300));
@@ -3601,7 +4119,7 @@ bool effect_handler_TRAP_DART_LOSE_STR(effect_handler_context_t *context)
 	if (trap_check_hit(125)) {
 		msg("A small dart hits you!");
 		take_hit(player, damroll(1, 4), "a trap");
-		(void)do_dec_stat(STAT_STR, FALSE);
+		effect_simple(EF_DRAIN_STAT, "0", STAT_STR, 0, 0, NULL);
 	} else {
 		msg("A small dart barely misses you.");
 	}
@@ -3613,7 +4131,7 @@ bool effect_handler_TRAP_DART_LOSE_DEX(effect_handler_context_t *context)
 	if (trap_check_hit(125)) {
 		msg("A small dart hits you!");
 		take_hit(player, damroll(1, 4), "a trap");
-		(void)do_dec_stat(STAT_DEX, FALSE);
+		effect_simple(EF_DRAIN_STAT, "0", STAT_DEX, 0, 0, NULL);
 	} else {
 		msg("A small dart barely misses you.");
 	}
@@ -3625,7 +4143,7 @@ bool effect_handler_TRAP_DART_LOSE_CON(effect_handler_context_t *context)
 	if (trap_check_hit(125)) {
 		msg("A small dart hits you!");
 		take_hit(player, damroll(1, 4), "a trap");
-		(void)do_dec_stat(STAT_CON, FALSE);
+		effect_simple(EF_DRAIN_STAT, "0", STAT_CON, 0, 0, NULL);
 	} else {
 		msg("A small dart barely misses you.");
 	}
@@ -3755,42 +4273,59 @@ effect_index effect_lookup(const char *name)
 	return EF_MAX;
 }
 
+/**
+ * Translate a string to an effect parameter index
+ */
 int effect_param(const char *type)
 {
 	int val;
 
 	/* If not a numerical value, run through the possibilities */
 	if (sscanf(type, "%d", &val) != 1) {
+
+		/* Projection name */
 		val = gf_name_to_idx(type);
-		if (val < 0) {
-			val = timed_name_to_idx(type);
-			if (val < 0) {
-				val = stat_name_to_idx(type);
-				if (val < 0) { //Hack - NRM
-					if (streq(type, "TOHIT")) val = ENCH_TOHIT;
-					else if (streq(type, "TODAM")) val = ENCH_TODAM;
-					else if (streq(type, "TOAC")) val = ENCH_TOAC;
-					if (val < 0) { //Hack - this and the summon crap really need fixing NRM
-						if (streq(type, "MON_TMD_SLEEP")) val = MON_TMD_SLEEP;
-						else if (streq(type, "MON_TMD_STUN")) val = MON_TMD_STUN;
-						else if (streq(type, "MON_TMD_CONF")) val = MON_TMD_CONF;
-						else if (streq(type, "MON_TMD_FEAR")) val = MON_TMD_FEAR;
-						else if (streq(type, "MON_TMD_SLOW")) val = MON_TMD_SLOW;
-						else if (streq(type, "MON_TMD_FAST")) val = MON_TMD_FAST;
-						else if (streq(type, "MON_TMD_ENTANGLED")) val = MON_TMD_ENTANGLED;
-					}
-				}
-			}
-		}
+		if (val >= 0)
+			return val;
+
+		/* Timed effect name */
+		val = timed_name_to_idx(type);
+		if (val >= 0)
+			return val;
+
+		/* Monster timed effect name */
+		val = mon_timed_name_to_idx(type);
+		if (val >= 0)
+			return val;
+
+		/* Summon name */
+		val = summon_name_to_idx(type);
+		if (val >= 0)
+			return val;
+
+		/* Stat name */
+		val = stat_name_to_idx(type);
+		if (val >= 0)
+			return val;
+
+		/* Enchant type name - not worth a separate function */
+		if (streq(type, "TOHIT"))
+			val = ENCH_TOHIT;
+		else if (streq(type, "TODAM"))
+			val = ENCH_TODAM;
+		else if (streq(type, "TOAC"))
+			val = ENCH_TOAC;
 	}
 
 	return val;
 }
 
-/*
+/**
  * Do an effect, given an object.
  * Boost is the extent to which skill surpasses difficulty, used as % boost. It
  * ranges from 0 to 138.
+ *
+ * Note that no effect ever sets `*ident` to FALSE
  */
 bool effect_do(struct effect *effect, bool *ident, bool aware, int dir, int beam, int boost)
 {

@@ -2,16 +2,22 @@
  * Copyright (c) 2011 elly+angband@leptoquark.net. See COPYING.
  */
 
+#include "z-color.h" /* TERM_* */
+#include "z-util.h" /* my_strcpy */
+#include "init.h"
 #include "history.h" /* history_add */
 #include "player.h"
-#include "birth.h" /* find_roman_suffix_start */
-#include "spells.h"
+#include "player-birth.h"
+#include "player-timed.h"
+#include "player-spell.h"
+#include "obj-util.h"
 #include "ui-input.h"
 #include "z-color.h" /* TERM_* */
 #include "z-util.h" /* my_strcpy */
 #include "mon-util.h" /* monster_desc */
 #include "ui-map.h" /* move_cursor_relative */
 #include "target.h"
+
 
 /*
  * The player other record (static)
@@ -145,14 +151,9 @@ void monmem_rotate(struct player_upkeep *upkeep) {
 player_other *op_ptr = &player_other_body;
 
 /*
- * The player info record (static)
- */
-static player_type player_type_body;
-
-/*
  * Pointer to the player info record
  */
-player_type *player = &player_type_body;
+player_type *player;
 
 struct player_body *bodies;
 struct player_race *races;
@@ -426,6 +427,20 @@ void player_exp_lose(struct player *p, s32b amount, bool permanent)
 	adjust_level(p, TRUE);
 }
 
+/**
+ * Obtain object flags for the player
+ */
+void player_flags(struct player *p, bitflag f[OF_SIZE])
+{
+	/* Add racial flags */
+	memcpy(f, p->race->flags, sizeof(p->race->flags));
+
+	/* Some classes become immune to fear at a certain plevel */
+	if (player_has(PF_BRAVERY_30) && p->lev >= 30)
+		of_on(f, OF_PROT_FEAR);
+}
+
+
 byte player_hp_attr(struct player *p)
 {
 	byte attr;
@@ -505,3 +520,37 @@ const char *player_safe_name(struct player *p, bool strip_suffix)
 
 	return buf;
 }
+
+
+/** Init / cleanup routines **/
+
+static void init_player(void) {
+	/* Create the player array, initialised with 0 */
+	player = mem_zalloc(sizeof *player);
+
+	/* Allocate player sub-structs */
+	player->gear = mem_zalloc(MAX_GEAR * sizeof(object_type));
+	player->upkeep = mem_zalloc(sizeof(player_upkeep));
+	player->timed = mem_zalloc(TMD_MAX * sizeof(s16b));
+}
+
+static void cleanup_player(void) {
+	int i;
+
+	player_spells_free(player);
+
+	mem_free(player->timed);
+	mem_free(player->upkeep);
+	for (i = 0; i < player->max_gear; i++)
+		object_wipe(&player->gear[i]);
+	mem_free(player->gear);
+	mem_free(player->body.slots);
+
+	mem_free(player);
+}
+
+struct init_module player_module = {
+	.name = "player",
+	.init = init_player,
+	.cleanup = cleanup_player
+};

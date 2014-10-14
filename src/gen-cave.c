@@ -1,5 +1,6 @@
-/** \file gen-cave.c
-	\brief Generation of dungeon levels
+/**
+ * \file gen-cave.c
+ * \brief Generation of dungeon levels
  *
  * Copyright (c) 1997 Ben Harrison, James E. Wilson, Robert A. Koeneke
  * Copyright (c) 2013 Erik Osheim, Nick McConnell
@@ -60,7 +61,6 @@
 #include "angband.h"
 #include "cave.h"
 #include "dungeon.h"
-#include "files.h"
 #include "game-event.h"
 #include "generate.h"
 #include "init.h"
@@ -128,7 +128,7 @@ static void build_streamer(struct chunk *c, int feat, int chance)
 				square_set_feat(c, ty, tx, feat);
 
 				/* Sometimes add known treasure */
-				if (one_in_(chance)) upgrade_mineral(c, ty, tx);
+				if (one_in_(chance)) square_upgrade_mineral(c, ty, tx);
 			}
 		}
 
@@ -255,7 +255,7 @@ static void build_tunnel(struct chunk *c, int row1, int col1, int row2, int col2
 			col1 = tmp_col;
 
 			/* Save the wall location */
-			if (dun->wall_n < WALL_MAX) {
+			if (dun->wall_n < z_info->wall_pierce_max) {
 				dun->wall[dun->wall_n].y = row1;
 				dun->wall[dun->wall_n].x = col1;
 				dun->wall_n++;
@@ -281,7 +281,7 @@ static void build_tunnel(struct chunk *c, int row1, int col1, int row2, int col2
 			col1 = tmp_col;
 
 			/* Save the tunnel location */
-			if (dun->tunn_n < TUNN_MAX) {
+			if (dun->tunn_n < z_info->tunn_grid_max) {
 				dun->tunn[dun->tunn_n].y = row1;
 				dun->tunn[dun->tunn_n].x = col1;
 				dun->tunn_n++;
@@ -299,7 +299,7 @@ static void build_tunnel(struct chunk *c, int row1, int col1, int row2, int col2
 			/* Collect legal door locations */
 			if (!door_flag) {
 				/* Save the door location */
-				if (dun->door_n < DOOR_MAX) {
+				if (dun->door_n < z_info->level_door_max) {
 					dun->door[dun->door_n].y = row1;
 					dun->door[dun->door_n].x = col1;
 					dun->door_n++;
@@ -451,7 +451,7 @@ struct chunk *classic_gen(struct player *p) {
     num_rooms = (dun->profile->dun_rooms * size_percent) / 100;
 	dun->block_hgt = dun->profile->block_size;
 	dun->block_wid = dun->profile->block_size;
-	c = cave_new(DUNGEON_HGT, DUNGEON_WID);
+	c = cave_new(z_info->dungeon_hgt, z_info->dungeon_wid);
 	c->depth = p->depth;
     ROOM_LOG("height=%d  width=%d  nrooms=%d", c->height, c->width, num_rooms);
 
@@ -621,20 +621,20 @@ struct chunk *classic_gen(struct player *p) {
     new_player_spot(c, p);
 
     /* Pick a base number of monsters */
-    i = MIN_M_ALLOC_LEVEL + randint1(8) + k;
+    i = z_info->level_monster_min + randint1(8) + k;
 
     /* Put some monsters in the dungeon */
     for (; i > 0; i--)
 		pick_and_place_distant_monster(c, loc(p->px, p->py), 0, TRUE, c->depth);
 
     /* Put some objects in rooms */
-    alloc_objects(c, SET_ROOM, TYP_OBJECT, Rand_normal(AMT_ROOM, 3),
+    alloc_objects(c, SET_ROOM, TYP_OBJECT, Rand_normal(z_info->room_item_av, 3),
 				  c->depth, ORIGIN_FLOOR);
 
     /* Put some objects/gold in the dungeon */
-    alloc_objects(c, SET_BOTH, TYP_OBJECT, Rand_normal(AMT_ITEM, 3),
+    alloc_objects(c, SET_BOTH, TYP_OBJECT, Rand_normal(z_info->both_item_av, 3),
 				  c->depth, ORIGIN_FLOOR);
-    alloc_objects(c, SET_BOTH, TYP_GOLD, Rand_normal(AMT_GOLD, 3),
+    alloc_objects(c, SET_BOTH, TYP_GOLD, Rand_normal(z_info->both_gold_av, 3),
 				  c->depth, ORIGIN_FLOOR);
 
     return c;
@@ -859,7 +859,7 @@ struct chunk *labyrinth_gen(struct player *p) {
     k = MAX(MIN(c->depth / 3, 10), 2);
 
     /* Scale number of monsters items by labyrinth size */
-    k = (3 * k * (h * w)) / (DUNGEON_HGT * DUNGEON_WID);
+    k = (3 * k * (h * w)) / (z_info->dungeon_hgt * z_info->dungeon_wid);
 
     /* Put some rubble in corridors */
     alloc_objects(c, SET_BOTH, TYP_RUBBLE, randint1(k), c->depth, 0);
@@ -868,7 +868,7 @@ struct chunk *labyrinth_gen(struct player *p) {
     alloc_objects(c, SET_BOTH, TYP_TRAP, randint1(k), c->depth, 0);
 
     /* Put some monsters in the dungeon */
-    for (i = MIN_M_ALLOC_LEVEL + randint1(8) + k; i > 0; i--)
+    for (i = z_info->level_monster_min + randint1(8) + k; i > 0; i--)
 		pick_and_place_distant_monster(c, loc(p->px, p->py), 0, TRUE, c->depth);
 
     /* Put some objects/gold in the dungeon */
@@ -1360,8 +1360,8 @@ struct chunk *cavern_chunk(int depth, int h, int w)
 struct chunk *cavern_gen(struct player *p) {
     int i, k;
 
-    int h = rand_range(DUNGEON_HGT / 2, (DUNGEON_HGT * 3) / 4);
-    int w = rand_range(DUNGEON_WID / 2, (DUNGEON_WID * 3) / 4);
+    int h = rand_range(z_info->dungeon_hgt / 2, (z_info->dungeon_hgt * 3) / 4);
+    int w = rand_range(z_info->dungeon_wid / 2, (z_info->dungeon_wid * 3) / 4);
 
 	struct chunk *c;
 
@@ -1389,7 +1389,7 @@ struct chunk *cavern_gen(struct player *p) {
 	k = MAX(MIN(c->depth / 3, 10), 2);
 
 	/* Scale number of monsters items by cavern size */
-	k = MAX((4 * k * (h *  w)) / (DUNGEON_HGT * DUNGEON_WID), 6);
+	k = MAX((4 * k * (h * w)) / (z_info->dungeon_hgt * z_info->dungeon_wid), 6);
 
 	/* Put some rubble in corridors */
 	alloc_objects(c, SET_BOTH, TYP_RUBBLE, randint1(k), c->depth, 0);
@@ -1427,26 +1427,35 @@ struct chunk *cavern_gen(struct player *p) {
  * Currently, there is a main street horizontally through the middle of town,
  * and all the shops face it (e.g. the shops on the north side face south).
  */
-static void build_store(struct chunk *c, int n, int yy, int xx) {
-    /* Find the "center" of the store */
-    int y0 = yy * 9 + 6;
-    int x0 = xx * 14 + 12;
+static void build_store(struct chunk *c, int n, int yy, int xx)
+{
+	int feat;
 
-    /* Determine the store boundaries */
-    int y1 = y0 - randint1((yy == 0) ? 3 : 2);
-    int y2 = y0 + randint1((yy == 1) ? 3 : 2);
-    int x1 = x0 - randint1(5);
-    int x2 = x0 + randint1(5);
+	/* Determine spacing based on town size */
+	int y_space = z_info->town_hgt / 7;
+	int x_space = z_info->town_wid / ((MAX_STORES / 2) + 1);
 
-    /* Determine door location, based on which side of the street we're on */
-    int dy = (yy == 0) ? y2 : y1;
-    int dx = rand_range(x1, x2);
+	/* Find the "center" of the store */
+	int y0 = yy * 3 * y_space + 2 * y_space;
+	int x0 = (xx + 1) * (x_space);
 
-    /* Build an invulnerable rectangular building */
-    fill_rectangle(c, y1, x1, y2, x2, FEAT_PERM, SQUARE_NONE);
+	/* Determine the store boundaries */
+	int y1 = y0 - randint1((yy == 0) ? y_space : y_space * 2 / 3);
+	int y2 = y0 + randint1((yy == 1) ? y_space : y_space * 2 / 3);
+	int x1 = x0 - randint1((x_space - 3) / 2);
+	int x2 = x0 + randint1((x_space - 3) / 2);
 
-    /* Clear previous contents, add a store door */
-    square_set_feat(c, dy, dx, FEAT_SHOP_HEAD + n);
+	/* Determine door location, based on which side of the street we're on */
+	int dy = (yy == 0) ? y2 : y1;
+	int dx = rand_range(x1, x2);
+
+	/* Build an invulnerable rectangular building */
+	fill_rectangle(c, y1, x1, y2, x2, FEAT_PERM, SQUARE_NONE);
+
+	/* Clear previous contents, add a store door */
+	for (feat = 0; feat < z_info->f_max; feat++)
+		if (feat_is_shop(feat) && (f_info[feat].shopnum == n + 1))
+			square_set_feat(c, dy, dx, feat);
 }
 
 
@@ -1455,12 +1464,13 @@ static void build_store(struct chunk *c, int n, int yy, int xx) {
  * \param c is the current chunk
  * \param p is the player
  */
-static void town_gen_layout(struct chunk *c, struct player *p) {
-    int y, x, n, k;
-    int rooms[MAX_STORES];
+static void town_gen_layout(struct chunk *c, struct player *p)
+{
+	int y, x, n, k;
+	int rooms[MAX_STORES];
 
-    int n_rows = 2;
-    int n_cols = (MAX_STORES + 1) / n_rows;
+	int n_rows = 2;
+	int n_cols = (MAX_STORES + 1) / n_rows;
 
 	/* Create walls */
 	draw_rectangle(c, 0, 0, c->height - 1, c->width - 1, FEAT_PERM,
@@ -1470,11 +1480,11 @@ static void town_gen_layout(struct chunk *c, struct player *p) {
 	fill_rectangle(c, 1, 1, c->height - 2, c->width - 2, FEAT_FLOOR,
 				   SQUARE_NONE);
 
-    /* Prepare an Array of "remaining stores", and count them */
-    for (n = 0; n < MAX_STORES; n++) rooms[n] = n;
+	/* Prepare an Array of "remaining stores", and count them */
+	for (n = 0; n < MAX_STORES; n++) rooms[n] = n;
 
-    /* Place rows of stores */
-    for (y = 0; y < n_rows; y++) {
+	/* Place rows of stores */
+	for (y = 0; y < n_rows; y++) {
 		for (x = 0; x < n_cols; x++) {
 			if (n < 1) break;
 
@@ -1487,16 +1497,17 @@ static void town_gen_layout(struct chunk *c, struct player *p) {
 			/* Shift the stores down, remove one store */
 			rooms[k] = rooms[--n];
 		}
-    }
+	}
 
-    /* Place the stairs */
-    find_empty_range(c, &y, 3, TOWN_HGT - 3, &x, 3, TOWN_WID - 3);
+	/* Place the stairs */
+	find_empty_range(c, &y, 3, z_info->town_hgt - 3, &x, 3,
+					 z_info->town_wid - 3);
 
-    /* Clear previous contents, add down stairs */
-    square_set_feat(c, y, x, FEAT_MORE);
+	/* Clear previous contents, add down stairs */
+	square_set_feat(c, y, x, FEAT_MORE);
 
-    /* Place the player */
-    player_place(c, p, y, x);
+	/* Place the player */
+	player_place(c, p, y, x);
 }
 
 
@@ -1508,28 +1519,33 @@ static void town_gen_layout(struct chunk *c, struct player *p) {
  * anything about the owners of the stores, nor the contents thereof. It only
  * handles the physical layout.
  */
-struct chunk *town_gen(struct player *p) {
-    int i, y, x = 0;
-    bool daytime = turn % (10 * TOWN_DAWN) < (10 * TOWN_DUSK);
-    int residents = daytime ? MIN_M_ALLOC_TD : MIN_M_ALLOC_TN;
-	struct chunk *c;
+struct chunk *town_gen(struct player *p)
+{
+	int i, y, x = 0;
+	bool daytime = turn % (10 * TOWN_DAWN) < (10 * TOWN_DUSK);
+	int residents = daytime ? z_info->town_monsters_day :
+		z_info->town_monsters_night;
+	struct chunk *c_new, *c_old = chunk_find_name("Town");
 
-	c = chunk_find_name("Town");
+	/* Make a new chunk */
+	c_new = cave_new(z_info->town_hgt, z_info->town_wid);
 
 	/* First time */
-	if (!c) {
-		c = cave_new(TOWN_HGT, TOWN_WID);
-		c->depth = p->depth;
+	if (!c_old) {
+		c_new->depth = p->depth;
 
 		/* Build stuff */
-		town_gen_layout(c, p);
+		town_gen_layout(c_new, p);
 	} else {
+		/* Copy from the chunk list */
+		if (!chunk_copy(c_new, c_old, 0, 0, 0, 0))
+			quit_fmt("chunk_copy() level bounds failed!");
 
 		/* Find the stairs (lame) */
-		for (y = 0; y < c->height; y++) {
+		for (y = 0; y < c_new->height; y++) {
 			bool found = FALSE;
-			for (x = 0; x < c->width; x++) {
-				if (c->feat[y][x] == FEAT_MORE) {
+			for (x = 0; x < c_new->width; x++) {
+				if (c_new->feat[y][x] == FEAT_MORE) {
 					found = TRUE;
 					break;
 				}
@@ -1538,41 +1554,22 @@ struct chunk *town_gen(struct player *p) {
 		}
 
 		/* Place the player */
-		player_place(c, p, y, x);
+		player_place(c_new, p, y, x);
 	}
 
-    /* Apply illumination */
-    cave_illuminate(c, daytime);
+	/* Apply illumination */
+	cave_illuminate(c_new, daytime);
 
-    /* Make some residents */
-    for (i = 0; i < residents; i++)
-		pick_and_place_distant_monster(c, loc(p->px, p->py), 3, TRUE, c->depth);
+	/* Make some residents */
+	for (i = 0; i < residents; i++)
+		pick_and_place_distant_monster(c_new, loc(p->px, p->py), 3, TRUE,
+									   c_new->depth);
 
-    return c;
+	return c_new;
 }
 
 
 /* ------------------ MODIFIED ---------------- */
-
-/**
- * Room profiles for moria levels - idea stolen from Oangband
- */
-struct room_profile moria_rooms[] = {
-	/* really big rooms have rarity 0 but they have other checks */
-	{"greater vault", build_greater_vault, 44, 66, 35, FALSE, 0, 100},
-
-	/* very rare rooms (rarity=2) */
-	{"room of chambers", build_room_of_chambers, 44, 66, 10, FALSE, 2, 4},
-	{"monster pit", build_pit, 11, 33, 5, TRUE, 2, 12},
-	{"monster nest", build_nest, 11, 33, 5, TRUE, 2, 20},
-	{"medium vault", build_medium_vault, 22, 33, 30, FALSE, 2, 40},
-	{"lesser vault", build_lesser_vault, 22, 33, 20, FALSE, 2, 60},
-	{"interesting room", build_interesting, 44, 55, 0, FALSE, 2, 100},
-
-	/* normal rooms */
-	{"simple room", build_moria, 11, 33, 1, FALSE, 0, 100}
-};
-
 /**
  * The main modified generation algorithm
  * \param depth is the chunk's native depth
@@ -1587,7 +1584,6 @@ struct chunk *modified_chunk(int depth, int height, int width)
     int num_floors;
 	int num_rooms = dun->profile->n_room_profiles;
     int dun_unusual = dun->profile->dun_unusual;
-	bool moria_level = FALSE;
 
     /* Make the cave */
     struct chunk *c = cave_new(height, width);
@@ -1618,13 +1614,6 @@ struct chunk *modified_chunk(int depth, int height, int width)
     dun->pit_num = 0;
     dun->cent_n = 0;
 
-	/* Hack -- It is possible for levels to be moria-style. */
-	if ((c->depth >= 10) && (c->depth < 40) && one_in_(40)) {
-		moria_level = TRUE;
-		num_rooms = N_ELEMENTS(moria_rooms);
-		ROOM_LOG("Moria level");
-	}
-
     /* Build rooms until we have enough floor grids */
     while (c->feat_count[FEAT_FLOOR] < num_floors) {
 
@@ -1647,8 +1636,7 @@ struct chunk *modified_chunk(int depth, int height, int width)
 		 * then we are done with this iteration. We keep going until we find
 		 * a room that we can build successfully or we exhaust the profiles. */
 		for (i = 0; i < num_rooms; i++) {
-			struct room_profile profile = moria_level ? moria_rooms[i] :
-				dun->profile->room_profiles[i];
+			struct room_profile profile = dun->profile->room_profiles[i];
 			if (profile.rarity > rarity) continue;
 			if (profile.cutoff <= key) continue;
 			if (room_build(c, by, bx, profile, TRUE)) break;
@@ -1716,7 +1704,7 @@ struct chunk *modified_chunk(int depth, int height, int width)
  * \return a pointer to the generated chunk
  *
  * This is sample code to illustrate some of the new dungeon generation
- * methods; I think it actually prdouces quite nice levels.  New stuff:
+ * methods; I think it actually produces quite nice levels.  New stuff:
  *
  * - different sized levels
  * - independence from block size: the block size can be set to any number
@@ -1727,8 +1715,8 @@ struct chunk *modified_chunk(int depth, int height, int width)
  *   allocating it; this helps because the room knows better what size it is
  * - a count is now kept of grids of the various terrains, allowing dungeon
  *   generation to terminate when enough floor is generated
- * - there are four new room types - moria rooms, huge rooms, rooms of
- *   chambers and interesting rooms - as well as many new vaults
+ * - there are three new room types - huge rooms, rooms of chambers
+ *   and interesting rooms - as well as many new vaults
  * - there is the ability to place specific monsters and objects in vaults and
  *   interesting rooms, as well as to make general monster restrictions in
  *   areas or the whole dungeon
@@ -1736,7 +1724,6 @@ struct chunk *modified_chunk(int depth, int height, int width)
 struct chunk *modified_gen(struct player *p) {
     int i, k;
     int size_percent, y_size, x_size;
-	bool moria_level = FALSE;
 	struct chunk *c;
 
     /* Scale the level */
@@ -1748,15 +1735,15 @@ struct chunk *modified_gen(struct player *p) {
     else if (i < 5) size_percent = 90;
     else if (i < 6) size_percent = 95;
     else size_percent = 100;
-	y_size = DUNGEON_HGT * (size_percent - 5 + randint0(10)) / 100;
-	x_size = DUNGEON_WID * (size_percent - 5 + randint0(10)) / 100;
+	y_size = z_info->dungeon_hgt * (size_percent - 5 + randint0(10)) / 100;
+	x_size = z_info->dungeon_wid * (size_percent - 5 + randint0(10)) / 100;
 
     /* Set the block height and width */
 	dun->block_hgt = dun->profile->block_size;
 	dun->block_wid = dun->profile->block_size;
 
-    c = modified_chunk(p->depth, MIN(DUNGEON_HGT, y_size),
-					   MIN(DUNGEON_WID, x_size));
+    c = modified_chunk(p->depth, MIN(z_info->dungeon_hgt, y_size),
+					   MIN(z_info->dungeon_wid, x_size));
 	c->depth = p->depth;
 
     /* Generate permanent walls around the edge of the generated area */
@@ -1790,29 +1777,247 @@ struct chunk *modified_gen(struct player *p) {
     new_player_spot(c, p);
 
     /* Pick a base number of monsters */
-    i = MIN_M_ALLOC_LEVEL + randint1(8) + k;
+    i = z_info->level_monster_min + randint1(8) + k;
 
-	/* Moria levels have a high proportion of cave dwellers. */
-	if (moria_level) {
-		/* Set global monster restriction variables. */
-			mon_restrict("Moria dwellers", c->depth, TRUE);
-	} else {
-		/* Remove all monster restrictions. */
-		mon_restrict(NULL, c->depth, TRUE);
-	}
+	/* Remove all monster restrictions. */
+	mon_restrict(NULL, c->depth, TRUE);
 
     /* Put some monsters in the dungeon */
     for (; i > 0; i--)
 		pick_and_place_distant_monster(c, loc(p->px, p->py), 0, TRUE, c->depth);
 
     /* Put some objects in rooms */
-    alloc_objects(c, SET_ROOM, TYP_OBJECT, Rand_normal(AMT_ROOM, 3),
+    alloc_objects(c, SET_ROOM, TYP_OBJECT, Rand_normal(z_info->room_item_av, 3),
 				  c->depth, ORIGIN_FLOOR);
 
     /* Put some objects/gold in the dungeon */
-    alloc_objects(c, SET_BOTH, TYP_OBJECT, Rand_normal(AMT_ITEM, 3),
+    alloc_objects(c, SET_BOTH, TYP_OBJECT, Rand_normal(z_info->both_item_av, 3),
 				  c->depth, ORIGIN_FLOOR);
-    alloc_objects(c, SET_BOTH, TYP_GOLD, Rand_normal(AMT_GOLD, 3),
+    alloc_objects(c, SET_BOTH, TYP_GOLD, Rand_normal(z_info->both_gold_av, 3),
+				  c->depth, ORIGIN_FLOOR);
+
+    return c;
+}
+
+
+/* ------------------ MORIA ---------------- */
+/**
+ * The main moria generation algorithm
+ * \param depth is the chunk's native depth
+ * \param height
+ * \param width are the chunk's dimensions
+ * \return a pointer to the generated chunk
+ */
+struct chunk *moria_chunk(int depth, int height, int width)
+{
+    int i, y, x, y1, x1;
+    int by = 0, bx = 0, key, rarity;
+    int num_floors;
+	int num_rooms = dun->profile->n_room_profiles;
+    int dun_unusual = dun->profile->dun_unusual;
+
+    /* Make the cave */
+    struct chunk *c = cave_new(height, width);
+	c->depth = depth;
+
+	/* Set the intended number of floor grids based on cave floor area */
+    num_floors = c->height * c->width / 7;
+    ROOM_LOG("height=%d  width=%d  nfloors=%d", c->height, c->width,num_floors);
+
+    /* Fill cave area with basic granite */
+    fill_rectangle(c, 0, 0, c->height - 1, c->width - 1, 
+				   FEAT_GRANITE, SQUARE_NONE);
+
+    /* Generate permanent walls around the generated area (temporarily!) */
+    draw_rectangle(c, 0, 0, c->height - 1, c->width - 1, 
+				   FEAT_PERM, SQUARE_NONE);
+
+    /* Actual maximum number of blocks on this level */
+    dun->row_blocks = c->height / dun->block_hgt;
+    dun->col_blocks = c->width / dun->block_wid;
+
+    /* Initialize the room table */
+	dun->room_map = mem_zalloc(dun->row_blocks * sizeof(bool*));
+	for (i = 0; i < dun->row_blocks; i++)
+		dun->room_map[i] = mem_zalloc(dun->col_blocks * sizeof(bool));
+
+    /* No rooms yet, pits or otherwise. */
+    dun->pit_num = 0;
+    dun->cent_n = 0;
+
+    /* Build rooms until we have enough floor grids */
+    while (c->feat_count[FEAT_FLOOR] < num_floors) {
+
+		/* Roll for random key (to be compared against a profile's cutoff) */
+		key = randint0(100);
+
+		/* We generate a rarity number to figure out how exotic to make the
+		 * room. This number has a depth/DUN_UNUSUAL chance of being > 0,
+		 * a depth^2/DUN_UNUSUAL^2 chance of being > 1, up to MAX_RARITY. */
+		i = 0;
+		rarity = 0;
+		while (i == rarity && i < dun->profile->max_rarity) {
+			if (randint0(dun_unusual) < 50 + c->depth / 2) rarity++;
+			i++;
+		}
+
+		/* Once we have a key and a rarity, we iterate through out list of
+		 * room profiles looking for a match (whose cutoff > key and whose
+		 * rarity > this rarity). We try building the room, and if it works
+		 * then we are done with this iteration. We keep going until we find
+		 * a room that we can build successfully or we exhaust the profiles. */
+		for (i = 0; i < num_rooms; i++) {
+			struct room_profile profile = dun->profile->room_profiles[i];
+			if (profile.rarity > rarity) continue;
+			if (profile.cutoff <= key) continue;
+			if (room_build(c, by, bx, profile, TRUE)) break;
+		}
+    }
+
+	for (i = 0; i < dun->row_blocks; i++)
+		mem_free(dun->room_map[i]);
+	mem_free(dun->room_map);
+
+    /* Hack -- Scramble the room order */
+    for (i = 0; i < dun->cent_n; i++) {
+		int pick1 = randint0(dun->cent_n);
+		int pick2 = randint0(dun->cent_n);
+		y1 = dun->cent[pick1].y;
+		x1 = dun->cent[pick1].x;
+		dun->cent[pick1].y = dun->cent[pick2].y;
+		dun->cent[pick1].x = dun->cent[pick2].x;
+		dun->cent[pick2].y = y1;
+		dun->cent[pick2].x = x1;
+    }
+
+    /* Start with no tunnel doors */
+    dun->door_n = 0;
+
+    /* Hack -- connect the first room to the last room */
+    y = dun->cent[dun->cent_n-1].y;
+    x = dun->cent[dun->cent_n-1].x;
+
+    /* Connect all the rooms together */
+    for (i = 0; i < dun->cent_n; i++) {
+		/* Connect the room to the previous room */
+		build_tunnel(c, dun->cent[i].y, dun->cent[i].x, y, x);
+
+		/* Remember the "previous" room */
+		y = dun->cent[i].y;
+		x = dun->cent[i].x;
+    }
+
+    /* Place intersection doors */
+    for (i = 0; i < dun->door_n; i++) {
+		/* Extract junction location */
+		y = dun->door[i].y;
+		x = dun->door[i].x;
+
+		/* Try placing doors */
+		try_door(c, y, x - 1);
+		try_door(c, y, x + 1);
+		try_door(c, y - 1, x);
+		try_door(c, y + 1, x);
+    }
+
+    ensure_connectedness(c);
+
+    /* Turn the outer permanent walls back to granite  */
+    draw_rectangle(c, 0, 0, c->height - 1, c->width - 1, 
+				   FEAT_GRANITE, SQUARE_NONE);
+
+	return c;
+}
+
+/**
+ * Generate a new dungeon level.
+ * \param p is the player
+ * \return a pointer to the generated chunk
+ *
+ * This produces Oangband-style moria levels.
+ *
+ * Most rooms on these levels are large, ragged-edged and roughly oval-shaped.
+ *
+ * Monsters are mostly "Moria dwellers" - orcs, ogres, trolls and giants.
+ *
+ * Apart from the room and monster changes, generation is similar to modified
+ * levels.  A good way of selecting these instead of modified (similar to 
+ * labyrinth levels are selected) would be
+ *	if ((c->depth >= 10) && (c->depth < 40) && one_in_(40))
+ */
+struct chunk *moria_gen(struct player *p) {
+    int i, k;
+    int size_percent, y_size, x_size;
+	struct chunk *c;
+
+    /* Scale the level */
+    i = randint1(10) + p->depth / 24;
+    if (is_quest(p->depth)) size_percent = 100;
+    else if (i < 2) size_percent = 75;
+    else if (i < 3) size_percent = 80;
+    else if (i < 4) size_percent = 85;
+    else if (i < 5) size_percent = 90;
+    else if (i < 6) size_percent = 95;
+    else size_percent = 100;
+	y_size = z_info->dungeon_hgt * (size_percent - 5 + randint0(10)) / 100;
+	x_size = z_info->dungeon_wid * (size_percent - 5 + randint0(10)) / 100;
+
+    /* Set the block height and width */
+	dun->block_hgt = dun->profile->block_size;
+	dun->block_wid = dun->profile->block_size;
+
+    c = moria_chunk(p->depth, MIN(z_info->dungeon_hgt, y_size),
+					   MIN(z_info->dungeon_wid, x_size));
+	c->depth = p->depth;
+
+    /* Generate permanent walls around the edge of the generated area */
+    draw_rectangle(c, 0, 0, c->height - 1, c->width - 1,
+				   FEAT_PERM, SQUARE_NONE);
+
+    /* Add some magma streamers */
+    for (i = 0; i < dun->profile->str.mag; i++)
+		build_streamer(c, FEAT_MAGMA, dun->profile->str.mc);
+
+    /* Add some quartz streamers */
+    for (i = 0; i < dun->profile->str.qua; i++)
+		build_streamer(c, FEAT_QUARTZ, dun->profile->str.qc);
+
+    /* Place 3 or 4 down stairs near some walls */
+    alloc_stairs(c, FEAT_MORE, rand_range(3, 4), 3);
+
+    /* Place 1 or 2 up stairs near some walls */
+    alloc_stairs(c, FEAT_LESS, rand_range(1, 2), 3);
+
+    /* General amount of rubble, traps and monsters */
+    k = MAX(MIN(c->depth / 3, 10), 2);
+
+    /* Put some rubble in corridors */
+    alloc_objects(c, SET_CORR, TYP_RUBBLE, randint1(k), c->depth, 0);
+
+    /* Place some traps in the dungeon */
+    alloc_objects(c, SET_BOTH, TYP_TRAP, randint1(k), c->depth, 0);
+
+    /* Determine the character location */
+    new_player_spot(c, p);
+
+    /* Pick a base number of monsters */
+    i = z_info->level_monster_min + randint1(8) + k;
+
+	/* Moria levels have a high proportion of cave dwellers. */
+	mon_restrict("Moria dwellers", c->depth, TRUE);
+
+    /* Put some monsters in the dungeon */
+    for (; i > 0; i--)
+		pick_and_place_distant_monster(c, loc(p->px, p->py), 0, TRUE, c->depth);
+
+    /* Put some objects in rooms */
+    alloc_objects(c, SET_ROOM, TYP_OBJECT, Rand_normal(z_info->room_item_av, 3),
+				  c->depth, ORIGIN_FLOOR);
+
+    /* Put some objects/gold in the dungeon */
+    alloc_objects(c, SET_BOTH, TYP_OBJECT, Rand_normal(z_info->both_item_av, 3),
+				  c->depth, ORIGIN_FLOOR);
+    alloc_objects(c, SET_BOTH, TYP_GOLD, Rand_normal(z_info->both_gold_av, 3),
 				  c->depth, ORIGIN_FLOOR);
 
     return c;
@@ -1906,11 +2111,11 @@ struct chunk *hard_centre_gen(struct player *p)
 	/* Measure the vault, rotate to make it wider than it is high */
 	if (centre->height > centre->width) {
 		rotate = 1;
-		centre_cavern_hgt = (DUNGEON_HGT - centre->width) / 2;
+		centre_cavern_hgt = (z_info->dungeon_hgt - centre->width) / 2;
 		centre_cavern_wid = centre->height;
 		lower_cavern_ypos = centre_cavern_hgt + centre->width;
 	} else {
-		centre_cavern_hgt = (DUNGEON_HGT - centre->height) / 2;
+		centre_cavern_hgt = (z_info->dungeon_hgt - centre->height) / 2;
 		centre_cavern_wid = centre->width;
 		lower_cavern_ypos = centre_cavern_hgt + centre->height;
 	}
@@ -1918,21 +2123,21 @@ struct chunk *hard_centre_gen(struct player *p)
 	/* Make the caverns */
 	upper_cavern = cavern_chunk(p->depth, centre_cavern_hgt, centre_cavern_wid);
 	lower_cavern = cavern_chunk(p->depth, centre_cavern_hgt, centre_cavern_wid);
-	side_cavern_wid = (DUNGEON_WID - centre_cavern_wid) / 2;
-	left_cavern = cavern_chunk(p->depth, DUNGEON_HGT, side_cavern_wid);
-	right_cavern = cavern_chunk(p->depth, DUNGEON_HGT, side_cavern_wid);
+	side_cavern_wid = (z_info->dungeon_wid - centre_cavern_wid) / 2;
+	left_cavern = cavern_chunk(p->depth, z_info->dungeon_hgt, side_cavern_wid);
+	right_cavern = cavern_chunk(p->depth, z_info->dungeon_hgt, side_cavern_wid);
 
 	/* Return on failure */
 	if (!upper_cavern || !lower_cavern || !left_cavern || !right_cavern)
 		return NULL;
 
 	/* Make a cave to copy them into, and find a floor square in each cavern */
-	c = cave_new(DUNGEON_HGT, DUNGEON_WID);
+	c = cave_new(z_info->dungeon_hgt, z_info->dungeon_wid);
 	c->depth = p->depth;
 
 	/* Left */
 	chunk_copy(c, left_cavern, 0, 0, 0, FALSE);
-	find_empty_range(c, &y, 0, DUNGEON_HGT, &x, 0, side_cavern_wid);
+	find_empty_range(c, &y, 0, z_info->dungeon_hgt, &x, 0, side_cavern_wid);
 	floor[0].y = y;
 	floor[0].x = x;
 
@@ -1948,15 +2153,15 @@ struct chunk *hard_centre_gen(struct player *p)
 
 	/* Lower */
 	chunk_copy(c, lower_cavern, lower_cavern_ypos, side_cavern_wid, 0, FALSE);
-	find_empty_range(c, &y, lower_cavern_ypos, DUNGEON_HGT, &x,
+	find_empty_range(c, &y, lower_cavern_ypos, z_info->dungeon_hgt, &x,
 					 side_cavern_wid, side_cavern_wid + centre_cavern_wid);
 	floor[3].y = y;
 	floor[3].x = x;
 
 	/* Right */
 	chunk_copy(c, right_cavern, 0, side_cavern_wid + centre_cavern_wid, 0, FALSE);
-	find_empty_range(c, &y, 0, DUNGEON_HGT, &x,
-					 side_cavern_wid + centre_cavern_wid, DUNGEON_WID);
+	find_empty_range(c, &y, 0, z_info->dungeon_hgt, &x,
+					 side_cavern_wid + centre_cavern_wid, z_info->dungeon_wid);
 	floor[2].y = y;
 	floor[2].x = x;
 
@@ -1991,7 +2196,7 @@ struct chunk *hard_centre_gen(struct player *p)
 	cave_free(lower_cavern);
 	cave_free(right_cavern);
 
-	cavern_area = 2 * (side_cavern_wid * DUNGEON_HGT +
+	cavern_area = 2 * (side_cavern_wid * z_info->dungeon_hgt +
 					   centre_cavern_wid * centre_cavern_hgt);
 
 	/* Place 2-3 down stairs near some walls */
@@ -2004,7 +2209,7 @@ struct chunk *hard_centre_gen(struct player *p)
 	k = MAX(MIN(c->depth / 3, 10), 2);
 
 	/* Scale number by total cavern size - caverns are fairly sparse */
-	k = (k * cavern_area) / (DUNGEON_HGT * DUNGEON_WID);
+	k = (k * cavern_area) / (z_info->dungeon_hgt * z_info->dungeon_wid);
 
 	/* Put some rubble in corridors */
 	alloc_objects(c, SET_BOTH, TYP_RUBBLE, randint1(k), c->depth, 0);
@@ -2049,11 +2254,12 @@ struct chunk *lair_gen(struct player *p) {
 	dun->block_hgt = dun->profile->block_size;
 	dun->block_wid = dun->profile->block_size;
 
-    normal = modified_chunk(p->depth, DUNGEON_HGT, DUNGEON_WID / 2);
+    normal = modified_chunk(p->depth, z_info->dungeon_hgt,
+							z_info->dungeon_wid / 2);
 	if (!normal) return NULL;
 	normal->depth = p->depth;
 
-	lair = cavern_chunk(p->depth, DUNGEON_HGT, DUNGEON_WID / 2);
+	lair = cavern_chunk(p->depth, z_info->dungeon_hgt, z_info->dungeon_wid / 2);
 	if (!lair) return NULL;
 	lair->depth = p->depth;
 
@@ -2080,7 +2286,7 @@ struct chunk *lair_gen(struct player *p) {
 		build_streamer(normal, FEAT_QUARTZ, dun->profile->str.qc);
 
     /* Pick a larger number of monsters for the lair */
-    i = (MIN_M_ALLOC_LEVEL + randint1(6) + k);
+    i = (z_info->level_monster_min + randint1(6) + k);
 
 	/* Find appropriate monsters */
 	while (TRUE) {
@@ -2103,17 +2309,17 @@ struct chunk *lair_gen(struct player *p) {
 	(void) mon_restrict(NULL, lair->depth, FALSE);
 
 	/* Make the level */
-	c = cave_new(DUNGEON_HGT, DUNGEON_WID);
+	c = cave_new(z_info->dungeon_hgt, z_info->dungeon_wid);
 	c->depth = p->depth;
 	if (one_in_(2)) {
 		chunk_copy(c, lair, 0, 0, 0, FALSE);
-		chunk_copy(c, normal, 0, DUNGEON_WID / 2, 0, FALSE);
+		chunk_copy(c, normal, 0, z_info->dungeon_wid / 2, 0, FALSE);
 
 		/* The player needs to move */
-		p->px += DUNGEON_WID / 2;
+		p->px += z_info->dungeon_wid / 2;
 	} else {
 		chunk_copy(c, normal, 0, 0, 0, FALSE);
-		chunk_copy(c, lair, 0, DUNGEON_WID / 2, 0, FALSE);
+		chunk_copy(c, lair, 0, z_info->dungeon_wid / 2, 0, FALSE);
 	}
 
 	/* Free the chunks */
@@ -2140,13 +2346,13 @@ struct chunk *lair_gen(struct player *p) {
     alloc_objects(c, SET_BOTH, TYP_TRAP, randint1(k), c->depth, 0);
 
     /* Put some objects in rooms */
-    alloc_objects(c, SET_ROOM, TYP_OBJECT, Rand_normal(AMT_ROOM, 3),
+    alloc_objects(c, SET_ROOM, TYP_OBJECT, Rand_normal(z_info->room_item_av, 3),
 				  c->depth, ORIGIN_FLOOR);
 
     /* Put some objects/gold in the dungeon */
-    alloc_objects(c, SET_BOTH, TYP_OBJECT, Rand_normal(AMT_ITEM, 3),
+    alloc_objects(c, SET_BOTH, TYP_OBJECT, Rand_normal(z_info->both_item_av, 3),
 				  c->depth, ORIGIN_FLOOR);
-    alloc_objects(c, SET_BOTH, TYP_GOLD, Rand_normal(AMT_GOLD, 3),
+    alloc_objects(c, SET_BOTH, TYP_GOLD, Rand_normal(z_info->both_gold_av, 3),
 				  c->depth, ORIGIN_FLOOR);
 
     return c;
@@ -2178,14 +2384,16 @@ struct chunk *gauntlet_gen(struct player *p) {
 	if (!gauntlet) return NULL;
 	gauntlet->depth = p->depth;
 
-	arrival = cavern_chunk(p->depth, DUNGEON_HGT, DUNGEON_WID * 2 / 5);
+	arrival = cavern_chunk(p->depth, z_info->dungeon_hgt,
+						   z_info->dungeon_wid * 2 / 5);
 	if (!arrival) {
 		cave_free(gauntlet);
 		return NULL;
 	}
 	arrival->depth = p->depth;
 
-	departure = cavern_chunk(p->depth, DUNGEON_HGT, DUNGEON_WID * 2 / 5);
+	departure = cavern_chunk(p->depth, z_info->dungeon_hgt,
+							 z_info->dungeon_wid * 2 / 5);
 	if (!departure) {
 		cave_free(gauntlet);
 		cave_free(arrival);
@@ -2223,7 +2431,7 @@ struct chunk *gauntlet_gen(struct player *p) {
 	new_player_spot(arrival, p);
 
 	/* Pick some monsters for the arrival cavern */
-	i = MIN_M_ALLOC_LEVEL + randint1(4) + k;
+	i = z_info->level_monster_min + randint1(4) + k;
 
 	/* Place the monsters */
 	for (; i > 0; i--)
@@ -2231,7 +2439,7 @@ struct chunk *gauntlet_gen(struct player *p) {
 									   arrival->depth);
 
 	/* Pick some of monsters for the departure cavern */
-	i = MIN_M_ALLOC_LEVEL + randint1(4) + k;
+	i = z_info->level_monster_min + randint1(4) + k;
 
 	/* Place the monsters */
 	for (; i > 0; i--)
@@ -2239,7 +2447,7 @@ struct chunk *gauntlet_gen(struct player *p) {
 									   departure->depth);
 
 	/* Pick a larger number of monsters for the gauntlet */
-	i = (MIN_M_ALLOC_LEVEL + randint1(6) + k);
+	i = (z_info->level_monster_min + randint1(6) + k);
 
 	/* Find appropriate monsters */
 	while (TRUE) {
@@ -2263,7 +2471,7 @@ struct chunk *gauntlet_gen(struct player *p) {
 	(void) mon_restrict(NULL, gauntlet->depth, FALSE);
 
 	/* Make the level */
-	c = cave_new(DUNGEON_HGT, DUNGEON_WID);
+	c = cave_new(z_info->dungeon_hgt, z_info->dungeon_wid);
 	c->depth = p->depth;
 
 	/* Fill cave area with basic granite */
@@ -2276,8 +2484,8 @@ struct chunk *gauntlet_gen(struct player *p) {
 
 	/* Copy in the pieces */
 	chunk_copy(c, arrival, 0, 0, 0, FALSE);
-	chunk_copy(c, gauntlet, (DUNGEON_HGT - gauntlet->height) / 2, line1, 0,
-			   FALSE);
+	chunk_copy(c, gauntlet, (z_info->dungeon_hgt - gauntlet->height) / 2,
+			   line1, 0, FALSE);
 	chunk_copy(c, departure, 0, line2, 0, FALSE);
 
 	/* Free the chunks */
@@ -2294,9 +2502,9 @@ struct chunk *gauntlet_gen(struct player *p) {
 
 	/* Temporary until connecting to vault entrances works better */
 	for (y = 0; y < gauntlet_hgt; y++) {
-		square_set_feat(c, y + (DUNGEON_HGT - gauntlet_hgt) / 2, line1 - 1,
-						FEAT_FLOOR);
-		square_set_feat(c, y + (DUNGEON_HGT - gauntlet_hgt) / 2, line2,
+		square_set_feat(c, y + (z_info->dungeon_hgt - gauntlet_hgt) / 2,
+						line1 - 1, FEAT_FLOOR);
+		square_set_feat(c, y + (z_info->dungeon_hgt - gauntlet_hgt) / 2, line2,
 						FEAT_FLOOR);
 	}
 
@@ -2307,13 +2515,13 @@ struct chunk *gauntlet_gen(struct player *p) {
 	alloc_objects(c, SET_BOTH, TYP_TRAP, randint1(k), c->depth, 0);
 
 	/* Put some objects in rooms */
-	alloc_objects(c, SET_ROOM, TYP_OBJECT, Rand_normal(AMT_ROOM, 3),
+	alloc_objects(c, SET_ROOM, TYP_OBJECT, Rand_normal(z_info->room_item_av, 3),
 				  c->depth, ORIGIN_FLOOR);
 
 	/* Put some objects/gold in the dungeon */
-	alloc_objects(c, SET_BOTH, TYP_OBJECT, Rand_normal(AMT_ITEM, 3),
+	alloc_objects(c, SET_BOTH, TYP_OBJECT, Rand_normal(z_info->both_item_av, 3),
 				  c->depth, ORIGIN_FLOOR);
-	alloc_objects(c, SET_BOTH, TYP_GOLD, Rand_normal(AMT_GOLD, 3),
+	alloc_objects(c, SET_BOTH, TYP_GOLD, Rand_normal(z_info->both_gold_av, 3),
 				  c->depth, ORIGIN_FLOOR);
 
 	return c;

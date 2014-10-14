@@ -1,6 +1,6 @@
-/*
- * File: attack.c
- * Purpose: Attacking (both throwing and melee) code
+/**
+   \file player-attack.c
+   \brief Attacks (both throwing and melee) by the player
  *
  * Copyright (c) 1997 Ben Harrison, James E. Wilson, Robert A. Koeneke
  *
@@ -17,9 +17,11 @@
  */
 
 #include "angband.h"
-#include "attack.h"
 #include "cave.h"
 #include "cmds.h"
+#include "game-event.h"
+#include "mon-desc.h"
+#include "mon-lore.h"
 #include "mon-make.h"
 #include "mon-msg.h"
 #include "mon-timed.h"
@@ -31,9 +33,9 @@
 #include "obj-slays.h"
 #include "obj-ui.h"
 #include "obj-util.h"
+#include "player-attack.h"
 #include "player-util.h"
 #include "project.h"
-#include "spells.h"
 #include "tables.h"
 #include "target.h"
 #include "ui-map.h"
@@ -458,8 +460,6 @@ static void ranged_helper(int item, int dir, int range, int shots, ranged_attack
 	object_type *o_ptr = object_from_item_idx(item);
 
 	int i, j;
-	byte missile_attr = object_attr(o_ptr);
-	wchar_t missile_char;
 
 	object_type object_type_body;
 	object_type *i_ptr = &object_type_body;
@@ -467,9 +467,7 @@ static void ranged_helper(int item, int dir, int range, int shots, ranged_attack
 	char o_name[80];
 
 	int path_n;
-	u16b path_g[256];
-
-	int msec = op_ptr->delay_factor;
+	struct loc path_g[256];
 
 	/* Start at the player */
 	int x = player->px;
@@ -480,8 +478,6 @@ static void ranged_helper(int item, int dir, int range, int shots, ranged_attack
 	s16b tx = x + 99 * ddx[dir];
 
 	bool hit_target = FALSE;
-
-	missile_char = object_char(o_ptr);
 
 	/* Check for target validity */
 	if ((dir == 5) && target_okay()) {
@@ -518,8 +514,9 @@ static void ranged_helper(int item, int dir, int range, int shots, ranged_attack
 
 	/* Project along the path */
 	for (i = 0; i < path_n; ++i) {
-		int ny = GRID_Y(path_g[i]);
-		int nx = GRID_X(path_g[i]);
+		int ny = path_g[i].y;
+		int nx = path_g[i].x;
+		bool see = player_can_see_bold(ny, nx);
 
 		/* Stop before hitting walls */
 		if (!(square_ispassable(cave, ny, nx)) &&
@@ -530,23 +527,9 @@ static void ranged_helper(int item, int dir, int range, int shots, ranged_attack
 		x = nx;
 		y = ny;
 
-		/* Only do visuals if the player can "see" the missile */
-		if (player_can_see_bold(y, x)) {
-			print_rel(missile_char, missile_attr, y, x);
-			move_cursor_relative(y, x);
-
-			Term_fresh();
-			if (player->upkeep->redraw) redraw_stuff(player->upkeep);
-
-			Term_xtra(TERM_XTRA_DELAY, msec);
-			square_light_spot(cave, y, x);
-
-			Term_fresh();
-			if (player->upkeep->redraw) redraw_stuff(player->upkeep);
-		} else {
-			/* Delay anyway for consistency */
-			Term_xtra(TERM_XTRA_DELAY, msec);
-		}
+		/* Tell the UI to display the missile */
+		event_signal_missile(EVENT_MISSILE, 
+							 object_char(o_ptr), object_attr(o_ptr), see, y, x);
 
 		/* Try the attack on the monster at (x, y) if any */
 		if (cave->m_idx[y][x] > 0) {

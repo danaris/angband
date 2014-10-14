@@ -17,6 +17,9 @@
  */
 
 #include "angband.h"
+#include "init.h"
+#include "mon-desc.h"
+#include "mon-lore.h"
 #include "mon-msg.h"
 #include "mon-util.h"
 
@@ -513,3 +516,21 @@ void flush_all_monster_messages(void)
 	size_mon_msg = 0;
 	size_mon_hist = 0;
 }
+
+static void monmsg_init(void) {
+	/* Array of stacked monster messages */
+	mon_msg = C_ZNEW(MAX_STORED_MON_MSG, monster_race_message);
+	mon_message_hist = C_ZNEW(MAX_STORED_MON_CODES, monster_message_history);
+}
+
+static void monmsg_cleanup(void) {
+	/* Free the stacked monster messages */
+	FREE(mon_msg);
+	FREE(mon_message_hist);
+}
+
+struct init_module monmsg_module = {
+	.name = "mosnter message",
+	.init = monmsg_init,
+	.cleanup = monmsg_cleanup
+};

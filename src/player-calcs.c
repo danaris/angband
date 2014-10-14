@@ -20,7 +20,6 @@
 #include "angband.h"
 #include "cave.h"
 #include "dungeon.h"
-#include "files.h"
 #include "game-event.h"
 #include "mon-msg.h"
 #include "mon-util.h"
@@ -32,7 +31,7 @@
 #include "player-spell.h"
 #include "player-timed.h"
 #include "player-util.h"
-#include "spells.h"
+#include "ui-player.h"
 #include "ui.h"
 #include "tables.h"
 
@@ -1703,11 +1702,19 @@ void calc_bonuses(object_type gear[], player_state *state, bool known_only)
 			state->el_info[i].res_level = player->race->el_info[i].res_level;
 	}
 
+	/* Base pflags */
+	pf_wipe(state->pflags);
+	pf_copy(state->pflags, player->race->pflags);
+	pf_union(state->pflags, player->class->pflags);
+
 	/*** Analyze player ***/
 
 	/* Extract the player flags */
-	player_flags(collect_f);
+	player_flags(player, collect_f);
 
+	/* Add player specific pflags */
+	if (!player->csp)
+		pf_on(state->pflags, PF_NO_MANA);
 
 	/*** Analyze equipment ***/
 

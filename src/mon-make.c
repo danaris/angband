@@ -22,6 +22,7 @@
 #include "history.h"
 #include "init.h"
 #include "target.h"
+#include "mon-desc.h"
 #include "mon-lore.h"
 #include "mon-make.h"
 #include "mon-timed.h"
@@ -428,7 +429,7 @@ s16b mon_pop(struct chunk *c)
 	int m_idx;
 
 	/* Normal allocation */
-	if (cave_monster_max(c) < z_info->m_max) {
+	if (cave_monster_max(c) < z_info->level_monster_max) {
 		/* Get the next hole */
 		m_idx = cave_monster_max(c);
 
@@ -549,8 +550,8 @@ monster_race *get_mon_num(int level)
 	alloc_entry *table = alloc_race_table;
 
 	/* Occasionally produce a nastier monster in the dungeon */
-	if (level > 0 && one_in_(NASTY_MON))
-		level += MIN(level / 4 + 2, MON_OOD_MAX);
+	if (level > 0 && one_in_(z_info->ood_monster_chance))
+		level += MIN(level / 4 + 2, z_info->ood_monster_amount);
 
 	total = 0L;
 
@@ -807,7 +808,7 @@ s16b place_monster(struct chunk *c, int y, int x, monster_type *mon, byte origin
 	m_ptr->fx = x;
 	assert(square_monster(c, y, x) == m_ptr);
 
-	update_mon(m_ptr, TRUE);
+	update_mon(m_ptr, c, TRUE);
 
 	/* Hack -- Count the number of "reproducers" */
 	if (rf_has(m_ptr->race->flags, RF_MULTIPLY)) num_repro++;
@@ -846,7 +847,7 @@ s16b place_monster(struct chunk *c, int y, int x, monster_type *mon, byte origin
 
 		i_ptr->origin = origin;
 		i_ptr->mimicking_m_idx = m_idx;
-		m_ptr->mimicked_o_idx = floor_carry(cave, y, x, i_ptr);
+		m_ptr->mimicked_o_idx = floor_carry(c, y, x, i_ptr);
 	}
 
 	/* Result */
@@ -1541,7 +1542,8 @@ bool mon_take_hit(struct monster *m_ptr, int dam, bool *fear, const char *note)
 			/* Count kills in all lives */
 			if (l_ptr->tkills < MAX_SHORT) l_ptr->tkills++;
 
-			/* Hack -- Auto-recall */
+			/* Update lore and tracking */
+			lore_update(m_ptr->race, l_ptr);
 			monster_race_track(player->upkeep, m_ptr->race);
 		}
 

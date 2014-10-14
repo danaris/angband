@@ -1,6 +1,7 @@
-/** \file gen-util.c
-	\brief Dungeon generation utilities
-
+/**
+ * \file gen-util.c
+ * \brief Dungeon generation utilities
+ *
  * Copyright (c) 1997 Ben Harrison, James E. Wilson, Robert A. Koeneke
  * Copyright (c) 2013 Erik Osheim, Nick McConnell
  *
@@ -22,7 +23,6 @@
 #include "angband.h"
 #include "cave.h"
 #include "math.h"
-#include "files.h"
 #include "game-event.h"
 #include "generate.h"
 #include "init.h"
@@ -512,14 +512,9 @@ void place_secret_door(struct chunk *c, int y, int x)
  */
 void place_closed_door(struct chunk *c, int y, int x)
 {
-    int tmp = randint0(400);
-
-    if (tmp < 300)
-		square_set_feat(c, y, x, FEAT_DOOR_HEAD + 0x00);
-    else if (tmp < 399)
-		square_set_feat(c, y, x, FEAT_DOOR_HEAD + randint1(7));
-    else
-		square_set_feat(c, y, x, FEAT_DOOR_HEAD + 0x08 + randint0(8));
+	square_set_feat(c, y, x, FEAT_CLOSED);
+	if (one_in_(4))
+		square_set_door_lock(c, y, x, randint1(7));
 }
 
 

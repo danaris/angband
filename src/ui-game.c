@@ -1,5 +1,5 @@
 /*
- * File: xtra3.c
+ * File: ui-game.c
  * Purpose: Handles the setting up updating, and cleaning up of the various
  *          things that are displayed by the game.
  *
@@ -21,7 +21,6 @@
 #include "angband.h"
 #include "buildid.h"
 #include "cave.h"
-#include "files.h"
 #include "game-event.h"
 #include "cmd-core.h"
 #include "grafmode.h"
@@ -44,6 +43,7 @@
 #include "textui.h"
 #include "ui-birth.h"
 #include "ui-map.h"
+#include "ui-player.h"
 
 /* 
  * There are a few functions installed to be triggered by several 
@@ -1162,7 +1162,7 @@ static void bolt_pict(int y, int x, int ny, int nx, int typ, byte *a, wchar_t *c
 		wchar_t chars[] = L"*|/-\\";
 
 		*c = chars[motion];
-		*a = spell_color(typ);
+		*a = gf_color(typ);
 	} else {
 		*a = gf_to_attr[typ][motion];
 		*c = gf_to_char[typ][motion];
@@ -1174,7 +1174,7 @@ static void display_explosion(game_event_type type, game_event_data *data, void 
 	bool new_radius = FALSE;
 	bool drawn = FALSE;
 	int i, y, x;
-	int msec = data->explosion.msec;
+	int msec = op_ptr->delay_factor;
 	int gf_type = data->explosion.gf_type;
 	int num_grids = data->explosion.num_grids;
 	int *distance_to_grid = data->explosion.distance_to_grid;
@@ -1252,7 +1252,7 @@ static void display_explosion(game_event_type type, game_event_data *data, void 
 
 static void display_bolt(game_event_type type, game_event_data *data, void *user)
 {
-	int msec = data->bolt.msec;
+	int msec = op_ptr->delay_factor;
 	int gf_type = data->bolt.gf_type;
 	bool seen = data->bolt.seen;
 	bool beam = data->bolt.beam;
@@ -1301,6 +1301,34 @@ static void display_bolt(game_event_type type, game_event_data *data, void *user
 	/* Hack -- delay anyway for consistency */
 	else if (visual) {
 		/* Delay for consistency */
+		Term_xtra(TERM_XTRA_DELAY, msec);
+	}
+}
+
+static void display_missile(game_event_type type, game_event_data *data, void *user)
+{
+	int msec = op_ptr->delay_factor;
+	byte mattr = data->missile.mattr;
+	char mchar = data->missile.mchar;
+	bool seen = data->missile.seen;
+	int y = data->missile.y;
+	int x = data->missile.x;
+
+	/* Only do visuals if the player can "see" the missile */
+	if (seen) {
+		print_rel(mchar, mattr, y, x);
+		move_cursor_relative(y, x);
+
+		Term_fresh();
+		if (player->upkeep->redraw) redraw_stuff(player->upkeep);
+
+		Term_xtra(TERM_XTRA_DELAY, msec);
+		event_signal_point(EVENT_MAP, x, y);
+
+		Term_fresh();
+		if (player->upkeep->redraw) redraw_stuff(player->upkeep);
+	} else {
+		/* Delay anyway for consistency */
 		Term_xtra(TERM_XTRA_DELAY, msec);
 	}
 }
@@ -1788,7 +1816,6 @@ static void subwindow_flag_changed(int win_idx, u32b flag, bool new_state)
 			break;
 		}
 
-
 		case PW_MESSAGE:
 		{
 			register_or_deregister(EVENT_MESSAGE,
@@ -1851,7 +1878,7 @@ static void subwindow_flag_changed(int win_idx, u32b flag, bool new_state)
 /*
  * Set the flags for one Term, calling "subwindow_flag_changed" with each flag that
  * has changed setting so that it can do any housekeeping to do with 
- * siaplying hte new thing or no longer displaying the old one.
+ * displaying the new thing or no longer displaying the old one.
  */
 static void subwindow_set_flags(int win_idx, u32b new_flags)
 {
@@ -2106,11 +2133,14 @@ static void ui_enter_game(game_event_type type, game_event_data *data, void *use
 #if 0
 	event_add_handler(EVENT_MAP, trace_map_updates, angband_term[0]);
 #endif
+
 	/* Check if the panel should shift when the player's moved */
 	event_add_handler(EVENT_PLAYERMOVED, check_panel, NULL);
 	event_add_handler(EVENT_SEEFLOOR, see_floor_items, NULL);
 	event_add_handler(EVENT_EXPLOSION, display_explosion, NULL);
 	event_add_handler(EVENT_BOLT, display_bolt, NULL);
+	event_add_handler(EVENT_MISSILE, display_missile, NULL);
+	event_add_handler(EVENT_MESSAGE, display_message, NULL);
 }
 
 static void ui_leave_game(game_event_type type, game_event_data *data, void *user)
@@ -2138,13 +2168,13 @@ static void ui_leave_game(game_event_type type, game_event_data *data, void *use
 	event_remove_handler(EVENT_SEEFLOOR, see_floor_items, NULL);
 	event_remove_handler(EVENT_EXPLOSION, display_explosion, NULL);
 	event_remove_handler(EVENT_BOLT, display_bolt, NULL);
+	event_remove_handler(EVENT_MISSILE, display_missile, NULL);
+	event_remove_handler(EVENT_MESSAGE, display_message, NULL);
 }
 
 errr textui_get_cmd(cmd_context context, bool wait)
 {
-	if (context == CMD_BIRTH)
-		return get_birth_command(wait);
-	else if (context == CMD_GAME)
+	if (context == CMD_GAME)
 		textui_process_command(!wait);
 
 	/* If we've reached here, we haven't got a command. */

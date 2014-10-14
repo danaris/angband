@@ -1,6 +1,6 @@
 /**
-   \file player-calcs.h
-   \brief Player temporary status structures.
+ * \file player-calcs.h
+ * \brief Player temporary status structures.
  *
  * Copyright (c) 1997 Ben Harrison, James E. Wilson, Robert A. Koeneke
  * Copyright (c) 2014 Nick McConnell
@@ -31,6 +31,40 @@ enum
 
 	STAT_MAX
 };
+
+
+/*
+ * Player race and class flags
+ */
+enum
+{
+	#define PF(a,b) PF_##a,
+	#include "list-player-flags.h"
+	#undef PF
+	PF_MAX
+};
+
+#define PF_SIZE                FLAG_SIZE(PF_MAX)
+
+#define pf_has(f, flag)        flag_has_dbg(f, PF_SIZE, flag, #f, #flag)
+#define pf_next(f, flag)       flag_next(f, PF_SIZE, flag)
+#define pf_is_empty(f)         flag_is_empty(f, PF_SIZE)
+#define pf_is_full(f)          flag_is_full(f, PF_SIZE)
+#define pf_is_inter(f1, f2)    flag_is_inter(f1, f2, PF_SIZE)
+#define pf_is_subset(f1, f2)   flag_is_subset(f1, f2, PF_SIZE)
+#define pf_is_equal(f1, f2)    flag_is_equal(f1, f2, PF_SIZE)
+#define pf_on(f, flag)         flag_on_dbg(f, PF_SIZE, flag, #f, #flag)
+#define pf_off(f, flag)        flag_off(f, PF_SIZE, flag)
+#define pf_wipe(f)             flag_wipe(f, PF_SIZE)
+#define pf_setall(f)           flag_setall(f, PF_SIZE)
+#define pf_negate(f)           flag_negate(f, PF_SIZE)
+#define pf_copy(f1, f2)        flag_copy(f1, f2, PF_SIZE)
+#define pf_union(f1, f2)       flag_union(f1, f2, PF_SIZE)
+#define pf_comp_union(f1, f2)  flag_comp_union(f1, f2, PF_SIZE)
+#define pf_inter(f1, f2)       flag_inter(f1, f2, PF_SIZE)
+#define pf_diff(f1, f2)        flag_diff(f1, f2, PF_SIZE)
+
+#define player_has(flag)       (pf_has(player->race->pflags, (flag)) || pf_has(player->class->pflags, (flag)))
 
 
 /*
@@ -142,7 +176,6 @@ enum
 #define INVEN_PACK		23
 #define MAX_GEAR		60
 #define MAX_GEAR_INCR	10
-#define EQUIP_MAX_SLOTS	12
 #define NO_OBJECT		0
 
 
@@ -153,6 +186,8 @@ enum
 /*** Structures ***/
 
 struct equip_slot {
+	struct equip_slot *next;
+
 	u16b type;
 	char *name;
 	int index;
@@ -162,11 +197,13 @@ struct player_body {
 	struct player_body *next;
 	char *name;
 	u16b count;
-	struct equip_slot slots[EQUIP_MAX_SLOTS];
+	struct equip_slot *slots;
 };
 
 /**
  * All the variable state that changes when you put on/take off equipment.
+ * Player flags are not currently variable, but useful here so monsters can
+ * learn them.
  */
 typedef struct player_state {
 	s16b speed;		/* Current speed */
@@ -203,6 +240,7 @@ typedef struct player_state {
 	bool cumber_glove;	/* Mana draining gloves */
 
 	bitflag flags[OF_SIZE];	/* Status flags from race and items */
+	bitflag pflags[PF_SIZE];	/* Player intrinsic flags */
 	struct element_info el_info[ELEM_MAX]; /* Resists from race and items */
 	
 	s16b bonus_move;

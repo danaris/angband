@@ -1,5 +1,6 @@
-/** \file gen-room.c
-	\brief Dungeon room generation.
+/**
+ * \file gen-room.c
+ * \brief Dungeon room generation.
  *
  * Copyright (c) 1997 Ben Harrison, James E. Wilson, Robert A. Koeneke
  * Copyright (c) 2013 Erik Osheim, Nick McConnell
@@ -30,7 +31,6 @@
 #include "angband.h"
 #include "cave.h"
 #include "math.h"
-#include "files.h"
 #include "game-event.h"
 #include "generate.h"
 #include "init.h"
@@ -792,7 +792,7 @@ static bool find_space(int *y, int *x, int height, int width)
 		*x = ((bx1 + bx2 + 1) * dun->block_wid) / 2;
 
 		/* Save the room location */
-		if (dun->cent_n < CENT_MAX) {
+		if (dun->cent_n < z_info->level_room_max) {
 			dun->cent[dun->cent_n].y = *y;
 			dun->cent[dun->cent_n].x = *x;
 			dun->cent_n++;
@@ -1220,7 +1220,7 @@ bool build_large(struct chunk *c, int y0, int x0)
 		/* An inner room */
 	case 1: {
 		/* Open the inner room with a secret door and place a monster */
-		generate_hole(c, y1-1, x1-1, y2+1, x2+1, FEAT_SECRET);
+		generate_hole(c, y1 - 1, x1 - 1, y2 + 1, x2 + 1, FEAT_SECRET);
 		vault_monsters(c, y0, x0, c->depth + 2, 1);
 		break;
 	}
@@ -1229,14 +1229,18 @@ bool build_large(struct chunk *c, int y0, int x0)
 		/* An inner room with a small inner room */
 	case 2: {
 		/* Open the inner room with a secret door */
-		generate_hole(c, y1-1, x1-1, y2+1, x2+1, FEAT_SECRET);
+		generate_hole(c, y1 - 1, x1 - 1, y2 + 1, x2 + 1, FEAT_SECRET);
 
 		/* Place another inner room */
 		draw_rectangle(c, y0-1, x0-1, y0+1, x0+1, 
 					   FEAT_GRANITE, SQUARE_WALL_INNER);
 
 		/* Open the inner room with a locked door */
-		generate_hole(c, y0-1, x0-1, y0+1, x0+1, FEAT_DOOR_HEAD + randint1(7));
+		generate_hole(c, y0 - 1, x0 - 1, y0 + 1, x0 + 1, FEAT_CLOSED);
+		for (y = y0 - 1; y <= y0 + 1; y++)
+			for (x = x0 - 1; x <= x0 + 1; x++)
+				if (square_iscloseddoor(c, y, x))
+					square_set_door_lock(c, y, x, randint1(7));
 
 		/* Monsters to guard the treasure */
 		vault_monsters(c, y0, x0, c->depth + 2, randint1(3) + 2);
@@ -1934,18 +1938,18 @@ static bool build_room_template(struct chunk *c, int y0, int x0, int ymax, int x
  */
 static bool build_room_template_type(struct chunk*c, int y0, int x0, int typ)
 {
-	room_template_type *t_ptr = random_room_template(typ);
+	room_template_type *trap = random_room_template(typ);
 	
-	if (t_ptr == NULL) {
+	if (trap == NULL) {
 		/*quit_fmt("got NULL from random_room_template(%d)", typ);*/
 		return FALSE;
 	}
 
 	/* Build the room */
-	if (!build_room_template(c, y0, x0, t_ptr->hgt, t_ptr->wid, t_ptr->dor, t_ptr->text, t_ptr->tval))
+	if (!build_room_template(c, y0, x0, trap->hgt, trap->wid, trap->dor, trap->text, trap->tval))
 		return FALSE;
 
-	ROOM_LOG("Room template (%s)", t_ptr->name);
+	ROOM_LOG("Room template (%s)", trap->name);
 
 	return TRUE;
 }
@@ -2969,7 +2973,7 @@ bool room_build(struct chunk *c, int by0, int bx0, struct room_profile profile,
 	if (c->depth < profile.level) return FALSE;
 
 	/* Only allow at most two pit/nests room per level */
-	if ((dun->pit_num >= MAX_PIT) && (profile.pit))	return FALSE;
+	if ((dun->pit_num >= z_info->level_pit_max) && (profile.pit)) return FALSE;
 
 	/* Expand the number of blocks if we might overflow */
 	if (profile.height % dun->block_hgt) by2++;
@@ -3001,7 +3005,7 @@ bool room_build(struct chunk *c, int by0, int bx0, struct room_profile profile,
 		if (!profile.builder(c, y, x)) return FALSE;
 
 		/* Save the room location */
-		if (dun->cent_n < CENT_MAX) {
+		if (dun->cent_n < z_info->level_room_max) {
 			dun->cent[dun->cent_n].y = y;
 			dun->cent[dun->cent_n].x = x;
 			dun->cent_n++;

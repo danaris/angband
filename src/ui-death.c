@@ -1,6 +1,6 @@
-/*
- * File: death.c
- * Purpose: Handle the UI bits that happen after the character dies.
+/**
+   \file ui-death.c
+   \brief Handle the UI bits that happen after the character dies.
  *
  * Copyright (c) 1987 - 2007 Angband contributors
  *
@@ -18,13 +18,8 @@
 
 #include "angband.h"
 #include "cmds.h"
-#include "death.h"
-#include "files.h"
 #include "history.h"
 #include "init.h"
-#include "savefile.h"
-#include "ui-menu.h"
-#include "wizard.h"
 #include "obj-desc.h"
 #include "obj-identify.h"
 #include "obj-info.h"
@@ -32,15 +27,12 @@
 #include "savefile.h"
 #include "score.h"
 #include "store.h"
+#include "ui-death.h"
+#include "ui-menu.h"
+#include "ui-player.h"
+#include "wizard.h"
 
-/*
- * Hack - save the time of death
- */
-static time_t death_time = (time_t)0;
-
-
-
-/*
+/**
  * Write formatted string `fmt` on line `y`, centred between points x1 and x2.
  */
 static void put_str_centred(int y, int x1, int x2, const char *fmt, ...)
@@ -63,7 +55,7 @@ static void put_str_centred(int y, int x1, int x2, const char *fmt, ...)
 }
 
 
-/*
+/**
  * Display the tombstone
  */
 static void print_tomb(void)
@@ -71,9 +63,11 @@ static void print_tomb(void)
 	ang_file *fp;
 	char buf[1024];
 	int line = 0;
+	time_t death_time = (time_t)0;
 
 
 	Term_clear();
+	(void)time(&death_time);
 
 	/* Open the death file */
 	path_build(buf, sizeof(buf), ANGBAND_DIR_FILE, "dead.txt");
@@ -111,44 +105,7 @@ static void print_tomb(void)
 }
 
 
-/*
- * Know inventory and home items upon death
- */
-static void death_knowledge(void)
-{
-	struct store *st_ptr = &stores[STORE_HOME];
-	object_type *o_ptr;
-
-	int i;
-
-	for (i = 0; i < player->max_gear; i++)
-	{
-		o_ptr = &player->gear[i];
-		if (!o_ptr->kind) continue;
-
-		object_flavor_aware(o_ptr);
-		object_notice_everything(o_ptr);
-	}
-
-	for (i = 0; i < st_ptr->stock_num; i++)
-	{
-		o_ptr = &st_ptr->stock[i];
-		if (!o_ptr->kind) continue;
-
-		object_flavor_aware(o_ptr);
-		object_notice_everything(o_ptr);
-	}
-
-	history_unmask_unknown();
-
-	/* Hack -- Recalculate bonuses */
-	player->upkeep->update |= (PU_BONUS);
-	handle_stuff(player->upkeep);
-}
-
-
-
-/*
+/**
  * Display the winner crown
  */
 static void display_winner(void)
@@ -189,7 +146,7 @@ static void display_winner(void)
 }
 
 
-/*
+/**
  * Menu command: dump character dump to file.
  */
 static void death_file(const char *title, int row)
@@ -201,25 +158,25 @@ static void death_file(const char *title, int row)
 
 	if (get_file(ftmp, buf, sizeof buf))
 	{
-		errr err;
+		bool success;
 
 		/* Dump a character file */
 		screen_save();
-		err = file_character(buf, FALSE);
+		success = dump_save(buf);
 		screen_load();
 
 		/* Check result */
-		if (err)
-			msg("Character dump failed!");
-		else
+		if (success)
 			msg("Character dump successful.");
+		else
+			msg("Character dump failed!");
 
 		/* Flush messages */
 		message_flush();
 	}
 }
 
-/*
+/**
  * Menu command: view character dump and inventory.
  */
 static void death_info(const char *title, int row)
@@ -309,7 +266,7 @@ static void death_info(const char *title, int row)
 	screen_load();
 }
 
-/*
+/**
  * Menu command: peruse pre-death messages.
  */
 static void death_messages(const char *title, int row)
@@ -319,7 +276,7 @@ static void death_messages(const char *title, int row)
 	screen_load();
 }
 
-/*
+/**
  * Menu command: see top twenty scores.
  */
 static void death_scores(const char *title, int row)
@@ -329,7 +286,7 @@ static void death_scores(const char *title, int row)
 	screen_load();
 }
 
-/*
+/**
  * Menu command: examine items in the inventory.
  */
 static void death_examine(const char *title, int row)
@@ -360,7 +317,7 @@ static void death_examine(const char *title, int row)
 }
 
 
-/*
+/**
  * Menu command: view character history.
  */
 static void death_history(const char *title, int row)
@@ -368,7 +325,7 @@ static void death_history(const char *title, int row)
 	history_display();
 }
 
-/*
+/**
  * Menu command: allow spoiler generation (mainly for randarts).
  */
 static void death_spoilers(const char *title, int row)
@@ -387,7 +344,7 @@ static void death_randarts(const char *title, int row)
 }
 
 
-/*
+/**
  * Menu structures for the death menu. Note that Quit must always be the
  * last option, due to a hard-coded check in death_screen
  */
@@ -407,7 +364,7 @@ static menu_action death_actions[] =
 
 
 
-/*
+/**
  * Handle character death
  */
 void death_screen(void)
@@ -415,23 +372,14 @@ void death_screen(void)
 	bool done = FALSE;
 	const region area = { 51, 2, 0, N_ELEMENTS(death_actions) };
 
-	/* Retire in the town in a good state */
+	/* Winner */
 	if (player->total_winner)
 	{
-		player->depth = 0;
-		my_strcpy(player->died_from, "Ripe Old Age", sizeof(player->died_from));
-		player->exp = player->max_exp;
-		player->lev = player->max_lev;
-		player->au += 10000000L;
-
 		display_winner();
 	}
 
-	/* Get time of death */
-	(void)time(&death_time);
+	/* Tombstone */
 	print_tomb();
-	death_knowledge();
-	enter_score(&death_time);
 
 	/* Flush all input and output */
 	flush();
@@ -459,12 +407,5 @@ void death_screen(void)
 		{
 			done = get_check("Do you want to quit? ");
 		}
-	}
-
-	/* Save dead player */
-	if (!savefile_save(savefile))
-	{
-		msg("death save failed!");
-		message_flush();
 	}
 }

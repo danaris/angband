@@ -1,6 +1,6 @@
-/*
- * File: mon-blow-effects.c
- * Purpose: Monster melee effects module.
+/**
+ * \file mon-blow-effects.c
+ * \brief Monster melee effects module.
  *
  * Copyright (c) 1997 Ben Harrison, David Reeve Sward, Keldon Jones.
  *               2013 Ben Semmler
@@ -18,9 +18,12 @@
  */
 
 #include "angband.h"
+#include "init.h"
 #include "monster.h"
+#include "mon-attack.h"
 #include "mon-blow-effects.h"
 #include "mon-blow-methods.h"
+#include "mon-lore.h"
 #include "mon-util.h"
 #include "obj-desc.h"
 #include "obj-gear.h"
@@ -30,7 +33,6 @@
 #include "player-timed.h"
 #include "player-util.h"
 #include "project.h"
-#include "spells.h"
 
 /**
  * Do damage as the result of a melee attack that has an elemental aspect.
@@ -66,7 +68,7 @@ static void melee_effect_elemental(melee_effect_handler_context_t *context, int 
 	if (!monster_blow_method_physical(context->method))
 		physical_dam = 0;
 
-	elemental_dam = adjust_dam(type, context->damage, RANDOMISE, 0);
+	elemental_dam = adjust_dam(player, type, context->damage, RANDOMISE, 0);
 
 	/* Take the larger of physical or elemental damage */
 	context->damage = (physical_dam > elemental_dam) ? physical_dam : elemental_dam;
@@ -76,7 +78,7 @@ static void melee_effect_elemental(melee_effect_handler_context_t *context, int 
 
 	if (pure_element) {
 		/* Learn about the player */
-		update_smart_learn(context->m_ptr, context->p, 0, type);
+		update_smart_learn(context->m_ptr, context->p, 0, 0, type);
 	}
 }
 
@@ -109,7 +111,7 @@ static void melee_effect_timed(melee_effect_handler_context_t *context, int type
 	}
 
 	/* Learn about the player */
-	update_smart_learn(context->m_ptr, context->p, of_flag, -1);
+	update_smart_learn(context->m_ptr, context->p, of_flag, 0, -1);
 }
 
 /**
@@ -124,7 +126,7 @@ static void melee_effect_stat(melee_effect_handler_context_t *context, int stat)
 	take_hit(context->p, context->damage, context->ddesc);
 
 	/* Damage (stat) */
-	if (do_dec_stat(stat, FALSE)) context->obvious = TRUE;
+	effect_simple(EF_DRAIN_STAT, "0", stat, 0, 0, &context->obvious);
 }
 
 /**
@@ -141,13 +143,14 @@ static void melee_effect_experience(melee_effect_handler_context_t *context, int
 
 	/* Take damage */
 	take_hit(context->p, context->damage, context->ddesc);
-	update_smart_learn(context->m_ptr, context->p, OF_HOLD_LIFE, -1);
+	update_smart_learn(context->m_ptr, context->p, OF_HOLD_LIFE, 0, -1);
 
 	if (player_of_has(context->p, OF_HOLD_LIFE) && (randint0(100) < chance)) {
 		msg("You keep hold of your life force!");
 	}
 	else {
-		s32b d = drain_amount + (context->p->exp/100) * MON_DRAIN_LIFE;
+		s32b d = drain_amount +
+			(context->p->exp/100) * z_info->life_drain_percent;
 		if (player_of_has(context->p, OF_HOLD_LIFE)) {
 			msg("You feel your life slipping away!");
 			player_exp_lose(context->p, d / 10, FALSE);
@@ -203,7 +206,7 @@ static void melee_effect_handler_POISON(melee_effect_handler_context_t *context)
 		context->obvious = TRUE;
 
 	/* Learn about the player */
-	update_smart_learn(context->m_ptr, context->p, 0, ELEM_POIS);
+	update_smart_learn(context->m_ptr, context->p, 0, 0, ELEM_POIS);
 }
 
 /**
@@ -222,7 +225,7 @@ static void melee_effect_handler_DISENCHANT(melee_effect_handler_context_t *cont
 	}
 
 	/* Learn about the player */
-	update_smart_learn(context->m_ptr, context->p, 0, ELEM_DISEN);
+	update_smart_learn(context->m_ptr, context->p, 0, 0, ELEM_DISEN);
 }
 
 /**
@@ -658,11 +661,11 @@ static void melee_effect_handler_LOSE_ALL(melee_effect_handler_context_t *contex
 	take_hit(context->p, context->damage, context->ddesc);
 
 	/* Damage (stats) */
-	if (do_dec_stat(STAT_STR, FALSE)) context->obvious = TRUE;
-	if (do_dec_stat(STAT_DEX, FALSE)) context->obvious = TRUE;
-	if (do_dec_stat(STAT_CON, FALSE)) context->obvious = TRUE;
-	if (do_dec_stat(STAT_INT, FALSE)) context->obvious = TRUE;
-	if (do_dec_stat(STAT_WIS, FALSE)) context->obvious = TRUE;
+	effect_simple(EF_DRAIN_STAT, "0", STAT_STR, 0, 0, &context->obvious);
+	effect_simple(EF_DRAIN_STAT, "0", STAT_DEX, 0, 0, &context->obvious);
+	effect_simple(EF_DRAIN_STAT, "0", STAT_CON, 0, 0, &context->obvious);
+	effect_simple(EF_DRAIN_STAT, "0", STAT_INT, 0, 0, &context->obvious);
+	effect_simple(EF_DRAIN_STAT, "0", STAT_WIS, 0, 0, &context->obvious);
 }
 
 /**
@@ -741,7 +744,7 @@ static void melee_effect_handler_HALLU(melee_effect_handler_context_t *context)
 		context->obvious = TRUE;
 
 	/* Learn about the player */
-	update_smart_learn(context->m_ptr, context->p, 0, ELEM_CHAOS);
+	update_smart_learn(context->m_ptr, context->p, 0, 0, ELEM_CHAOS);
 }
 
 /**
@@ -845,7 +848,7 @@ int monster_blow_effect_eval(monster_blow_effect_t effect)
  *
  * \param string contains a value to search for.
  */
-monster_blow_effect_t monster_blow_effect_for_string(const char *string)
+monster_blow_effect_t blow_effect_name_to_idx(const char *string)
 {
 	int i;
 	static const char *r_info_blow_effect[] = {

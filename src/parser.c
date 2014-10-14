@@ -37,31 +37,46 @@
 
 const char *parser_error_str[PARSE_ERROR_MAX] = {
 	"(none)",
+	"bad expression string",
+	"field too long",
 	"generic error",
+	"internal error",
+	"invalid allocation",
+	"invalid colour",
+	"invalid dice",
+	"invalid effect",
+	"invalid expression",
 	"invalid flag",
 	"invalid item number",
-	"invalid spell frequency",
-	"invalid value",
-	"invalid colour",
-	"invalid effect",
+	"invalid lighting",
+	"invalid message",
 	"invalid option",
+	"invalid spell frequency",
+	"invalid spell name",
+	"invalid value",
 	"missing field",
 	"missing record header",
-	"field too long",
+	"artifact name not found",
+	"no builder found",
+	"no kind for ego type",
+	"no kind found",
+	"no room found",
 	"non-sequential records",
 	"not a number",
 	"not random",
+	"not a special artifact",
 	"obsolete file",
 	"out of bounds",
 	"out of memory",
 	"too few entries",
 	"too many entries",
+	"unbound expression",
 	"undefined directive",
 	"unrecognized blow",
 	"unrecognized tval",
 	"unrecognized sval",
+	"unrecognized effect parameter",
 	"vault too big",
-	"internal error",
 };
 
 enum {
@@ -638,8 +653,25 @@ errr parse_file(struct parser *p, const char *filename) {
 	ang_file *fh;
 	errr r = 0;
 
-	path_build(path, sizeof(path), ANGBAND_DIR_EDIT, format("%s.txt", filename));
-	fh = file_open(path, MODE_READ, FTYPE_TEXT);
+	/* Allow parsing of files from user directory */
+	if (strstr(filename, "USER_")) {
+		filename = &filename[5];
+		path_build(path, sizeof(path), ANGBAND_DIR_USER,
+				   format("%s.txt", filename));
+		fh = file_open(path, MODE_READ, FTYPE_TEXT);
+
+		/* Failure is always an option */
+		if (!fh) {
+			msg("No monster lore file found");
+			message_flush();
+			return PARSE_ERROR_NONE;
+		}
+	} else {
+		path_build(path, sizeof(path), ANGBAND_DIR_EDIT,
+				   format("%s.txt", filename));
+		fh = file_open(path, MODE_READ, FTYPE_TEXT);
+	}
+
 	if (!fh)
 		quit(format("Cannot open '%s.txt'", filename));
 	while (file_getl(fh, buf, sizeof(buf))) {

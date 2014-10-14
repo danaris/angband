@@ -18,7 +18,6 @@
 
 #include "angband.h"
 #include "dungeon.h"
-#include "files.h"
 #include "init.h"
 #include "prefs.h"
 #include "savefile.h"
@@ -332,33 +331,6 @@ static void transition_savefile_names(void)
 
 static bool new_game;
 
-/*
- * Pass the appropriate "Initialisation screen" command to the game,
- * getting user input if needed.
- */
-static errr get_init_cmd(void)
-{
-	/* Wait for response */
-	pause_line(Term);
-
-	if (new_game)
-		cmdq_push(CMD_NEWGAME);
-	else
-		/* This might be modified to supply the filename in future. */
-		cmdq_push(CMD_LOADFILE);
-
-	/* Everything's OK. */
-	return 0;
-}
-
-/* Command dispatcher for curses, etc builds */
-static errr default_get_cmd(cmd_context context, bool wait)
-{
-	if (context == CMD_INIT) 
-		return get_init_cmd();
-	else 
-		return textui_get_cmd(context, wait);
-}
 
 static void debug_opt(const char *arg) {
 	if (streq(arg, "mem-poison-alloc"))
@@ -443,6 +415,10 @@ int main(int argc, char *argv[])
 
 			case 'w':
 				arg_wizard = TRUE;
+				break;
+
+			case 'p':
+				arg_power = TRUE;
 				break;
 
 			case 'r':
@@ -606,13 +582,17 @@ int main(int argc, char *argv[])
 	signals_init();
 
 	/* Set up the command hook */
-	cmd_get_hook = default_get_cmd;
+	cmd_get_hook = textui_get_cmd;
 
 	/* Set up the display handlers and things. */
 	init_display();
+	init_angband();
+
+	/* Wait for response */
+	pause_line(Term);
 
 	/* Play the game */
-	play_game();
+	play_game(new_game);
 
 	/* Free resources */
 	cleanup_angband();

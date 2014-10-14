@@ -1,6 +1,7 @@
-/* File: init.h */
-
-/*
+/**
+ * \file init.h
+ * \brief initialization
+ *
  * Copyright (c) 2000 Robert Ruehlmann
  *
  * This software may be copied and distributed for educational, research,
@@ -20,26 +21,61 @@
 /**
  * Information about maximal indices of certain arrays.
  *
- * These are actually not the maxima, but the maxima plus one, because of
- * 0-based indexing issues.
+ * This will become a list of "all" the game constants - NRM
  */
-typedef struct maxima
+struct angband_constants
 {
-	u16b f_max;       /**< Maximum number of terrain features */
-    u16b trap_max;	  /**< Maximum number of trap kinds */
-	u16b k_max;       /**< Maximum number of object base kinds */
-	u16b a_max;       /**< Maximum number of artifact kinds */
-	u16b e_max;       /**< Maximum number of ego-item kinds */
-	u16b r_max;       /**< Maximum number of monster races */
-	u16b mp_max;	  /**< Maximum number of monster pain message sets */
-	u16b s_max;       /**< Maximum number of magic spells */
-	u16b pit_max;	  /**< Maximum number of monster pit types */
-    u16b act_max;	  /**< Maximum number of activations for randarts */
+	/* Array bounds, set on parsing edit files */
+	u16b f_max;			/**< Maximum number of terrain features */
+	u16b trap_max;		/**< Maximum number of trap kinds */
+	u16b k_max;			/**< Maximum number of object base kinds */
+	u16b a_max;			/**< Maximum number of artifact kinds */
+	u16b e_max;			/**< Maximum number of ego-item kinds */
+	u16b r_max;			/**< Maximum number of monster races */
+	u16b mp_max;		/**< Maximum number of monster pain message sets */
+	u16b s_max;			/**< Maximum number of magic spells */
+	u16b pit_max;		/**< Maximum number of monster pit types */
+	u16b act_max;		/**< Maximum number of activations for randarts */
+	u16b mon_blows_max;	/**< Maximum number of monster blows */
+	u16b equip_slots_max;	/**< Maximum number of player equipment slots */
+	u16b profile_max;	/**< Maximum number of cave_profiles */
 
-	u16b o_max;       /**< Maximum number of objects on a given level */
-	u16b m_max;       /**< Maximum number of monsters on a given level */
-    u16b l_max;		  /**< Maximum number of traps on a given level */
-} maxima;
+	/* Maxima of things on a given level, read from constants.txt */
+	u16b level_object_max;	/**< Maximum number of objects on a given level */
+	u16b level_monster_max;	/**< Maximum number of monsters on a given level */
+	u16b level_trap_max;	/**< Maximum number of traps on a given level */
+
+	/* Monster generation constants, read from constants.txt */
+	u16b alloc_monster_chance;	/**< 1/per-turn-chance of generation */
+	u16b level_monster_min;		/**< Minimum number generated */
+	u16b town_monsters_day;		/**< Townsfolk generated - day */
+	u16b town_monsters_night;	/**< Townsfolk generated  - night */
+	u16b repro_monster_max;		/**< Maximum breeders on a level */
+	u16b ood_monster_chance;	/**< Chance of OoD monster is 1 in this */
+	u16b ood_monster_amount;	/**< Max number of levels OoD */
+
+	/* Monster gameplay constants, read from constants.txt */
+	u16b glyph_hardness;		/**< How hard for a monster to break a glyph */
+	u16b repro_monster_rate;	/**< Monster reproduction rate-slower */
+	u16b life_drain_percent;	/**< Percent of player life drained */
+	u16b max_flow_depth;		/**< Maximum depth for flow calculation */
+
+	/* Dungeon generation constants, read from constants.txt */
+	u16b level_room_max;	/**< Maximum number of rooms on a level */
+	u16b level_door_max;	/**< Maximum number of potential doors on a level */
+	u16b wall_pierce_max;	/**< Maximum number of potential wall piercings */
+	u16b tunn_grid_max;		/**< Maximum number of tunnel grids */
+	u16b room_item_av;		/**< Average number of items in rooms */
+	u16b both_item_av;		/**< Average number of items in random places */
+	u16b both_gold_av;		/**< Average number of money items */
+	u16b level_pit_max;		/**< Maximum number of pits on a level */
+
+	/* Dungeon dimensions constants, read from constants.txt */
+	u16b dungeon_hgt;	/**< Maximum number of vertical grids on a level */
+	u16b dungeon_wid;	/**< Maximum number of horizontical grids on a level */
+	u16b town_hgt;	/**< Maximum number of vertical grids in the town */
+	u16b town_wid;	/**< Maximum number of horizontical grids in the town */
+};
 
 struct init_module {
 	const char *name;
@@ -47,7 +83,7 @@ struct init_module {
 	void (*cleanup)(void);
 };
 
-extern maxima *z_info;
+struct angband_constants *z_info;
 
 extern const char *ANGBAND_SYS;
 extern const char *ANGBAND_GRAF;
@@ -67,7 +103,7 @@ extern char *ANGBAND_DIR_XTRA_GRAF;
 extern char *ANGBAND_DIR_XTRA_SOUND;
 extern char *ANGBAND_DIR_XTRA_ICON;
 
-extern struct parser *init_parse_a(void);
+extern struct parser *init_parse_artifact(void);
 extern struct parser *init_parse_c(void);
 extern struct parser *init_parse_e(void);
 extern struct parser *init_parse_f(void);

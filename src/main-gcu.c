@@ -25,7 +25,6 @@
 
 #ifdef USE_GCU
 #include "main.h"
-#include "files.h"
 
 /* Avoid 'struct term' name conflict with <curses.h> (via <term.h>) on AIX */
 #define term System_term
@@ -671,24 +670,24 @@ static errr Term_xtra_gcu_react(void) {
 		ascii_walls = FALSE;
 		for (i = 0; i < 4; i++) {
 			// magma as %:D
-			f_info[50].x_char[i] = f_info[52].x_char[i] = 0x23;
-			f_info[50].x_attr[i] = f_info[52].x_attr[i] = 0x01;
+			f_info[FEAT_MAGMA].x_char[i] = 0x23;
+			f_info[FEAT_MAGMA].x_attr[i] = 0x01;
 
 			// quartz as %:D
-			f_info[51].x_char[i] = f_info[53].x_char[i] = 0x23;
-			f_info[51].x_attr[i] = f_info[53].x_attr[i] = 0x01;
+			f_info[FEAT_QUARTZ].x_char[i] = 0x23;
+			f_info[FEAT_QUARTZ].x_attr[i] = 0x01;
 
 			// quartz/magma w treasure as *:o
-			f_info[54].x_char[i] = f_info[55].x_char[i] = 0x2A;
-			f_info[54].x_attr[i] = f_info[55].x_attr[i] = 0x03;
+			f_info[FEAT_MAGMA_K].x_char[i] = f_info[FEAT_QUARTZ_K].x_char[i] = 0x2A;
+			f_info[FEAT_MAGMA_K].x_attr[i] = f_info[FEAT_QUARTZ_K].x_attr[i] = 0x03;
 
 			// granite walls as #:D
-			f_info[56].x_char[i] = 0x23;
-			f_info[56].x_attr[i] = 0x01;
+			f_info[FEAT_GRANITE].x_char[i] = 0x23;
+			f_info[FEAT_GRANITE].x_attr[i] = 0x01;
 
 			// permanent walls as #:r
-			f_info[60].x_char[i] = 0x23;
-			f_info[60].x_attr[i] = 0x04;
+			f_info[FEAT_PERM].x_char[i] = 0x23;
+			f_info[FEAT_PERM].x_attr[i] = 0x04;
 		}
 	}
 

@@ -1,6 +1,6 @@
-/*
- * File: files.c
- * Purpose: Various file-related activities, poorly organised
+/**
+ * \file ui-player.c
+ * \brief character screens and dumps
  *
  * Copyright (c) 1997 Ben Harrison, James E. Wilson, Robert A. Koeneke
  *
@@ -17,30 +17,21 @@
  */
 #include "angband.h"
 #include "buildid.h"
-#include "cave.h"
-#include "cmds.h"
-#include "death.h"
 #include "dungeon.h"
-#include "files.h"
-#include "cmd-core.h"
 #include "history.h"
-#include "init.h"
 #include "obj-desc.h"
 #include "obj-gear.h"
 #include "obj-identify.h"
 #include "obj-info.h"
 #include "obj-ui.h"
 #include "obj-util.h"
-#include "option.h"
 #include "player.h"
 #include "player-timed.h"
 #include "player-util.h"
-#include "savefile.h"
-#include "score.h"
 #include "store.h"
-#include "signals.h"
 #include "ui-game.h"
 #include "ui-menu.h"
+#include "ui-player.h"
 #include "ui.h"
 
 
@@ -187,20 +178,6 @@ static const char *likert(int x, int y, byte *attr)
 
 
 /*
- * Obtain the "flags" for the player as if he was an item
- */
-void player_flags(bitflag f[OF_SIZE])
-{
-	/* Add racial flags */
-	memcpy(f, player->race->flags, sizeof(player->race->flags));
-
-	/* Some classes become immune to fear at a certain plevel */
-	if (player_has(PF_BRAVERY_30) && player->lev >= 30)
-		of_on(f, OF_PROT_FEAR);
-}
-
-
-/*
  * Equippy chars
  */
 static void display_player_equippy(int y, int x)
@@ -247,8 +224,7 @@ struct player_flag_record
 	int tmd_flag;		/* corresponding timed flag */
 };
 
-static const struct player_flag_record player_flag_table[RES_ROWS*4] =
-{
+static const struct player_flag_record player_flag_table[RES_ROWS * 4] = {
 	{ "rAcid",	-1,					-1,				ELEM_ACID,	TMD_OPP_ACID },
 	{ "rElec",	-1,					-1,				ELEM_ELEC,	TMD_OPP_ELEC },
 	{ "rFire",	-1,					-1,				ELEM_FIRE,	TMD_OPP_FIRE },
@@ -290,15 +266,6 @@ static const struct player_flag_record player_flag_table[RES_ROWS*4] =
 	{ "Light",	OBJ_MOD_LIGHT,		-1,				-1, 		-1 },
 };
 
-#define RES_COLS (5 + 2 + EQUIP_MAX_SLOTS)
-static const region resist_region[] =
-{
-	{  0*(RES_COLS+1), 10, RES_COLS, RES_ROWS+2 },
-	{  1*(RES_COLS+1), 10, RES_COLS, RES_ROWS+2 },
-	{  2*(RES_COLS+1), 10, RES_COLS, RES_ROWS+2 },
-	{  3*(RES_COLS+1), 10, RES_COLS, RES_ROWS+2 },
-};
-
 static void display_resistance_panel(const struct player_flag_record *rec,
 									size_t size, const region *bounds) 
 {
@@ -306,14 +273,15 @@ static void display_resistance_panel(const struct player_flag_record *rec,
 	int j;
 	int col = bounds->col;
 	int row = bounds->row;
-	Term_putstr(col, row++, RES_COLS, TERM_WHITE, "      abcdefghijkl@");
-	for (i = 0; i < size-3; i++, row++)
-	{
+	int res_cols = 5 + 2 + player->body.count;
+
+	Term_putstr(col, row++, res_cols, TERM_WHITE, "      abcdefghijkl@");
+	for (i = 0; i < size - 3; i++, row++) {
 		byte name_attr = TERM_WHITE;
-		Term_gotoxy(col+6, row);
-		/* repeated extraction of flags is inefficient but more natural */
-		for (j = 0; j <= player->body.count; j++)
-		{
+		Term_gotoxy(col + 6, row);
+
+		/* Repeated extraction of flags is inefficient but more natural */
+		for (j = 0; j <= player->body.count; j++) {
 			object_type *o_ptr = equipped_item_by_slot(player, j);
 			bitflag f[OF_SIZE];
 
@@ -328,8 +296,7 @@ static void display_resistance_panel(const struct player_flag_record *rec,
 			of_wipe(f);
 
 			/* Get the object or player info */
-			if (j < player->body.count && o_ptr->kind)
-			{
+			if (j < player->body.count && o_ptr->kind) {
 				/* Get known properties */
 				object_flags_known(o_ptr, f);
 				if (rec[i].element != -1)
@@ -338,10 +305,8 @@ static void display_resistance_panel(const struct player_flag_record *rec,
 					known = object_flag_is_known(o_ptr, rec[i].flag);
 				else
 					known = TRUE;
-			}
-			else if (j == player->body.count)
-			{
-				player_flags(f);
+			} else if (j == player->body.count) {
+				player_flags(player, f);
 				known = TRUE;
 
 				/* Timed flags only in the player column */
@@ -383,19 +348,27 @@ static void display_resistance_panel(const struct player_flag_record *rec,
 		}
 		Term_putstr(col, row, 6, name_attr, format("%5s:", rec[i].name));
 	}
-	Term_putstr(col, row++, RES_COLS, TERM_WHITE, "      abcdefghijkl@");
+	Term_putstr(col, row++, res_cols, TERM_WHITE, "      abcdefghijkl@");
+
 	/* Equippy */
-	display_player_equippy(row++, col+6);
+	display_player_equippy(row++, col + 6);
 }
 
 static void display_player_flag_info(void)
 {
 	int i;
+	int res_cols = 5 + 2 + player->body.count;
+	region resist_region[] = {
+		{  0 * (res_cols + 1), 10, res_cols, RES_ROWS + 2 },
+		{  1 * (res_cols + 1), 10, res_cols, RES_ROWS + 2 },
+		{  2 * (res_cols + 1), 10, res_cols, RES_ROWS + 2 },
+		{  3 * (res_cols + 1), 10, res_cols, RES_ROWS + 2 },
+	};
+
 	for (i = 0; i < 4; i++)
-	{
-		display_resistance_panel(player_flag_table+(i*RES_ROWS), RES_ROWS+3,
-								&resist_region[i]);
-	}
+
+		display_resistance_panel(player_flag_table + (i * RES_ROWS),
+								 RES_ROWS + 3, &resist_region[i]);
 }
 
 
@@ -569,7 +542,7 @@ static void display_player_sust_info(void)
 	}
 
 	/* Player flags */
-	player_flags(f);
+	player_flags(player, f);
 
 	/* Check stats */
 	for (stat = 0; stat < STAT_MAX; ++stat)
@@ -932,20 +905,15 @@ void display_player(int mode)
 }
 
 
-/*
- * Hack -- Dump a character description file
- *
- * XXX XXX XXX Allow the "full" flag to dump additional info,
- * and trigger its usage from various places in the code.
+/**
+ * Write a character dump
  */
-errr file_character(const char *path, bool full)
+void write_character_dump(ang_file *fff)
 {
 	int i, x, y;
 
 	int a;
 	wchar_t c;
-
-	ang_file *fp;
 
 	struct store *st_ptr = &stores[STORE_HOME];
 
@@ -954,28 +922,17 @@ errr file_character(const char *path, bool full)
 	char buf[1024];
 	char *p;
 
-	/* Unused parameter */
-	(void)full;
-
-
-	/* Open the file for writing */
-	fp = file_open(path, MODE_WRITE, FTYPE_TEXT);
-	if (!fp) return (-1);
-
 	/* Begin dump */
-	file_putf(fp, "  [%s Character Dump]\n\n", buildid);
-
+	file_putf(fff, "  [%s Character Dump]\n\n", buildid);
 
 	/* Display player */
 	display_player(0);
 
 	/* Dump part of the screen */
-	for (y = 1; y < 23; y++)
-	{
+	for (y = 1; y < 23; y++) {
 		p = buf;
 		/* Dump each row */
-		for (x = 0; x < 79; x++)
-		{
+		for (x = 0; x < 79; x++) {
 			/* Get the attr/char */
 			(void)(Term_what(x, y, &a, &c));
 
@@ -990,22 +947,20 @@ errr file_character(const char *path, bool full)
 		*p = '\0';
 
 		/* End the row */
-		file_putf(fp, "%s\n", buf);
+		file_putf(fff, "%s\n", buf);
 	}
 
 	/* Skip a line */
-	file_putf(fp, "\n");
+	file_putf(fff, "\n");
 
 	/* Display player */
 	display_player(1);
 
 	/* Dump part of the screen */
-	for (y = 11; y < 20; y++)
-	{
+	for (y = 11; y < 20; y++) {
 		p = buf;
 		/* Dump each row */
-		for (x = 0; x < 39; x++)
-		{
+		for (x = 0; x < 39; x++) {
 			/* Get the attr/char */
 			(void)(Term_what(x, y, &a, &c));
 
@@ -1020,19 +975,17 @@ errr file_character(const char *path, bool full)
 		*p = '\0';
 
 		/* End the row */
-		file_putf(fp, "%s\n", buf);
+		file_putf(fff, "%s\n", buf);
 	}
 
 	/* Skip a line */
-	file_putf(fp, "\n");
+	file_putf(fff, "\n");
 
 	/* Dump part of the screen */
-	for (y = 11; y < 20; y++)
-	{
+	for (y = 11; y < 20; y++) {
 		p = buf;
 		/* Dump each row */
-		for (x = 0; x < 39; x++)
-		{
+		for (x = 0; x < 39; x++) {
 			/* Get the attr/char */
 			(void)(Term_what(x + 40, y, &a, &c));
 
@@ -1047,92 +1000,87 @@ errr file_character(const char *path, bool full)
 		*p = '\0';
 
 		/* End the row */
-		file_putf(fp, "%s\n", buf);
+		file_putf(fff, "%s\n", buf);
 	}
 
 	/* Skip some lines */
-	file_putf(fp, "\n\n");
+	file_putf(fff, "\n\n");
 
 
 	/* If dead, dump last messages -- Prfnoff */
-	if (player->is_dead)
-	{
+	if (player->is_dead) {
 		i = messages_num();
 		if (i > 15) i = 15;
-		file_putf(fp, "  [Last Messages]\n\n");
+		file_putf(fff, "  [Last Messages]\n\n");
 		while (i-- > 0)
 		{
-			file_putf(fp, "> %s\n", message_str((s16b)i));
+			file_putf(fff, "> %s\n", message_str((s16b)i));
 		}
-		file_putf(fp, "\nKilled by %s.\n\n", player->died_from);
+		file_putf(fff, "\nKilled by %s.\n\n", player->died_from);
 	}
 
 
 	/* Dump the equipment */
-	file_putf(fp, "  [Character Equipment]\n\n");
-	for (i = 0; i < player->body.count; i++)
-	{
+	file_putf(fff, "  [Character Equipment]\n\n");
+	for (i = 0; i < player->body.count; i++) {
 		struct object *obj = equipped_item_by_slot(player, i);
 		if (!obj->kind) continue;
 
 		object_desc(o_name, sizeof(o_name), obj, ODESC_PREFIX | ODESC_FULL);
-		file_putf(fp, "%c) %s\n", equip_to_label(i), o_name);
-		object_info_chardump(fp, obj, 5, 72);
+		file_putf(fff, "%c) %s\n", equip_to_label(i), o_name);
+		object_info_chardump(fff, obj, 5, 72);
 	}
-	file_putf(fp, "\n\n");
+	file_putf(fff, "\n\n");
 
 	/* Dump the inventory */
-	file_putf(fp, "\n\n  [Character Inventory]\n\n");
-	for (i = 0; i < INVEN_PACK; i++)
-	{
+	file_putf(fff, "\n\n  [Character Inventory]\n\n");
+	for (i = 0; i < INVEN_PACK; i++) {
 		struct object *obj = &player->gear[player->upkeep->inven[i]];
 		if (!obj->kind) break;
 
 		object_desc(o_name, sizeof(o_name), obj, ODESC_PREFIX | ODESC_FULL);
-		file_putf(fp, "%c) %s\n", inven_to_label(i), o_name);
-		object_info_chardump(fp, obj, 5, 72);
+		file_putf(fff, "%c) %s\n", inven_to_label(i), o_name);
+		object_info_chardump(fff, obj, 5, 72);
 	}
-	file_putf(fp, "\n\n");
+	file_putf(fff, "\n\n");
 
 	/* Dump the quiver */
-	file_putf(fp, "\n\n  [Character Quiver]\n\n");
-	for (i = 0; i < QUIVER_SIZE; i++)
-	{
+	file_putf(fff, "\n\n  [Character Quiver]\n\n");
+	for (i = 0; i < QUIVER_SIZE; i++) {
 		struct object *obj = &player->gear[player->upkeep->quiver[i]];
 		if (!obj->kind) break;
 
 		object_desc(o_name, sizeof(o_name), obj, ODESC_PREFIX | ODESC_FULL);
-		file_putf(fp, "%c) %s\n", quiver_to_label(i), o_name);
-		object_info_chardump(fp, obj, 5, 72);
+		file_putf(fff, "%c) %s\n", quiver_to_label(i), o_name);
+		object_info_chardump(fff, obj, 5, 72);
 	}
-	file_putf(fp, "\n\n");
+	file_putf(fff, "\n\n");
 
 	/* Dump the Home -- if anything there */
-	if (st_ptr->stock_num)
-	{
+	if (st_ptr->stock_num) {
 		/* Header */
-		file_putf(fp, "  [Home Inventory]\n\n");
+		file_putf(fff, "  [Home Inventory]\n\n");
 
 		/* Dump all available items */
 		for (i = 0; i < st_ptr->stock_num; i++)
 		{
 			object_desc(o_name, sizeof(o_name), &st_ptr->stock[i],
 						ODESC_PREFIX | ODESC_FULL);
-			file_putf(fp, "%c) %s\n", I2A(i), o_name);
+			file_putf(fff, "%c) %s\n", I2A(i), o_name);
 
-			object_info_chardump(fp, &st_ptr->stock[i], 5, 72);
+			object_info_chardump(fff, &st_ptr->stock[i], 5, 72);
 		}
 
 		/* Add an empty line */
-		file_putf(fp, "\n\n");
+		file_putf(fff, "\n\n");
 	}
 
 	/* Dump character history */
-	dump_history(fp);
-	file_putf(fp, "\n\n");
+	dump_history(fff);
+	file_putf(fff, "\n\n");
 
 	/* Dump options */
-	file_putf(fp, "  [Options]\n\n");
+	file_putf(fff, "  [Options]\n\n");
 
 	/* Dump options */
 	for (i = 0; i < OP_MAX; i++) {
@@ -1144,629 +1092,35 @@ errr file_character(const char *path, bool full)
 		    default: continue;
 		}
 
-		file_putf(fp, "  [%s]\n\n", title);
+		file_putf(fff, "  [%s]\n\n", title);
 		for (opt = 0; opt < OPT_MAX; opt++) {
 			if (option_type(opt) != i) continue;
 
-			file_putf(fp, "%-45s: %s (%s)\n",
+			file_putf(fff, "%-45s: %s (%s)\n",
 			        option_desc(opt),
 			        op_ptr->opt[opt] ? "yes" : "no ",
 			        option_name(opt));
 		}
 
 		/* Skip some lines */
-		file_putf(fp, "\n");
+		file_putf(fff, "\n");
 	}
-
-	file_close(fp);
-
-
-	/* Success */
-	return (0);
 }
 
-
-/*
- * Make a string lower case.
- */
-static void string_lower(char *buf)
-{
-	char *s;
-
-	/* Lowercase the string */
-	for (s = buf; *s != 0; s++) *s = tolower((unsigned char)*s);
-}
-
-
-/*
- * Recursive file perusal.
+/**
+ * Save the lore to a file in the user directory.
  *
- * Return FALSE on "?", otherwise TRUE.
+ * \param name is the filename
  *
- * This function could be made much more efficient with the use of "seek"
- * functionality, especially when moving backwards through a file, or
- * forwards through a file by less than a page at a time.  XXX XXX XXX
+ * \returns TRUE on success, FALSE otherwise.
  */
-bool show_file(const char *name, const char *what, int line, int mode)
+bool dump_save(const char *path)
 {
-	int i, k, n;
-
-	struct keypress ch;
-
-	/* Number of "real" lines passed by */
-	int next = 0;
-
-	/* Number of "real" lines in the file */
-	int size;
-
-	/* Backup value for "line" */
-	int back = 0;
-
-	/* This screen has sub-screens */
-	bool menu = FALSE;
-
-	/* Case sensitive search */
-	bool case_sensitive = FALSE;
-
-	/* Current help file */
-	ang_file *fff = NULL;
-
-	/* Find this string (if any) */
-	char *find = NULL;
-
-	/* Jump to this tag */
-	const char *tag = NULL;
-
-	/* Hold a string to find */
-	char finder[80] = "";
-
-	/* Hold a string to show */
-	char shower[80] = "";
-
-	/* Filename */
-	char filename[1024];
-
-	/* Describe this thing */
-	char caption[128] = "";
-
-	/* Path buffer */
-	char path[1024];
-
-	/* General buffer */
-	char buf[1024];
-
-	/* Lower case version of the buffer, for searching */
-	char lc_buf[1024];
-
-	/* Sub-menu information */
-	char hook[26][32];
-
-	int wid, hgt;
-	
-	/* TRUE if we are inside a RST block that should be skipped */
-	bool skip_lines = FALSE;
-
-
-
-	/* Wipe the hooks */
-	for (i = 0; i < 26; i++) hook[i][0] = '\0';
-
-	/* Get size */
-	Term_get_size(&wid, &hgt);
-
-	/* Copy the filename */
-	my_strcpy(filename, name, sizeof(filename));
-
-	n = strlen(filename);
-
-	/* Extract the tag from the filename */
-	for (i = 0; i < n; i++)
-	{
-		if (filename[i] == '#')
-		{
-			filename[i] = '\0';
-			tag = filename + i + 1;
-			break;
-		}
+	if (text_lines_to_file(path, write_character_dump)) {
+		msg("Failed to create file %s.new", path);
+		return FALSE;
 	}
 
-	/* Redirect the name */
-	name = filename;
-
-	/* Hack XXX XXX XXX */
-	if (what)
-	{
-		my_strcpy(caption, what, sizeof(caption));
-
-		my_strcpy(path, name, sizeof(path));
-		fff = file_open(path, MODE_READ, FTYPE_TEXT);
-	}
-
-	/* Look in "help" */
-	if (!fff)
-	{
-		strnfmt(caption, sizeof(caption), "Help file '%s'", name);
-
-		path_build(path, sizeof(path), ANGBAND_DIR_HELP, name);
-		fff = file_open(path, MODE_READ, FTYPE_TEXT);
-	}
-
-	/* Look in "info" */
-	if (!fff)
-	{
-		strnfmt(caption, sizeof(caption), "Info file '%s'", name);
-
-		path_build(path, sizeof(path), ANGBAND_DIR_INFO, name);
-		fff = file_open(path, MODE_READ, FTYPE_TEXT);
-	}
-
-	/* Oops */
-	if (!fff)
-	{
-		/* Message */
-		msg("Cannot open '%s'.", name);
-		message_flush();
-
-		/* Oops */
-		return (TRUE);
-	}
-
-
-	/* Pre-Parse the file */
-	while (TRUE)
-	{
-		/* Read a line or stop */
-		if (!file_getl(fff, buf, sizeof(buf))) break;
-
-		/* Skip lines if we are inside a RST directive*/
-		if(skip_lines){
-			if(contains_only_spaces(buf))
-				skip_lines=FALSE;
-			continue;
-		}
-
-		/* Parse a very small subset of RST */
-		/* TODO: should be more flexible */
-		if (prefix(buf, ".. "))
-		{
-			/* parse ".. menu:: [x] filename.txt" (with exact spacing)*/
-			if(prefix(buf+strlen(".. "), "menu:: [") && 
-                           buf[strlen(".. menu:: [x")]==']')
-			{
-				/* This is a menu file */
-				menu = TRUE;
-
-				/* Extract the menu item */
-				k = A2I(buf[strlen(".. menu:: [")]);
-
-				/* Store the menu item (if valid) */
-				if ((k >= 0) && (k < 26))
-					my_strcpy(hook[k], buf + strlen(".. menu:: [x] "), sizeof(hook[0]));
-			}
-			/* parse ".. _some_hyperlink_target:" */
-			else if (buf[strlen(".. ")] == '_')
-			{
-				if (tag)
-				{
-					/* Remove the closing '>' of the tag */
-					buf[strlen(buf) - 1] = '\0';
-
-					/* Compare with the requested tag */
-					if (streq(buf + strlen(".. _"), tag))
-					{
-						/* Remember the tagged line */
-						line = next;
-					}
-				}
-			}
-
-			/* Skip this and enter skip mode*/
-			skip_lines = TRUE;
-			continue;
-		}
-
-		/* Count the "real" lines */
-		next++;
-	}
-
-	/* Save the number of "real" lines */
-	size = next;
-
-
-	/* Display the file */
-	while (TRUE)
-	{
-		/* Clear screen */
-		Term_clear();
-
-
-		/* Restrict the visible range */
-		if (line > (size - (hgt - 4))) line = size - (hgt - 4);
-		if (line < 0) line = 0;
-
-		skip_lines = FALSE;
-		/* Re-open the file if needed */
-		if (next > line)
-		{
-			/* Close it */
-			file_close(fff);
-
-			/* Hack -- Re-Open the file */
-			fff = file_open(path, MODE_READ, FTYPE_TEXT);
-			if (!fff) return (TRUE);
-
-			/* File has been restarted */
-			next = 0;
-		}
-
-
-		/* Goto the selected line */
-		while (next < line)
-		{
-			/* Get a line */
-			if (!file_getl(fff, buf, sizeof(buf))) break;
-
-			/* Skip lines if we are inside a RST directive*/
-			if(skip_lines){
-				if(contains_only_spaces(buf))
-					skip_lines=FALSE;
-				continue;
-			}
-
-			/* Skip RST directives */
-			if (prefix(buf, ".. "))
-			{
-				skip_lines=TRUE;
-				continue;
-			}
-
-			/* Count the lines */
-			next++;
-		}
-
-
-		/* Dump the next lines of the file */
-		for (i = 0; i < hgt - 4; )
-		{
-			/* Hack -- track the "first" line */
-			if (!i) line = next;
-
-			/* Get a line of the file or stop */
-			if (!file_getl(fff, buf, sizeof(buf))) break;
-
-			/* Skip lines if we are inside a RST directive*/
-			if(skip_lines){
-				if(contains_only_spaces(buf))
-					skip_lines=FALSE;
-				continue;
-			}
-
-			/* Skip RST directives */
-			if (prefix(buf, ".. "))
-			{
-				skip_lines=TRUE;
-				continue;
-			}
-
-			/* skip | characters */
-			strskip(buf,'|');
-
-			/* escape backslashes */
-			strescape(buf,'\\');
-
-			/* Count the "real" lines */
-			next++;
-
-			/* Make a copy of the current line for searching */
-			my_strcpy(lc_buf, buf, sizeof(lc_buf));
-
-			/* Make the line lower case */
-			if (!case_sensitive) string_lower(lc_buf);
-
-			/* Hack -- keep searching */
-			if (find && !i && !strstr(lc_buf, find)) continue;
-
-			/* Hack -- stop searching */
-			find = NULL;
-
-			/* Dump the line */
-			Term_putstr(0, i+2, -1, TERM_WHITE, buf);
-
-			/* Highlight "shower" */
-			if (shower[0])
-			{
-				const char *str = lc_buf;
-
-				/* Display matches */
-				while ((str = strstr(str, shower)) != NULL)
-				{
-					int len = strlen(shower);
-
-					/* Display the match */
-					Term_putstr(str-lc_buf, i+2, len, TERM_YELLOW, &buf[str-lc_buf]);
-
-					/* Advance */
-					str += len;
-				}
-			}
-
-			/* Count the printed lines */
-			i++;
-		}
-
-		/* Hack -- failed search */
-		if (find)
-		{
-			bell("Search string not found!");
-			line = back;
-			find = NULL;
-			continue;
-		}
-
-
-		/* Show a general "title" */
-		prt(format("[%s, %s, Line %d-%d/%d]", buildid,
-		           caption, line, line + hgt - 4, size), 0, 0);
-
-
-		/* Prompt -- menu screen */
-		if (menu)
-		{
-			/* Wait for it */
-			prt("[Press a Letter, or ESC to exit.]", hgt - 1, 0);
-		}
-
-		/* Prompt -- small files */
-		else if (size <= hgt - 4)
-		{
-			/* Wait for it */
-			prt("[Press ESC to exit.]", hgt - 1, 0);
-		}
-
-		/* Prompt -- large files */
-		else
-		{
-			/* Wait for it */
-			prt("[Press Space to advance, or ESC to exit.]", hgt - 1, 0);
-		}
-
-		/* Get a keypress */
-		ch = inkey();
-
-		/* Exit the help */
-		if (ch.code == '?') break;
-
-		/* Toggle case sensitive on/off */
-		if (ch.code == '!')
-		{
-			case_sensitive = !case_sensitive;
-		}
-
-		/* Try showing */
-		if (ch.code == '&')
-		{
-			/* Get "shower" */
-			prt("Show: ", hgt - 1, 0);
-			(void)askfor_aux(shower, sizeof(shower), NULL);
-
-			/* Make the "shower" lowercase */
-			if (!case_sensitive) string_lower(shower);
-		}
-
-		/* Try finding */
-		if (ch.code == '/')
-		{
-			/* Get "finder" */
-			prt("Find: ", hgt - 1, 0);
-			if (askfor_aux(finder, sizeof(finder), NULL))
-			{
-				/* Find it */
-				find = finder;
-				back = line;
-				line = line + 1;
-
-				/* Make the "finder" lowercase */
-				if (!case_sensitive) string_lower(finder);
-
-				/* Show it */
-				my_strcpy(shower, finder, sizeof(shower));
-			}
-		}
-
-		/* Go to a specific line */
-		if (ch.code == '#')
-		{
-			char tmp[80] = "0";
-
-			prt("Goto Line: ", hgt - 1, 0);
-			if (askfor_aux(tmp, sizeof(tmp), NULL))
-				line = atoi(tmp);
-		}
-
-		/* Go to a specific file */
-		if (ch.code == '%')
-		{
-			char ftmp[80] = "help.hlp";
-
-			prt("Goto File: ", hgt - 1, 0);
-			if (askfor_aux(ftmp, sizeof(ftmp), NULL))
-			{
-				if (!show_file(ftmp, NULL, 0, mode))
-					ch.code = ESCAPE;
-			}
-		}
-
-		switch (ch.code) {
-			/* up a line */
-			case ARROW_UP:
-			case '8': line--; break;
-
-			/* up a page */
-			case KC_PGUP:
-			case '9':
-			case '-': line -= (hgt - 4); break;
-
-			/* home */
-			case KC_HOME:
-			case '7': line = 0; break;
-
-			/* down a line */
-			case ARROW_DOWN:
-			case '2':
-			case KC_ENTER: line++; break;
-
-			/* down a page */
-			case KC_PGDOWN:
-			case '3':
-			case ' ': line += hgt - 4; break;
-
-			/* end */
-			case KC_END:
-			case '1': line = size; break;
-		}
-
-		/* Recurse on letters */
-		if (menu && isalpha((unsigned char)ch.code))
-		{
-			/* Extract the requested menu item */
-			k = A2I(ch.code);
-
-			/* Verify the menu item */
-			if ((k >= 0) && (k <= 25) && hook[k][0])
-			{
-				/* Recurse on that file */
-				if (!show_file(hook[k], NULL, 0, mode)) ch.code = ESCAPE;
-			}
-		}
-
-		/* Exit on escape */
-		if (ch.code == ESCAPE) break;
-	}
-
-	/* Close the file */
-	file_close(fff);
-
-	/* Done */
-	return (ch.code != '?');
+	return TRUE;
 }
 
-
-/*
- * Peruse the On-Line-Help
- */
-void do_cmd_help(void)
-{
-	/* Save screen */
-	screen_save();
-
-	/* Peruse the main help file */
-	(void)show_file("help.hlp", NULL, 0, 0);
-
-	/* Load screen */
-	screen_load();
-}
-
-
-/*
- * Save the game
- */
-void save_game(void)
-{
-	/* Disturb the player */
-	disturb(player, 1);
-
-	/* Clear messages */
-	message_flush();
-
-	/* Handle stuff */
-	handle_stuff(player->upkeep);
-
-	/* Message */
-	prt("Saving game...", 0, 0);
-
-	/* Refresh */
-	Term_fresh();
-
-	/* The player is not dead */
-	my_strcpy(player->died_from, "(saved)", sizeof(player->died_from));
-
-	/* Forbid suspend */
-	signals_ignore_tstp();
-
-	/* Save the player */
-	if (savefile_save(savefile))
-		prt("Saving game... done.", 0, 0);
-	else
-		prt("Saving game... failed!", 0, 0);
-
-	/* Allow suspend again */
-	signals_handle_tstp();
-
-	/* Refresh */
-	Term_fresh();
-
-	/* Note that the player is not dead */
-	my_strcpy(player->died_from, "(alive and well)", sizeof(player->died_from));
-}
-
-
-
-/*
- * Close up the current game (player may or may not be dead)
- *
- * Note that the savefile is not saved until the tombstone is
- * actually displayed and the player has a chance to examine
- * the inventory and such.  This allows cheating if the game
- * is equipped with a "quit without save" method.  XXX XXX XXX
- */
-void close_game(void)
-{
-	/* Handle stuff */
-	handle_stuff(player->upkeep);
-
-	/* Flush the messages */
-	message_flush();
-
-	/* Flush the input */
-	flush();
-
-
-	/* No suspending now */
-	signals_ignore_tstp();
-
-
-	/* Hack -- Increase "icky" depth */
-	character_icky++;
-
-
-	/* Handle death */
-	if (player->is_dead)
-	{
-		death_screen();
-	}
-
-	/* Still alive */
-	else
-	{
-		/* Save the game */
-		save_game();
-
-		if (Term->mapped_flag)
-		{
-			struct keypress ch;
-
-			prt("Press Return (or Escape).", 0, 40);
-			ch = inkey();
-			if (ch.code != ESCAPE)
-				predict_score();
-		}
-	}
-
-
-	/* Hack -- Decrease "icky" depth */
-	character_icky--;
-
-
-	/* Allow suspending now */
-	signals_handle_tstp();
-}

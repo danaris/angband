@@ -31,6 +31,7 @@ typedef enum game_event_type
 	EVENT_SEEFLOOR,         /* When the player would "see" floor objects */
 	EVENT_EXPLOSION,
 	EVENT_BOLT,
+	EVENT_MISSILE,
 
 	EVENT_INVENTORY,
 	EVENT_EQUIPMENT,
@@ -39,6 +40,7 @@ typedef enum game_event_type
 	EVENT_MONSTERTARGET,
 	EVENT_OBJECTTARGET,
 	EVENT_MESSAGE,
+	EVENT_SOUND,
 
 	EVENT_INITSTATUS,	/* New status message for initialisation */
 	EVENT_BIRTHPOINTS,	/* Change in the birth points */
@@ -62,15 +64,16 @@ typedef enum game_event_type
 
 typedef union
 {
-	struct 
-	{
-		int x;
-		int y;
-	} point;
+	struct loc point;
 
 	const char *string;
 
 	bool flag;
+
+	struct {
+		const char *msg;
+		int type;
+	} message;
 
 	struct
 	{
@@ -91,7 +94,6 @@ typedef union
 
 	struct
 	{
-		int msec;
 		int gf_type;
 		int num_grids;
 		int *distance_to_grid;
@@ -102,7 +104,6 @@ typedef union
 
 	struct
 	{
-		int msec;
 		int gf_type;
 		bool seen;
 		bool beam;
@@ -111,6 +112,15 @@ typedef union
 		int y;
 		int x;
 	} bolt;
+
+	struct
+	{
+		byte mattr;
+		wchar_t mchar;
+		bool seen;
+		int y;
+		int x;
+	} missile;
 
 } game_event_data;
 
@@ -133,10 +143,10 @@ void event_signal_birthpoints(int stats[6], int remaining);
 
 void event_signal_point(game_event_type, int x, int y);
 void event_signal_string(game_event_type, const char *s);
+void event_signal_message(game_event_type type, int t, const char *s);
 void event_signal_flag(game_event_type type, bool flag);
 void event_signal(game_event_type);
 void event_signal_blast(game_event_type type,
-						int msec,
 						int gf_type,
 						int num_grids,
 						int *distance_to_grid,
@@ -144,7 +154,6 @@ void event_signal_blast(game_event_type type,
 						struct loc *blast_grid,
 						struct loc centre);
 void event_signal_bolt(game_event_type type,
-					   int msec,
 					   int gf_type,
 					   bool seen,
 					   bool beam,
@@ -152,5 +161,11 @@ void event_signal_bolt(game_event_type type,
 					   int ox,
 					   int y,
 					   int x);
+void event_signal_missile(game_event_type type,
+						  byte mattr,
+						  wchar_t mchar,
+						  bool seen,
+						  int y,
+						  int x);
 
 #endif /* INCLUDED_GAME_EVENT_H */

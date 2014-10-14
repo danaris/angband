@@ -17,6 +17,7 @@
  */
 #include "angband.h"
 #include "monster.h"
+#include "init.h"
 #include "quest.h"
 #include "obj-util.h"
 
@@ -63,7 +64,8 @@ static void build_quest_stairs(int y, int x)
 	int ny, nx;
 
 	/* Stagger around */
-	while (!square_valid_bold(y, x) && !square_iswall(cave, y, x) && !square_isdoor(cave, y, x)) {
+	while (!square_changeable(cave, y, x) && !square_iswall(cave, y, x) &&
+		   !square_isdoor(cave, y, x)) {
 		/* Pick a location */
 		scatter(cave, &ny, &nx, y, x, 1, FALSE);
 
@@ -130,9 +132,13 @@ bool quest_check(const struct monster *m) {
  */
 void quest_init(void) {
 	memset(q_list, 0, sizeof q_list);
-	return;
 }
 
 void quest_free(void) {
-	return;
 }
+
+struct init_module quest_module = {
+	.name = "quest",
+	.init = quest_init,
+	.cleanup = quest_free
+};

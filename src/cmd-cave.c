@@ -17,14 +17,14 @@
  */
 
 #include "angband.h"
-#include "attack.h"
 #include "cave.h"
 #include "cmds.h"
 #include "dungeon.h"
-#include "files.h"
 #include "cmd-core.h"
 #include "game-event.h"
 #include "generate.h"
+#include "mon-desc.h"
+#include "mon-lore.h"
 #include "mon-timed.h"
 #include "mon-util.h"
 #include "monster.h"
@@ -32,10 +32,10 @@
 #include "obj-identify.h"
 #include "obj-ignore.h"
 #include "obj-util.h"
-#include "pathfind.h"
+#include "player-attack.h"
+#include "player-path.h"
 #include "player-timed.h"
 #include "player-util.h"
-#include "spells.h"
 #include "trap.h"
 #include "tables.h"
 
@@ -162,7 +162,7 @@ bool search(bool verbose)
 			/* Sometimes, notice things */
 			if (randint0(100) < chance)
 			{
-				if (square_invisible_trap(cave, y, x)) 
+				if (square_issecrettrap(cave, y, x))
 				{
 					found = TRUE;
 
@@ -965,7 +965,7 @@ static bool do_cmd_lock_door(int y, int x)
 	/* Success */
 	if (randint0(100) < j) {
 		msg("You lock the door.");
-		square_lock_door(cave, y, x, power);
+		square_set_door_lock(cave, y, x, power);
 	}
 
 	/* Failure -- Keep trying */
@@ -996,8 +996,8 @@ static bool do_cmd_disarm_aux(int y, int x)
 {
 	int i, j, power;
 
-	int trap;
-    trap_type *t_ptr;
+	int t_idx;
+    struct trap *trap;
 
 	bool more = FALSE;
 
@@ -1007,9 +1007,9 @@ static bool do_cmd_disarm_aux(int y, int x)
 
 
     /* Choose trap */
-    trap = square_visible_trap_idx(cave, y, x);
-    if (trap < 0) return (FALSE);
-    t_ptr = cave_trap(cave, trap);
+    t_idx = square_trap_idx(cave, y, x);
+    if (t_idx < 0) return (FALSE);
+    trap = cave_trap(cave, t_idx);
 
 	/* Get the "disarm" factor */
 	i = player->state.skills[SKILL_DISARM];
@@ -1033,7 +1033,7 @@ static bool do_cmd_disarm_aux(int y, int x)
 	if (randint0(100) < j)
 	{
 		/* Message */
-		msgt(MSG_DISARM, "You have disarmed the %s.", t_ptr->kind->name);
+		msgt(MSG_DISARM, "You have disarmed the %s.", trap->kind->name);
 
 		/* Reward */
 		player_exp_gain(player, power);
@@ -1051,7 +1051,7 @@ static bool do_cmd_disarm_aux(int y, int x)
 		flush();
 
 		/* Message */
-		msg("You failed to disarm the %s.", t_ptr->kind->name);
+		msg("You failed to disarm the %s.", trap->kind->name);
 
 		/* We may keep trying */
 		more = TRUE;
@@ -1061,7 +1061,7 @@ static bool do_cmd_disarm_aux(int y, int x)
 	else
 	{
 		/* Message */
-		msg("You set off the %s!", t_ptr->kind->name);
+		msg("You set off the %s!", trap->kind->name);
 
 		/* Hit the trap */
 		hit_trap(y, x);

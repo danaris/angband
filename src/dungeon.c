@@ -17,17 +17,18 @@
  */
 
 #include "angband.h"
-#include "birth.h"
 #include "cave.h"
 #include "cmds.h"
 #include "dungeon.h"
-#include "files.h"
 #include "game-event.h"
 #include "generate.h"
+#include "history.h"
 #include "grafmode.h"
 #include "init.h"
 #include "mon-list.h"
+#include "mon-lore.h"
 #include "mon-make.h"
+#include "mon-move.h"
 #include "mon-spell.h"
 #include "mon-util.h"
 #include "monster.h"
@@ -38,18 +39,23 @@
 #include "obj-tval.h"
 #include "obj-util.h"
 #include "object.h"
-#include "pathfind.h"
+#include "player-birth.h"
+#include "player-path.h"
 #include "player-timed.h"
 #include "player-util.h"
 #include "prefs.h"
 #include "savefile.h"
-#include "spells.h"
+#include "score.h"
+#include "signals.h"
 #include "store.h"
 #include "tables.h"
 #include "target.h"
+#include "ui-birth.h"
+#include "ui-death.h"
 #include "ui-game.h"
 #include "ui-input.h"
 #include "ui-map.h"
+#include "ui-player.h"
 #include "ui.h"
 
 #include <math.h>
@@ -561,7 +567,7 @@ static void process_world(struct chunk *c)
 	/*** Process the monsters ***/
 
 	/* Check for creature generation */
-	if (one_in_(MAX_M_ALLOC_CHANCE))
+	if (one_in_(z_info->alloc_monster_chance))
 	{
 		/* Make a new monster */
 		(void)pick_and_place_distant_monster(cave, loc(player->px, player->py), MAX_SIGHT + 5, TRUE, player->depth);
@@ -769,7 +775,8 @@ static void process_world(struct chunk *c)
 	if (player_of_has(player, OF_DRAIN_EXP))
 	{
 		if ((player->exp > 0) && one_in_(10)) {
-			s32b d = damroll(10, 6) + (player->exp/100) * MON_DRAIN_LIFE;
+			s32b d = damroll(10, 6) +
+				(player->exp / 100) * z_info->life_drain_percent;
 			player_exp_lose(player, d / 10, FALSE);
 		}
 
@@ -788,8 +795,9 @@ static void process_world(struct chunk *c)
 	/* Random teleportation */
 	if (player_of_has(player, OF_TELEPORT) && one_in_(50))
 	{
+		const char *forty = "40";
 		wieldeds_notice_flag(player, OF_TELEPORT);
-		teleport_player(40);
+		effect_simple(EF_TELEPORT, forty, 0, 1, 0, NULL);
 		disturb(player, 0);
 	}
 
@@ -859,74 +867,6 @@ static void process_world(struct chunk *c)
 		}
 	}
 }
-
-
-
-
-
-/*
- * Hack -- helper function for "process_player()"
- *
- * Check for changes in the "monster memory"
- */
-static void process_player_aux(void)
-{
-	int i;
-	bool changed = FALSE;
-
-	static monster_race *old_monster_race = 0;
-	static bitflag old_flags[RF_SIZE];
-	static bitflag old_spell_flags[RSF_SIZE];
-
-	static byte old_blows[MONSTER_BLOW_MAX];
-
-	static byte	old_cast_innate = 0;
-	static byte	old_cast_spell = 0;
-
-	/* Tracking a monster */
-	if (player->upkeep->monster_race)
-	{
-		/* Get the monster lore */
-		monster_lore *l_ptr = get_lore(player->upkeep->monster_race);
-
-		for (i = 0; i < MONSTER_BLOW_MAX; i++)
-		{
-			if (old_blows[i] != l_ptr->blows[i])
-			{
-				changed = TRUE;
-				break;
-			}
-		}
-
-		/* Check for change of any kind */
-		if (changed ||
-		    (old_monster_race != player->upkeep->monster_race) ||
-		    !rf_is_equal(old_flags, l_ptr->flags) ||
-		    !rsf_is_equal(old_spell_flags, l_ptr->spell_flags) ||
-		    (old_cast_innate != l_ptr->cast_innate) ||
-		    (old_cast_spell != l_ptr->cast_spell))
-		{
-			/* Memorize old race */
-			old_monster_race = player->upkeep->monster_race;
-
-			/* Memorize flags */
-			rf_copy(old_flags, l_ptr->flags);
-			rsf_copy(old_spell_flags, l_ptr->spell_flags);
-
-			/* Memorize blows */
-			memmove(old_blows, l_ptr->blows, sizeof(byte)*MONSTER_BLOW_MAX);
-
-			/* Memorize castings */
-			old_cast_innate = l_ptr->cast_innate;
-			old_cast_spell = l_ptr->cast_spell;
-
-			/* Redraw stuff */
-			player->upkeep->redraw |= (PR_MONSTER);
-			redraw_stuff(player->upkeep);
-		}
-	}
-}
-
 
 /*
  * Place cursor on a monster or the player.
@@ -1100,7 +1040,8 @@ static void process_player(void)
 		else
 		{
 			/* Check monster recall */
-			process_player_aux();
+			if (player->upkeep->monster_race)
+				player->upkeep->redraw |= (PR_MONSTER);
 
 			/* Place cursor on player/target */
 			place_cursor();
@@ -1170,7 +1111,7 @@ static void process_player(void)
 				if (mon->mflag & MFLAG_MARK) {
 					if (!(mon->mflag & MFLAG_SHOW)) {
 						mon->mflag &= ~MFLAG_MARK;
-						update_mon(mon, FALSE);
+						update_mon(mon, cave, FALSE);
 					}
 				}
 			}
@@ -1186,6 +1127,7 @@ static void process_player(void)
 		/* HACK: This will redraw the itemlist too frequently, but I'm don't
 		   know all the individual places it should go. */
 		player->upkeep->redraw |= PR_ITEMLIST;
+		redraw_stuff(player->upkeep);
 	}
 
 	while (!player->upkeep->energy_use && !player->upkeep->leaving);
@@ -1299,8 +1241,8 @@ static void dungeon(struct chunk *c)
 
 
 	/* Hack -- enforce illegal panel */
-	Term->offset_y = DUNGEON_HGT;
-	Term->offset_x = DUNGEON_WID;
+	Term->offset_y = z_info->dungeon_hgt;
+	Term->offset_x = z_info->dungeon_wid;
 
 
 	/* Not leaving */
@@ -1426,7 +1368,7 @@ static void dungeon(struct chunk *c)
 	while (TRUE)
 	{
 		/* Hack -- Compact the monster list occasionally */
-		if (cave_monster_count(cave) + 32 > z_info->m_max) 
+		if (cave_monster_count(cave) + 32 > z_info->level_monster_max) 
 			compact_monsters(64);
 
 		/* Hack -- Compress the monster list occasionally */
@@ -1434,7 +1376,7 @@ static void dungeon(struct chunk *c)
 			compact_monsters(0);
 
 		/* Hack -- Compact the object list occasionally */
-		if (cave_object_count(cave) + 32 > z_info->o_max) 
+		if (cave_object_count(cave) + 32 > z_info->level_object_max) 
 			compact_objects(64);
 
 		/* Hack -- Compress the object list occasionally */
@@ -1609,11 +1551,18 @@ static void process_some_user_pref_files(void)
  * code marks successful loading of the RNG state using the "Rand_quick"
  * flag, which is a hack, but which optimizes loading of savefiles.
  */
-void play_game(void)
+void play_game(bool new_game)
 {
 	u32b default_window_flag[ANGBAND_TERM_MAX];
-	/* Initialize */
-	bool new_game = init_angband();
+
+	/* Sneakily init command list */
+	cmd_init();
+
+	/* Initialize knowledge things */
+	textui_knowledge_init();
+
+	/* XXX-UI This should be issued after CMD_NEWGAME / CMD_LOADFILE */
+	event_signal(EVENT_LEAVE_INIT);
 
 	/*** Do horrible, hacky things, to start the game off ***/
 
@@ -1661,6 +1610,10 @@ void play_game(void)
 				player->chp = player->mhp;
 				player->noscore |= NOSCORE_WIZARD;
 		}
+
+		/* Populate flavors and randarts based on saved seeds */
+		flavor_init();
+		if (OPT(birth_randarts)) do_randart(seed_randart, TRUE);
 	}
 
 	/* No living character loaded */
@@ -1671,29 +1624,6 @@ void play_game(void)
 
 		/* The dungeon is not ready */
 		character_dungeon = FALSE;
-	}
-
-
-	/* Init RNG */
-	if (Rand_quick)
-	{
-		u32b seed;
-
-		/* Basic seed */
-		seed = (u32b)(time(NULL));
-
-#ifdef UNIX
-
-		/* Mutate the seed on Unix machines */
-		seed = ((seed >> 3) * (getpid() << 1));
-
-#endif
-
-		/* Use the complex RNG */
-		Rand_quick = FALSE;
-
-		/* Seed the "complex" RNG */
-		Rand_state_init(seed);
 	}
 
 	/* Roll new character */
@@ -1708,26 +1638,9 @@ void play_game(void)
 		/* Seed for flavors */
 		seed_flavor = randint0(0x10000000);
 
-		/* Roll up a new character. Quickstart is allowed if ht_birth is set */
-		player_birth(player->ht_birth ? TRUE : FALSE);
+		/* Roll up a new character */
+		textui_do_birth();
 	}
-
-	/* Seed for random artifacts */
-	if (!seed_randart || (new_game && !OPT(birth_keep_randarts)))
-		seed_randart = randint0(0x10000000);
-
-	/* Randomize the artifacts if required */
-	if (OPT(birth_randarts))
-		do_randart(seed_randart, TRUE);
-
-	/* Initialize temporary fields sensibly */
-	player->upkeep->object_idx = NO_OBJECT;
-	player->upkeep->object_kind = NULL;
-	player->upkeep->monster_race = NULL;
-
-	/* Set the savefile name if it's not already set */
-	if (!savefile[0])
-		savefile_set_name(player_safe_name(player, TRUE));
 
 	/* Stop the player being quite so dead */
 	player->is_dead = FALSE;
@@ -1740,9 +1653,6 @@ void play_game(void)
 
 	/* Flush the message */
 	Term_fresh();
-
-	/* Flavor the objects */
-	flavor_init();
 
 	/* Reset visuals */
 	reset_visuals(TRUE);
@@ -1765,7 +1675,7 @@ void play_game(void)
 
 	/* Generate a dungeon level if needed */
 	if (!character_dungeon)
-		cave_generate(cave , player);
+		cave_generate(&cave, player);
 
 
 	/* Character is now "complete" */
@@ -1890,7 +1800,7 @@ void play_game(void)
 		if (player->is_dead) break;
 
 		/* Make a new level */
-		cave_generate(cave, player);
+		cave_generate(&cave, player);
 	}
 
 	/* Disallow big cursor */
@@ -1901,4 +1811,172 @@ void play_game(void)
 
 	/* Close stuff */
 	close_game();
+}
+
+/*
+ * Save the game
+ */
+void save_game(void)
+{
+	/* Disturb the player */
+	disturb(player, 1);
+
+	/* Clear messages */
+	message_flush();
+
+	/* Handle stuff */
+	handle_stuff(player->upkeep);
+
+	/* Message */
+	prt("Saving game...", 0, 0);
+
+	/* Refresh */
+	Term_fresh();
+
+	/* The player is not dead */
+	my_strcpy(player->died_from, "(saved)", sizeof(player->died_from));
+
+	/* Forbid suspend */
+	signals_ignore_tstp();
+
+	/* Save the player */
+	if (savefile_save(savefile))
+		prt("Saving game... done.", 0, 0);
+	else
+		prt("Saving game... failed!", 0, 0);
+
+	/* Allow suspend again */
+	signals_handle_tstp();
+
+	/* Refresh */
+	Term_fresh();
+
+	/* Note that the player is not dead */
+	my_strcpy(player->died_from, "(alive and well)", sizeof(player->died_from));
+}
+
+
+
+/**
+ * Win or not, know inventory, home items and history upon death, enter score
+ */
+static void death_knowledge(void)
+{
+	struct store *st_ptr = &stores[STORE_HOME];
+	object_type *o_ptr;
+	time_t death_time = (time_t)0;
+
+	int i;
+
+	/* Retire in the town in a good state */
+	if (player->total_winner)
+	{
+		player->depth = 0;
+		my_strcpy(player->died_from, "Ripe Old Age", sizeof(player->died_from));
+		player->exp = player->max_exp;
+		player->lev = player->max_lev;
+		player->au += 10000000L;
+	}
+
+	for (i = 0; i < player->max_gear; i++)
+	{
+		o_ptr = &player->gear[i];
+		if (!o_ptr->kind) continue;
+
+		object_flavor_aware(o_ptr);
+		object_notice_everything(o_ptr);
+	}
+
+	for (i = 0; i < st_ptr->stock_num; i++)
+	{
+		o_ptr = &st_ptr->stock[i];
+		if (!o_ptr->kind) continue;
+
+		object_flavor_aware(o_ptr);
+		object_notice_everything(o_ptr);
+	}
+
+	history_unmask_unknown();
+
+	/* Get time of death */
+	(void)time(&death_time);
+	enter_score(&death_time);
+
+	/* Hack -- Recalculate bonuses */
+	player->upkeep->update |= (PU_BONUS);
+	handle_stuff(player->upkeep);
+}
+
+
+
+/*
+ * Close up the current game (player may or may not be dead)
+ *
+ * Note that the savefile is not saved until the tombstone is
+ * actually displayed and the player has a chance to examine
+ * the inventory and such.  This allows cheating if the game
+ * is equipped with a "quit without save" method.  XXX XXX XXX
+ */
+void close_game(void)
+{
+	/* Handle stuff */
+	handle_stuff(player->upkeep);
+
+	/* Flush the messages */
+	message_flush();
+
+	/* Flush the input */
+	flush();
+
+
+	/* No suspending now */
+	signals_ignore_tstp();
+
+
+	/* Hack -- Increase "icky" depth */
+	character_icky++;
+
+	if (!lore_save("lore.txt")) {
+		msg("lore save failed!");
+		message_flush();
+	}
+
+	/* Handle death */
+	if (player->is_dead)
+	{
+		death_knowledge();
+		death_screen();
+
+		/* Save dead player */
+		if (!savefile_save(savefile))
+		{
+			msg("death save failed!");
+			message_flush();
+		}
+	}
+
+	/* Still alive */
+	else
+	{
+		/* Save the game */
+		save_game();
+
+		if (Term->mapped_flag)
+		{
+			struct keypress ch;
+
+			prt("Press Return (or Escape).", 0, 40);
+			ch = inkey();
+			if (ch.code != ESCAPE)
+				predict_score();
+		}
+	}
+
+
+	/* Hack -- Decrease "icky" depth */
+	character_icky--;
+
+
+	/* Allow suspending now */
+	signals_handle_tstp();
 }

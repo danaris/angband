@@ -1,8 +1,8 @@
-/*
- * File: mon-spell.c
- * Purpose: functions to deal with spell attacks and effects
+/**
+   \file mon-spell.c
+   \brief functions to deal with spell attacks and effects
  *
- * Copyright (c) 2010-11 Chris Carr
+ * Copyright (c) 2010-14 Chris Carr and Nick McConnell
  *
  * This work is free software; you can redistribute it and/or modify it
  * under the terms of either:
@@ -17,13 +17,16 @@
  */
 #include "angband.h"
 #include "effects.h"
+#include "mon-attack.h"
+#include "mon-desc.h"
+#include "mon-lore.h"
+#include "mon-make.h"
 #include "mon-spell.h"
 #include "mon-timed.h"
 #include "mon-util.h"
 #include "player-timed.h"
 #include "player-util.h"
 #include "project.h"
-#include "spells.h"
 
 /**
  * Info details of the different monster spells in the game.
@@ -48,7 +51,7 @@ static const struct breath_damage {
 	int divisor;
 	int cap;
 } breath[] = {
-    #define ELEM(a, b, c, d, e, f, g, col, h, fh, oh, mh, ph) { f, g },
+    #define ELEM(a, b, c, d, e, f, g, col) { f, g },
     #include "list-elements.h"
     #undef ELEM
 };
@@ -161,8 +164,8 @@ void set_spells(bitflag *f, int types)
  * \param flags is the set of flags we're testing
  * \param r_ptr is the monster type we're operating on
  */
-void unset_spells(bitflag *spells, bitflag *flags, struct element_info *el,
-				  const monster_race *r_ptr)
+void unset_spells(bitflag *spells, bitflag *flags, bitflag *pflags,
+				  struct element_info *el, const monster_race *r_ptr)
 {
 	const struct mon_spell_info *info;
 	const struct monster_spell *spell;
@@ -185,11 +188,18 @@ void unset_spells(bitflag *spells, bitflag *flags, struct element_info *el,
 			if (randint0(100) < learn_chance)
 				rsf_off(spells, info->index);
 		} else {
-			/* Now others with resisted effects - currently all timed effects */
+			/* Now others with resisted effects */
 			while (effect) {
+				/* Timed effects */
 				if ((smart || !one_in_(3)) && (effect->index == EF_TIMED_INC) &&
 					of_has(flags, timed_protect_flag(effect->params[0])))
 					break;
+
+				/* Mana drain */
+				if ((smart || one_in_(2)) && (effect->index == EF_DRAIN_MANA) &&
+					pf_has(pflags, PF_NO_MANA))
+					break;
+
 				effect = effect->next;
 			}
 			if (effect)
@@ -309,7 +319,7 @@ int best_spell_power(const monster_race *r_ptr, int resist)
 			/* Adjust the real damage by the assumed resistance (if it is a
 			 * resistable type) */
 			if (monster_spell_is_projectable(info->index))
-				dam = adjust_dam(spell->effect->params[0], dam, MAXIMISE, 1);
+				dam = adjust_dam(player, spell->effect->params[0], dam, MAXIMISE, 1);
 
 			/* Add the power rating (crucial for non-damaging spells) */
 

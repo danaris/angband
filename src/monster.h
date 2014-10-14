@@ -1,6 +1,6 @@
-/*
- * File: monster.h
- * Purpose: structures and functions for monsters
+/**
+ * \file monster.h
+ * \brief structures and functions for monsters
  *
  * Copyright (c) 2007 Andi Sidwell
  * Copyright (c) 2010 Chris Carr
@@ -30,20 +30,12 @@
 
 /** Constants **/
 
-/*
- * There is a 1/50 (2%) chance of inflating the requested monster level
- * during the creation of a monsters (see "get_mon_num()" in "monster.c").
- * Lower values yield harder monsters more often.
+
+
+
+/**
+ * Monster spell flag indices
  */
-#define NASTY_MON    25        /* 1/chance of inflated monster level */
-#define MON_OOD_MAX  10        /* maximum out-of-depth amount */
-#define BREAK_GLYPH		550	/* Rune of protection resistance */
-#define MON_MULT_ADJ		8 	/* High value slows multiplication */
-#define MON_DRAIN_LIFE		2	/* Percent of player exp drained per hit */
-
-
-
-/* Monster spell flags */
 enum
 {
     #define RSF(a, b, c, d, e, f, g, h) RSF_##a,
@@ -56,23 +48,20 @@ enum
 
 /** Structures **/
 
-/*
- * Monster blow structure
- *
- *	- Method (RBM_*)
- *	- Effect (RBE_*)
- *	- Damage Dice
- *	- Damage Sides
+/**
+ * Monster blows
  */
 struct monster_blow {
-	int method;
-	int effect;
-	int d_dice;
-	int d_side;
+	struct monster_blow *next;	/* Unused after parsing */
+
+	int method;			/* Method (RBM_*) */
+	int effect;			/* Effect (RBE_*) */
+	random_value dice;	/* Damage dice */
+	int times_seen;		/* Sightings of the blow (lore only) */
 };
 
-/*
- * Monster pain messages.
+/**
+ * Monster pain messages
  */
 typedef struct monster_pain
 {
@@ -82,41 +71,42 @@ typedef struct monster_pain
 	struct monster_pain *next;
 } monster_pain;
 
-extern monster_pain *pain_messages;
 
-/* Structure for monster spell types */
+/**
+ * Monster spell types
+ */
 struct monster_spell {
 	struct monster_spell *next;
 
 	u16b index;				/* Numerical index (RSF_FOO) */
 	int hit;				/* To-hit level for the attack */
-	struct effect *effect;
-	random_value power;
+	struct effect *effect;	/* Effect(s) of the spell */
+	random_value power;		/* Relative power of the spell */
 };
 
-extern struct monster_spell *monster_spells;
 
-/*
- * Information about "base" monster type.
+/**
+ * Base monster type
  */
 typedef struct monster_base
 {
 	struct monster_base *next;
 
-	char *name;
-	char *text;
+	char *name;						/* Name for recognition in code */
+	char *text;						/* In-game name */
 
 	bitflag flags[RF_SIZE];         /* Flags */
 	bitflag spell_flags[RSF_SIZE];  /* Spell flags */
 	
-	wchar_t d_char;			/* Default monster character */
+	wchar_t d_char;					/* Default monster character */
 
-	monster_pain *pain;		/* Pain messages */
+	monster_pain *pain;				/* Pain messages */
 } monster_base;
 
-extern monster_base *rb_info;
 
-/* Information about specified monster drops */ 
+/**
+ * Specified monster drops
+ */
 struct monster_drop {
 	struct monster_drop *next;
 	struct object_kind *kind;
@@ -126,6 +116,9 @@ struct monster_drop {
 	unsigned int max;
 };
 
+/**
+ * Monster friends (specific monster)
+ */
 struct monster_friends {
 	struct monster_friends *next;
 	char *name;
@@ -135,6 +128,9 @@ struct monster_friends {
 	unsigned int number_side;
 };
 
+/**
+ * Monster friends (general type)
+ */
 struct monster_friends_base {
 	struct monster_friends_base *next;
 	struct monster_base *base;
@@ -143,12 +139,15 @@ struct monster_friends_base {
 	unsigned int number_side;
 };
 
+/**
+ * How monsters mimic
+ */
 struct monster_mimic {
 	struct monster_mimic *next;
 	struct object_kind *kind;
 };
 
-/*
+/**
  * Monster "race" information, including racial memories
  *
  * Note that "d_attr" and "d_char" are used for MORE than "visual" stuff.
@@ -174,13 +173,13 @@ typedef struct monster_race
 
 	char *name;
 	char *text;
-	char *plural; /* Optional pluralized name */
+	char *plural;			/* Optional pluralized name */
 
 	struct monster_base *base;
 	
 	int avg_hp;				/* Average HP for this creature */
 
-	int ac;				/* Armour Class */
+	int ac;					/* Armour Class */
 
 	int sleep;				/* Inactive counter (base) */
 	int aaf;				/* Area affect radius (1-100) */
@@ -191,24 +190,16 @@ typedef struct monster_race
 	long power;				/* Monster power */
 	long scaled_power;		/* Monster power scaled by level */
 
-	int highest_threat;	/* Monster highest threat */
-	
-	/*AMF:DEBUG*/			/**/
-	long melee_dam;			/**/
-	long spell_dam;			/**/
-	long hp;				/**/
-	/*END AMF:DEBUG*/		/**/
-
 	int freq_innate;		/* Innate spell frequency */
-	int freq_spell;		/* Other spell frequency */
+	int freq_spell;			/* Other spell frequency */
 
 	bitflag flags[RF_SIZE];         /* Flags */
 	bitflag spell_flags[RSF_SIZE];  /* Spell flags */
 
-	struct monster_blow blow[MONSTER_BLOW_MAX]; /* Up to four blows per round */
+	struct monster_blow *blow; /* Melee blows */
 
 	int level;				/* Level of creature */
-	int rarity;			/* Rarity of creature */
+	int rarity;				/* Rarity of creature */
 
 	byte d_attr;			/* Default monster attribute */
 	wchar_t d_char;			/* Default monster character */
@@ -228,48 +219,8 @@ typedef struct monster_race
 	struct monster_mimic *mimic_kinds;
 } monster_race;
 
-extern monster_race *r_info;
-extern const monster_race *ref_race;
 
-/*
- * Monster "lore" information
- *
- * Note that these fields are related to the "monster recall" and can
- * be scrapped if space becomes an issue, resulting in less "complete"
- * monster recall (no knowledge of spells, etc). XXX XXX XXX
- */
-typedef struct
-{
-	s16b sights;			/* Count sightings of this monster */
-	s16b deaths;			/* Count deaths from this monster */
-
-	s16b pkills;			/* Count monsters killed in this life */
-	s16b tkills;			/* Count monsters killed in all lives */
-
-	byte wake;				/* Number of times woken up (?) */
-	byte ignore;			/* Number of times ignored (?) */
-
-	byte drop_gold;			/* Max number of gold dropped at once */
-	byte drop_item;			/* Max number of item dropped at once */
-
-	byte cast_innate;		/* Max number of innate spells seen */
-	byte cast_spell;		/* Max number of other spells seen */
-
-	byte blows[MONSTER_BLOW_MAX]; /* Number of times each blow type was seen */
-
-	bitflag flags[RF_SIZE]; /* Observed racial flags - a 1 indicates
-	                         * the flag (or lack thereof) is known to
-	                         * the player */
-	bitflag spell_flags[RSF_SIZE];  /* Observed racial spell flags */
-} monster_lore;
-
-/*
- * Array[z_info->r_max] of monster lore
- */
-extern monster_lore *l_list;
-
-
-/*
+/**
  * Monster information, for a specific monster.
  *
  * Note: fy, fx constrain dungeon size to 256x256
@@ -307,22 +258,22 @@ typedef struct monster
 
 	byte attr;  		/* attr last used for drawing monster */
 
-	u32b smart;			/* Field for "adult_ai_learn" */
-
 	player_state known_pstate; /* Known player state */
+
+    byte ty;		/**< Monster target */
+    byte tx;
+
+    byte min_range;	/**< What is the closest we want to be?  Not saved */
+    byte best_range;	/**< How close do we want to be? Not saved */
 } monster_type;
 
-/*** Functions ***/
-
-/* melee2.c */
-extern bool check_hit(struct player *p, int power, int level, bool blinded);
-extern void process_monsters(struct chunk *c, byte min_energy);
-extern int mon_hp(const struct monster_race *r_ptr, aspect hp_aspect);
-extern bool make_attack_spell(struct monster *m);
-extern int adjust_dam_armor(int damage, int ac);
-
+/** Variables **/
 extern s16b num_repro;
 
-extern bool (*testfn_make_attack_normal)(struct monster *m, struct player *p);
+extern monster_pain *pain_messages;
+extern struct monster_spell *monster_spells;
+extern monster_base *rb_info;
+extern monster_race *r_info;
+extern const monster_race *ref_race;
 
 #endif /* !MONSTER_MONSTER_H */
