@@ -263,6 +263,7 @@ static const char *get_pflag_desc(bitflag flag)
 		case PF_SEE_ORE: return "Senses ore/minerals";
 		case PF_SNEAK_ATTACK: return "Can sneak attack foes";
 		case PF_SEE_TRAPS: return "Can detect traps";
+		case PF_EXTRA_MANA: return "Gains extra mana";
 		default: return "Undocumented pflag";
 	}
 }

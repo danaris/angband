@@ -1299,7 +1299,11 @@ static void calc_spells(void)
 int mana_per_level(struct player *p)
 {
 	int stat = player->class->magic.spell_realm->stat;
-	return adj_mag_mana[player->state.stat_ind[stat]];
+	int mana = adj_mag_mana[player->state.stat_ind[stat]];
+	if (player_has(PF_EXTRA_MANA)) {
+		mana = mana * 2;
+	}
+	return mana;
 }
 
 /*
