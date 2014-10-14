@@ -71,7 +71,7 @@
 
 /** Magic bits at beginning of savefile */
 static const byte savefile_magic[4] = { 83, 97, 118, 101 };
-static const byte savefile_name[4] = "VNLA";
+static const byte savefile_name[4] = "TGCA";
 
 /*
  * Buffer to hold the current savefile name
