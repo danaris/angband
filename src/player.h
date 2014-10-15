@@ -246,7 +246,7 @@ typedef struct {
 
 	int sidx;		/**< The index of this spell for this class */
 	int bidx;		/**< The index into the player's books array */
-	int slevel;	/**< Required level (to learn) */
+	int slevel;		/**< Required level (to learn) */
 	int smana;		/**< Required mana (to cast) */
 	int sfail;		/**< Base chance of failure */
 	int sexp;		/**< Encoded experience bonus */

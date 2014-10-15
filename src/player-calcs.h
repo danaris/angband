@@ -210,7 +210,9 @@ typedef struct player_state {
 
 	s16b num_blows;		/* Number of blows x100 */
 	s16b num_shots;		/* Number of shots */
+	
 	s16b spell_speed;	/* Spellcasting speed */
+	s16b spell_power;	/* Spellcasting power */
 
 	byte ammo_mult;		/* Ammo multiplier */
 	byte ammo_tval;		/* Ammo variety */

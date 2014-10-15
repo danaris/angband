@@ -426,8 +426,9 @@ bool spell_cast(int spell, int dir)
 	/* Process spell */
 	else
 	{
+		int boost = player->state.spell_power-100;
 		/* Cast the spell */
-		if (!effect_do(s_ptr->effect, ident, TRUE, dir, beam, FALSE)) {
+		if (!effect_do(s_ptr->effect, ident, TRUE, dir, beam, boost)) {
 			mem_free(ident);
 			return FALSE;
 		}
@@ -594,6 +595,11 @@ static int spell_value_base_max_sight(void)
 	return MAX_SIGHT;
 }
 
+static int spell_value_spell_power(void)
+{
+	return player->state.spell_power;
+}
+
 expression_base_value_f spell_value_base_by_name(const char *name)
 {
 	static const struct value_base_s {
@@ -602,6 +608,7 @@ expression_base_value_f spell_value_base_by_name(const char *name)
 	} value_bases[] = {
 		{ "MONSTER_LEVEL", spell_value_base_monster_level },
 		{ "PLAYER_LEVEL", spell_value_base_player_level },
+		{ "SPELL_POWER", spell_value_spell_power },
 		{ "MAX_SIGHT", spell_value_base_max_sight },
 		{ NULL, NULL },
 	};

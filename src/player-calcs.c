@@ -1685,8 +1685,8 @@ void calc_bonuses(object_type gear[], player_state *state, bool known_only)
 	/* Set various defaults */
 	state->speed = 110;
 	state->num_blows = 100;
-
 	state->spell_speed = 10;
+	state->spell_power = 100;
 
 	/*** Extract race/class info ***/
 
@@ -1767,6 +1767,9 @@ void calc_bonuses(object_type gear[], player_state *state, bool known_only)
 		
 		/* Affect spell speed */
 		state->spell_speed += o_ptr->modifiers[OBJ_MOD_SPELL_SPEED];
+		
+		/* Affect spell power: each "point" of spell power adds 25 percentage points */
+		state->spell_power += (o_ptr->modifiers[OBJ_MOD_SPELL_PWR] * 25);
 
 		/* Affect blows */
 		extra_blows += o_ptr->modifiers[OBJ_MOD_BLOWS];
