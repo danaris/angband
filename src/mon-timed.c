@@ -135,7 +135,12 @@ static bool mon_resist_effect(const struct monster *mon, int ef_idx, int timer, 
 	if (flag & MON_TMD_MON_SOURCE)
 		resist_chance = mon->race->level;
 	else
-		resist_chance = mon->race->level + 40 - (timer / 2);
+		resist_chance = mon->race->level + 40 - (timer / 2) - (player->lev * (player->state.spell_power/100));
+	
+	// High-level players with high spell power can reduce the chance below 0; that should never be true
+	if (resist_chance < 3) {
+		resist_chance = 3;
+	}
 
 	if (randint0(100) < resist_chance) return (TRUE);
 
