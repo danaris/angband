@@ -65,7 +65,8 @@ static struct flag_set {
 } flag_sets[] = {
 	{ OFT_SUST, 1, 10, 5, 0, "sustains" },
 	{ OFT_PROT, 3, 15, 4, 0, "protections" },
-	{ OFT_MISC, 1, 25, 8, 0, "misc abilities" }
+	{ OFT_MISC, 1, 25, 8, 0, "misc abilities" },
+	{ OFT_CAST, 1, 25, 8, 0, "spell modifiers" }
 };
 
 

@@ -106,6 +106,8 @@ static const flag_type misc_flags[] =
 	{ OF_AGGRAVATE, "Aggravates creatures nearby" },
 	{ OF_DRAIN_EXP, "Drains experience" },
 	{ OF_TELEPORT, "Induces random teleportation" },
+	{ OF_HALF_MANA, "Halves mana usage" },
+	{ OF_QTR_MANA, "Reduces mana usage to 1/4 of normal" },
 };
 
 static const struct origin_type {

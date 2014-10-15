@@ -62,6 +62,7 @@ enum object_flag_type {
 	OFT_MELEE,		/* applicable only to melee weapons */
 	OFT_CURSE,		/* a "sticky" curse */
 	OFT_BAD,		/* an undesirable flag that isn't a curse */
+	OFT_CAST,		/* a property related to spellcasting */
 
 	OFT_MAX
 };
@@ -71,7 +72,8 @@ enum object_flag_id {
 	OFID_NONE = 0,		/* never shown */
 	OFID_NORMAL,		/* normal ID on use */
 	OFID_TIMED,			/* obvious after time */
-	OFID_WIELD			/* obvious on wield */
+	OFID_WIELD,			/* obvious on wield */
+	OFID_CAST			/* obvious when casting a spell */
 };
 
 #define OF_SIZE                	FLAG_SIZE(OF_MAX)

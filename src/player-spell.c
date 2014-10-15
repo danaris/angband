@@ -23,6 +23,7 @@
 #include "monster.h"
 #include "obj-tval.h"
 #include "obj-util.h"
+#include "obj-identify.h"
 #include "object.h"
 #include "player-spell.h"
 #include "player-timed.h"
@@ -310,10 +311,11 @@ s16b spell_chance(int spell)
 	/* Reduce failure rate by realm adjustment */
 	chance -= fail_adjust(player);
 
+	int mana_cost = real_mana_cost(s_ptr);
 	/* Not enough mana to cast */
-	if (s_ptr->smana > player->csp)
+	if (mana_cost > player->csp)
 	{
-		chance += 5 * (s_ptr->smana - player->csp);
+		chance += 5 * (mana_cost - player->csp);
 	}
 
 	/* Extract the minimum failure rate due to realm */
@@ -448,20 +450,23 @@ bool spell_cast(int spell, int dir)
 
 			/* Redraw object recall */
 			player->upkeep->redraw |= (PR_OBJECT);
+			object_notice_on_cast(player);
 		}
 	}
+	
+	int mana_cost = real_mana_cost(s_ptr);
 
 	/* Sufficient mana */
-	if (s_ptr->smana <= player->csp)
+	if (mana_cost <= player->csp)
 	{
 		/* Use some mana */
-		player->csp -= s_ptr->smana;
+		player->csp -= mana_cost;
 	}
 
 	/* Over-exert the player */
 	else
 	{
-		int oops = s_ptr->smana - player->csp;
+		int oops = mana_cost - player->csp;
 
 		/* No mana left */
 		player->csp = 0;
@@ -595,11 +600,6 @@ static int spell_value_base_max_sight(void)
 	return MAX_SIGHT;
 }
 
-static int spell_value_spell_power(void)
-{
-	return player->state.spell_power;
-}
-
 expression_base_value_f spell_value_base_by_name(const char *name)
 {
 	static const struct value_base_s {
@@ -608,7 +608,6 @@ expression_base_value_f spell_value_base_by_name(const char *name)
 	} value_bases[] = {
 		{ "MONSTER_LEVEL", spell_value_base_monster_level },
 		{ "PLAYER_LEVEL", spell_value_base_player_level },
-		{ "SPELL_POWER", spell_value_spell_power },
 		{ "MAX_SIGHT", spell_value_base_max_sight },
 		{ NULL, NULL },
 	};

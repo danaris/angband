@@ -705,6 +705,34 @@ bool object_notice_curses(object_type *o_ptr)
 
 
 /**
+ * Notice spell mods on an object.
+ *
+ * \param o_ptr is the object to notice spell mods on
+ */
+bool object_notice_spell_mods(object_type *o_ptr)
+{
+	bitflag f[OF_SIZE], f2[OF_SIZE];
+	
+	object_flags(o_ptr, f);
+	
+	/* Gather whatever spell mod flags there are to know */
+	create_mask(f2, FALSE, OFT_CAST, OFT_MAX);
+	
+	/* Remove everything except the spell mod flags */
+	of_inter(f, f2);
+	
+	/* give knowledge of which spell mods are present */
+	object_notice_flags(o_ptr, f);
+	
+	object_check_for_ident(o_ptr);
+	
+	player->upkeep->notice |= PN_IGNORE;
+	
+	return !of_is_empty(f);
+}
+
+
+/**
  * Notice things which happen on defending.
  */
 void object_notice_on_defend(struct player *p)
@@ -717,6 +745,24 @@ void object_notice_on_defend(struct player *p)
 			object_notice_defence_plusses(p, obj);
 	}
 
+	event_signal(EVENT_INVENTORY);
+	event_signal(EVENT_EQUIPMENT);
+}
+
+
+/**
+ * Notice things which happen on spell cast.
+ */
+void object_notice_on_cast(struct player *p)
+{
+	int i;
+	
+	for (i = 0; i < p->body.count; i++) {
+		struct object *obj = equipped_item_by_slot(p, i);
+		if (obj && obj->kind)
+			object_notice_spell_mods(obj);
+	}
+	
 	event_signal(EVENT_INVENTORY);
 	event_signal(EVENT_EQUIPMENT);
 }

@@ -397,6 +397,7 @@ extern byte player_hp_attr(struct player *p);
 extern byte player_sp_attr(struct player *p);
 
 extern bool player_restore_mana(struct player *p, int amt);
+extern int real_mana_cost(const class_spell *spell);
 
 extern const char *player_safe_name(struct player *p, bool strip_suffix);
 

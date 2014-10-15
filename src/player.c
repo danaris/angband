@@ -10,6 +10,7 @@
 #include "player-birth.h"
 #include "player-timed.h"
 #include "player-spell.h"
+#include "player-util.h"
 #include "obj-util.h"
 #include "ui-input.h"
 #include "z-color.h" /* TERM_* */
@@ -468,6 +469,24 @@ byte player_sp_attr(struct player *p)
 		attr = TERM_RED;
 	
 	return attr;
+}
+
+int real_mana_cost(const class_spell *spell) {
+	
+	int mana_cost = spell->smana;
+	if (player_of_has(player, OF_QTR_MANA)) {
+		mana_cost = mana_cost / 4;
+		if (mana_cost<1) {
+			mana_cost = 1;
+		}
+	} else if (player_of_has(player, OF_HALF_MANA)) {
+		mana_cost = mana_cost/2;
+		if (mana_cost<1) {
+			mana_cost = 1;
+		}
+	}
+	
+	return mana_cost;
 }
 
 bool player_restore_mana(struct player *p, int amt) {
