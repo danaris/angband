@@ -1305,7 +1305,14 @@ void do_cmd_walk(struct command *cmd)
 	if (!do_cmd_walk_test(y, x))
 		return;
 
-	player->upkeep->energy_use = 100;
+	if (player->state.bonus_move>0) {
+		player->state.bonus_move--;
+	} else {
+		player->upkeep->energy_use = 100;
+	}
+	if (player->timed[TMD_BONUS_MOVE] || player->timed[TMD_BONUS_MOVE_2X]) {
+		player->upkeep->redraw |= PR_SPEED;
+	}
 
 	move_player(dir, TRUE);
 }

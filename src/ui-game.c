@@ -531,9 +531,11 @@ static void prt_bonus_move(int row, int col)
 	int i = player->state.bonus_move;
 	char buf[32] = "";
 	
-	strnfmt(buf, sizeof(buf), "%+d Move", i);
+	if (player->timed[TMD_BONUS_MOVE] || player->timed[TMD_BONUS_MOVE_2X]) {
+		strnfmt(buf, sizeof(buf), "%+d Move", i);
+	}
 	
-	/* Display the speed */
+	/* Display the bonus move */
 	c_put_str(TERM_BLUE, format("%-10s", buf), row, col);
 }
 
@@ -603,7 +605,7 @@ static const struct side_handler_t
 	{ NULL,        20, 0 },
 	{ NULL,        22, 0 },
 	{ prt_speed,   13, EVENT_PLAYERSPEED }, /* Slow (-NN) / Fast (+NN) */
-	/*{ prt_bonus_move,   13, EVENT_PLAYERSPEED }, /* Slow (-NN) / Fast (+NN) */
+	{ prt_bonus_move,   13, EVENT_PLAYERSPEED }, /* +N Move */
 	{ prt_depth,   14, EVENT_DUNGEONLEVEL }, /* Lev NNN / NNNN ft */
 };
 
