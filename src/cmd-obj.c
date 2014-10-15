@@ -1072,10 +1072,12 @@ void do_cmd_cast(struct command *cmd)
 		/* Verify */
 		if (!get_check("Attempt it anyway? ")) return;
 	}
+	
+	int spell_energy = s_ptr->senergy / player->state.spell_speed;
 
 	/* Cast a spell */
 	if (spell_cast(spell, dir))
-		player->upkeep->energy_use = 100;
+		player->upkeep->energy_use = spell_energy;
 }
 
 

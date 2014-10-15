@@ -3132,6 +3132,11 @@ static enum parser_error parse_c_spell(struct parser *p) {
 	book->spells[book->num_spells].slevel = parser_getint(p, "level");
 	book->spells[book->num_spells].smana = parser_getint(p, "mana");
 	book->spells[book->num_spells].sfail = parser_getint(p, "fail");
+	if (parser_hasval(p, "energy")) {
+		book->spells[book->num_spells].senergy = parser_getint(p, "energy");
+	} else {
+		book->spells[book->num_spells].senergy = 1000;
+	}
 	book->spells[book->num_spells++].sexp = parser_getint(p, "exp");
 	return PARSE_ERROR_NONE;
 }
@@ -3290,7 +3295,7 @@ struct parser *init_parse_c(void) {
 	parser_reg(p, "F ?str flags", parse_c_f);
 	parser_reg(p, "magic uint first uint weight uint realm uint books", parse_c_magic);
 	parser_reg(p, "book sym tval sym sval uint spells uint realm", parse_c_book);
-	parser_reg(p, "spell sym name int level int mana int fail int exp", parse_c_spell);
+	parser_reg(p, "spell sym name int level int mana int fail int exp ?int energy", parse_c_spell);
 	parser_reg(p, "effect sym eff ?sym type ?int xtra", parse_c_effect);
 	parser_reg(p, "param int p2 ?int p3", parse_c_param);
 	parser_reg(p, "dice str dice", parse_c_dice);

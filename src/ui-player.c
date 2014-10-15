@@ -755,10 +755,10 @@ static struct panel *get_panel_combat(void) {
 	hit = player->known_state.to_h + (object_attack_plusses_are_visible(obj) ? obj->to_h : 0);
 	dam = object_attack_plusses_are_visible(obj) ? obj->to_d : 0;
 
-	panel_space(p);
 	panel_line(p, TERM_L_BLUE, "Shoot to-dam", "%+d", dam);
 	panel_line(p, TERM_L_BLUE, "To-hit", "%d,%+d", bth / 10, hit);
 	panel_line(p, TERM_L_BLUE, "Shots", "%d/turn", player->state.num_shots);
+	panel_line(p, TERM_L_BLUE, "Spell speed", "%+d", player->state.spell_speed-10);
 
 	return p;
 }

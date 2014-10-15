@@ -250,6 +250,7 @@ typedef struct {
 	int smana;		/**< Required mana (to cast) */
 	int sfail;		/**< Base chance of failure */
 	int sexp;		/**< Encoded experience bonus */
+	int senergy;	/**< Energy used to cast the spell */
 } class_spell;
 
 
