@@ -961,7 +961,6 @@
 		0A17D33019AD53340015456D /* ui-map.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "ui-map.h"; sourceTree = "<group>"; };
 		0A17D33119AD53340015456D /* z-dice.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "z-dice.c"; sourceTree = "<group>"; };
 		0A17D33219AD53340015456D /* obj-make.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "obj-make.c"; sourceTree = "<group>"; };
-		0A17D33319AD53340015456D /* main-cocoa.o */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.objfile"; path = "main-cocoa.o"; sourceTree = "<group>"; };
 		0A17D33419AD53340015456D /* cmd-core.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "cmd-core.c"; sourceTree = "<group>"; };
 		0A17D33519AD53340015456D /* cmd-core.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "cmd-core.h"; sourceTree = "<group>"; };
 		0A17D33619AD53340015456D /* get.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = get.c; sourceTree = "<group>"; };
@@ -1039,11 +1038,11 @@
 		0A17D37E19AD53340015456D /* z-dice.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "z-dice.h"; sourceTree = "<group>"; };
 		0A17D37F19AD53340015456D /* z-expression.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "z-expression.c"; sourceTree = "<group>"; };
 		0A17D38019AD53340015456D /* z-expression.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "z-expression.h"; sourceTree = "<group>"; };
-		0A17D38119AD53340015456D /* z-msg-list.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "z-msg-list.h"; sourceTree = "<group>"; };
 		0A17D3B419AD56360015456D /* activation.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = activation.txt; sourceTree = "<group>"; };
 		0A17D3B519AD56360015456D /* monster_spell.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = monster_spell.txt; sourceTree = "<group>"; };
 		0A17D3B619AD56360015456D /* trap.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = trap.txt; sourceTree = "<group>"; };
 		0A17D3B719AD56360015456D /* body.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = body.txt; sourceTree = "<group>"; };
+		0A1E77EE19F060BA006B9B41 /* list-mon-sides.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "list-mon-sides.h"; sourceTree = "<group>"; };
 		0A286714172DCD4A004FD64D /* .gitignore */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = .gitignore; sourceTree = "<group>"; };
 		0A286715172DCD4A004FD64D /* .splintrc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = .splintrc; sourceTree = "<group>"; };
 		0A286717172DCD4A004FD64D /* angband.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = angband.h; sourceTree = "<group>"; };
@@ -1243,8 +1242,6 @@
 		0A2868DA172DCD4E004FD64D /* z-file.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "z-file.h"; sourceTree = "<group>"; };
 		0A2868DC172DCD4E004FD64D /* z-form.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "z-form.c"; sourceTree = "<group>"; };
 		0A2868DD172DCD4E004FD64D /* z-form.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "z-form.h"; sourceTree = "<group>"; };
-		0A2868DF172DCD4E004FD64D /* z-msg.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "z-msg.c"; sourceTree = "<group>"; };
-		0A2868E0172DCD4E004FD64D /* z-msg.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "z-msg.h"; sourceTree = "<group>"; };
 		0A2868E2172DCD4E004FD64D /* z-quark.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "z-quark.c"; sourceTree = "<group>"; };
 		0A2868E3172DCD4E004FD64D /* z-quark.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "z-quark.h"; sourceTree = "<group>"; };
 		0A2868E5172DCD4E004FD64D /* z-queue.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "z-queue.c"; sourceTree = "<group>"; };
@@ -1263,6 +1260,10 @@
 		0A2868F8172DCD4F004FD64D /* z-util.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "z-util.h"; sourceTree = "<group>"; };
 		0A2868FA172DCD4F004FD64D /* z-virt.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "z-virt.c"; sourceTree = "<group>"; };
 		0A2868FB172DCD4F004FD64D /* z-virt.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "z-virt.h"; sourceTree = "<group>"; };
+		0A53402519F1F83B000828D3 /* Spell Breakdown */ = {isa = PBXFileReference; lastKnownFileType = text; path = "Spell Breakdown"; sourceTree = "<group>"; };
+		0A53402619F1F83B000828D3 /* TemplateIcon2x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = TemplateIcon2x.png; sourceTree = "<group>"; };
+		0A53402719F1F881000828D3 /* Notes */ = {isa = PBXFileReference; lastKnownFileType = text; path = Notes; sourceTree = "<group>"; };
+		0A609E0C19FE897100952177 /* .gitignore */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = .gitignore; sourceTree = "<group>"; };
 		0A6127BC19AF9B3100C999A1 /* LegendBand.rtf */ = {isa = PBXFileReference; lastKnownFileType = text.rtf; path = LegendBand.rtf; sourceTree = "<group>"; };
 		0A97A70E17D2A23C008FF7CA /* cmd-cave.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "cmd-cave.c"; sourceTree = "<group>"; };
 		0A97A70F17D2A23C008FF7CA /* cmd-know.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "cmd-know.c"; sourceTree = "<group>"; };
@@ -1271,7 +1272,7 @@
 		0A97A71217D2A286008FF7CA /* init.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = init.c; sourceTree = "<group>"; };
 		0A97A71317D2A286008FF7CA /* quest.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = quest.c; sourceTree = "<group>"; };
 		0AE5279517D2C477004F0CC8 /* en */ = {isa = PBXFileReference; lastKnownFileType = wrapper.nib; name = en; path = en.lproj/MainMenu.nib; sourceTree = "<group>"; };
-		0AE5279717D2C477004F0CC8 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		0AE5279717D2C477004F0CC8 /* en */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		0AE5279917D2C477004F0CC8 /* en */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.make; name = en; path = en.lproj/Makefile; sourceTree = "<group>"; };
 		0AE77CD117346EC9000EF250 /* TGCAngband-Cocoa.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "TGCAngband-Cocoa.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		0AE77CD417346EC9000EF250 /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = System/Library/Frameworks/Cocoa.framework; sourceTree = SDKROOT; };
@@ -1688,6 +1689,10 @@
 		0A286708172DC791004FD64D = {
 			isa = PBXGroup;
 			children = (
+				0A609E0C19FE897100952177 /* .gitignore */,
+				0A53402519F1F83B000828D3 /* Spell Breakdown */,
+				0A53402719F1F881000828D3 /* Notes */,
+				0A53402619F1F83B000828D3 /* TemplateIcon2x.png */,
 				0A6127BC19AF9B3100C999A1 /* LegendBand.rtf */,
 				0AE77D67173809AB000EF250 /* lib */,
 				0A286713172DCD4A004FD64D /* src */,
@@ -1766,6 +1771,7 @@
 				0A17D33C19AD53340015456D /* list-ignore-types.h */,
 				0A17D33D19AD53340015456D /* list-kind-flags.h */,
 				0A17D33E19AD53340015456D /* list-mon-flags.h */,
+				0A1E77EE19F060BA006B9B41 /* list-mon-sides.h */,
 				0A17D31119AD53340015456D /* list-mon-spells.h */,
 				0AF756EB19ECA72600A42AAA /* list-mon-timed.h */,
 				0A17D33F19AD53340015456D /* list-object-flags.h */,
@@ -1785,7 +1791,6 @@
 				0A17D34A19AD53340015456D /* list-tvals.h */,
 				0A286799172DCD4B004FD64D /* load.c */,
 				0A28679B172DCD4B004FD64D /* main-cocoa.m */,
-				0A17D33319AD53340015456D /* main-cocoa.o */,
 				0A28679E172DCD4B004FD64D /* main-gcu.c */,
 				0A28679F172DCD4B004FD64D /* main-nds.c */,
 				0A2867A0172DCD4B004FD64D /* main-sdl.c */,
@@ -1970,9 +1975,6 @@
 				0A2868DA172DCD4E004FD64D /* z-file.h */,
 				0A2868DC172DCD4E004FD64D /* z-form.c */,
 				0A2868DD172DCD4E004FD64D /* z-form.h */,
-				0A17D38119AD53340015456D /* z-msg-list.h */,
-				0A2868DF172DCD4E004FD64D /* z-msg.c */,
-				0A2868E0172DCD4E004FD64D /* z-msg.h */,
 				0A2868E2172DCD4E004FD64D /* z-quark.c */,
 				0A2868E3172DCD4E004FD64D /* z-quark.h */,
 				0A2868E5172DCD4E004FD64D /* z-queue.c */,
@@ -2867,7 +2869,7 @@
 		0A286709172DC792004FD64D /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0460;
+				LastUpgradeCheck = 0600;
 				ORGANIZATIONNAME = "Timothy Collett";
 			};
 			buildConfigurationList = 0A28670C172DC792004FD64D /* Build configuration list for PBXProject "TGCAngband" */;
@@ -3110,7 +3112,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = YES;
-				ARCHS = "$(ARCHS_STANDARD_64_BIT)";
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
 				CLANG_CXX_LIBRARY = "libc++";
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
@@ -3143,7 +3144,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = YES;
-				ARCHS = "$(ARCHS_STANDARD_64_BIT)";
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
 				CLANG_CXX_LIBRARY = "libc++";
 				CLANG_WARN_CONSTANT_CONVERSION = YES;

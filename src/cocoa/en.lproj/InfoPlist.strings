@@ -1,0 +1,4 @@
+﻿/* Localized versions of Info.plist keys */
+
+CFBundleName = "TGCAngband";
+NSHumanReadableCopyright = "© TopazGryphon Creations, 2014";
