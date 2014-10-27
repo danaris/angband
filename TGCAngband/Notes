@@ -1,0 +1,24 @@
+Mage:
+	Spell speed: include casting speed and items that improve it
+	Spell power: multipliers to spell damage & duration; gonna have to get funky with the formulae
+	Roles: blaster Mage, buff/de buff Mage, any others?
+
+Priest:
+	Role: ??? Mind control?
+	Gains some benefit from spell power, but less (mainly due to lack of blaster-ness)
+
+Paladin:
+	Role: Holy warrior, similar to priest (and paladin) role now
+	Innate protection from evil at level ?
+	Smiting?
+
+Ranger:
+	Role: ??? Buffing archer? Half-rogue?
+
+Warrior:
+	Rage?
+	Look more at Barbarian, see what can be adapted well
+
+More complex aggro: add ability for monsters to be hostile to each other, and/or friendly/neutral to you
+This will make a Summoner role feasible, as well as MC-Priest, and animal companions for ranger
+Probably requires fiendishly complicated changes to monster AI >_<
