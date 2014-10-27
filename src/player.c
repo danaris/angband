@@ -187,13 +187,13 @@ const player_sex sex_info[MAX_SEXES] =
 
 /**
  * Magic realms:
- * index, spell stat, verb, spell noun, book noun
+ * index, spell stat, verb, spell noun, book noun, realm name
  */
 struct magic_realm realms[REALM_MAX] =
 {
-	{ REALM_NONE, STAT_STR, "", "", "", "" },
-	{ REALM_ARCANE, STAT_INT, "cast", "spell", "magic book", "arcane" },
-	{ REALM_PIOUS, STAT_WIS, "recite", "prayer", "prayer book", "divine" }
+	#define REALM(a, b, c, d, e, f) { REALM_##a, b, c, d, e, f },
+	#include "list-magic-realms.h"
+	#undef REALM
 };
 
 
@@ -568,7 +568,10 @@ static void cleanup_player(void) {
 		object_wipe(&player->gear_k[i]);
 	mem_free(player->gear);
 	mem_free(player->gear_k);
+	for (i = 0; i < player->body.count; i++)
+		string_free(player->body.slots[i].name);
 	mem_free(player->body.slots);
+	mem_free(player->history);
 
 	mem_free(player);
 }

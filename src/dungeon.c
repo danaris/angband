@@ -232,53 +232,6 @@ static void regenmana(int percent)
 
 
 
-
-
-
-/*
- * Regenerate the monsters (once per 100 game turns)
- *
- * XXX XXX XXX Should probably be done during monster turns.
- */
-static void regen_monsters(void)
-{
-	int i, frac;
-
-	/* Regenerate everyone */
-	for (i = 1; i < cave_monster_max(cave); i++)
-	{
-		/* Check the i'th monster */
-		monster_type *m_ptr = cave_monster(cave, i);
-
-		/* Skip dead monsters */
-		if (!m_ptr->race) continue;
-
-		/* Allow regeneration (if needed) */
-		if (m_ptr->hp < m_ptr->maxhp)
-		{
-			/* Hack -- Base regeneration */
-			frac = m_ptr->maxhp / 100;
-
-			/* Hack -- Minimal regeneration rate */
-			if (!frac) frac = 1;
-
-			/* Hack -- Some monsters regenerate quickly */
-			if (rf_has(m_ptr->race->flags, RF_REGENERATE)) frac *= 2;
-
-			/* Hack -- Regenerate */
-			m_ptr->hp += frac;
-
-			/* Do not over-regenerate */
-			if (m_ptr->hp > m_ptr->maxhp) m_ptr->hp = m_ptr->maxhp;
-
-			/* Redraw (later) if needed */
-			if (player->upkeep->health_who == m_ptr) 
-				player->upkeep->redraw |= (PR_HEALTH);
-		}
-	}
-}
-
-
 /*
  * If player has inscribed the object with "!!", let him know when it's
  * recharged. -LM-
@@ -415,57 +368,30 @@ static void recharge_objects(void)
 }
 
 
+/**
+ * Play an ambient sound dependent on dungeon level, and day or night in town
+ */
 static void play_ambient_sound(void)
 {
-	/* Town sound */
-	if (player->depth == 0) 
-	{
-		/* Hack - is it daytime or nighttime? */
-		if (turn % (10L * TOWN_DAWN) < TOWN_DAWN / 2)
-		{
-			/* It's day. */
+	if (player->depth == 0) {
+		if (is_daytime())
 			sound(MSG_AMBIENT_DAY);
-		} 
 		else 
-		{
-			/* It's night. */
 			sound(MSG_AMBIENT_NITE);
-		}
-		
-	}
-
-	/* Dungeon level 1-20 */
-	else if (player->depth <= 20) 
-	{
+	} else if (player->depth <= 20) {
 		sound(MSG_AMBIENT_DNG1);
-	}
-
-	/* Dungeon level 21-40 */
-	else if (player->depth <= 40) 
-	{
+	} else if (player->depth <= 40) {
 		sound(MSG_AMBIENT_DNG2);
-	}
-
-	/* Dungeon level 41-60 */
-	else if (player->depth <= 60) 
-	{
+	} else if (player->depth <= 60) {
 		sound(MSG_AMBIENT_DNG3);
-	}
-
-	/* Dungeon level 61-80 */
-	else if (player->depth <= 80)
-	{
+	} else if (player->depth <= 80) {
 		sound(MSG_AMBIENT_DNG4);
-	}
-
-	/* Dungeon level 80- */
-	else
-	{
+	} else {
 		sound(MSG_AMBIENT_DNG5);
 	}
 }
 
-/*
+/**
  * Helper for process_world -- decrement player->timed[] fields.
  */
 static void decrease_timeouts(void)
@@ -473,15 +399,14 @@ static void decrease_timeouts(void)
 	int adjust = (adj_con_fix[player->state.stat_ind[STAT_CON]] + 1);
 	int i;
 
-	/* Decrement all effects that can be done simply */
-	for (i = 0; i < TMD_MAX; i++)
-	{
+	/* Most effects decrement by 1 */
+	for (i = 0; i < TMD_MAX; i++) {
 		int decr = 1;
 		if (!player->timed[i])
 			continue;
 
-		switch (i)
-		{
+		/* Special cases */
+		switch (i) {
 			case TMD_CUT:
 			{
 				/* Hack -- check for truly "mortal" wound */
@@ -504,8 +429,8 @@ static void decrease_timeouts(void)
 }
 
 
-/*
- * Handle certain things once every 10 game turns
+/**
+ * Handle things that need updating once every 10 game turns
  */
 static void process_world(struct chunk *c)
 {
@@ -515,26 +440,17 @@ static void process_world(struct chunk *c)
 
 	object_type *o_ptr;
 
-	/* Every 10 game turns */
-	if (turn % 10) return;
-
-
 	/*** Check the Time ***/
 
 	/* Play an ambient sound at regular intervals. */
 	if (!(turn % ((10L * TOWN_DAWN) / 4)))
-	{
 		play_ambient_sound();
-	}
 
-	/*** Handle the "town" (stores and sunshine) ***/
+	/*** Handle stores and sunshine ***/
 
-	/* While in town */
-	if (!player->depth)
-	{
-		/* Hack -- Daybreak/Nighfall in town */
-		if (!(turn % ((10L * TOWN_DAWN) / 2)))
-		{
+	if (!player->depth) {
+		/* Daybreak/Nighfall in town */
+		if (!(turn % ((10L * TOWN_DAWN) / 2))) {
 			bool dawn;
 
 			/* Check for dawn */
@@ -551,12 +467,7 @@ static void process_world(struct chunk *c)
 			/* Illuminate */
 			cave_illuminate(c, dawn);
 		}
-	}
-
-
-	/* While in the dungeon */
-	else
-	{
+	} else {
 		/* Update the stores once a day (while in the dungeon).
 		   The changes are not actually made until return to town,
 		   to avoid giving details away in the knowledge menu. */
@@ -564,31 +475,18 @@ static void process_world(struct chunk *c)
 	}
 
 
-	/*** Process the monsters ***/
-
 	/* Check for creature generation */
 	if (one_in_(z_info->alloc_monster_chance))
-	{
-		/* Make a new monster */
 		(void)pick_and_place_distant_monster(cave, loc(player->px, player->py), MAX_SIGHT + 5, TRUE, player->depth);
-	}
-
-	/* Hack -- Check for creature regeneration */
-	if (!(turn % 100)) regen_monsters();
-
 
 	/*** Damage over Time ***/
 
 	/* Take damage from poison */
 	if (player->timed[TMD_POISONED])
-	{
-		/* Take damage */
 		take_hit(player, 1, "poison");
-	}
 
 	/* Take damage from cuts */
-	if (player->timed[TMD_CUT])
-	{
+	if (player->timed[TMD_CUT]) {
 		/* Mortal wound or Deep Gash */
 		if (player->timed[TMD_CUT] > 200)
 			i = 3;
@@ -609,8 +507,7 @@ static void process_world(struct chunk *c)
 	/*** Check the Food, and Regenerate ***/
 
 	/* Digest normally */
-	if (!(turn % 100))
-	{
+	if (!(turn % 100)) {
 		/* Basic digestion rate based on speed */
 		i = extract_energy[player->state.speed] * 2;
 
@@ -628,24 +525,21 @@ static void process_world(struct chunk *c)
 	}
 
 	/* Getting Faint */
-	if (player->food < PY_FOOD_FAINT)
-	{
+	if (player->food < PY_FOOD_FAINT) {
 		/* Faint occasionally */
-		if (!player->timed[TMD_PARALYZED] && one_in_(10))
-		{
+		if (!player->timed[TMD_PARALYZED] && one_in_(10)) {
 			/* Message */
 			msg("You faint from the lack of food.");
 			disturb(player, 1);
 
 			/* Faint (bypass free action) */
-			(void)player_inc_timed(player, TMD_PARALYZED, 1 + randint0(5), TRUE, FALSE);
+			(void)player_inc_timed(player, TMD_PARALYZED, 1 + randint0(5),
+								   TRUE, FALSE);
 		}
 	}
 
-
 	/* Starve to death (slowly) */
-	if (player->food < PY_FOOD_STARVE)
-	{
+	if (player->food < PY_FOOD_STARVE) {
 		/* Calculate damage */
 		i = (PY_FOOD_STARVE - player->food) / 10;
 
@@ -723,7 +617,7 @@ static void process_world(struct chunk *c)
 		bool burn_fuel = TRUE;
 
 		/* Turn off the wanton burning of light during the day in the town */
-		if (!player->depth && ((turn % (10L * TOWN_DAWN)) < ((10L * TOWN_DAWN) / 2)))
+		if (!player->depth && is_daytime())
 			burn_fuel = FALSE;
 
 		/* If the light has the NO_FUEL flag, well... */
@@ -772,8 +666,7 @@ static void process_world(struct chunk *c)
 	/*** Process Inventory ***/
 
 	/* Handle experience draining */
-	if (player_of_has(player, OF_DRAIN_EXP))
-	{
+	if (player_of_has(player, OF_DRAIN_EXP)) {
 		if ((player->exp > 0) && one_in_(10)) {
 			s32b d = damroll(10, 6) +
 				(player->exp / 100) * z_info->life_drain_percent;
@@ -793,8 +686,7 @@ static void process_world(struct chunk *c)
 	/*** Involuntary Movement ***/
 
 	/* Random teleportation */
-	if (player_of_has(player, OF_TELEPORT) && one_in_(50))
-	{
+	if (player_of_has(player, OF_TELEPORT) && one_in_(50)) {
 		const char *forty = "40";
 		wieldeds_notice_flag(player, OF_TELEPORT);
 		effect_simple(EF_TELEPORT, forty, 0, 1, 0, NULL);
@@ -802,31 +694,26 @@ static void process_world(struct chunk *c)
 	}
 
 	/* Delayed Word-of-Recall */
-	if (player->word_recall)
-	{
+	if (player->word_recall) {
 		/* Count down towards recall */
 		player->word_recall--;
 
 		/* Activate the recall */
-		if (!player->word_recall)
-		{
+		if (!player->word_recall) {
 			/* Disturbing! */
 			disturb(player, 0);
 
 			/* Determine the level */
-			if (player->depth)
-			{
+			if (player->depth) {
 				msgt(MSG_TPLEVEL, "You feel yourself yanked upwards!");
 				dungeon_change_level(0);
-			}
-			else
-			{
+			} else {
 				msgt(MSG_TPLEVEL, "You feel yourself yanked downwards!");
                 
                 /* Force descent to a lower level if allowed */
-                if (OPT(birth_force_descend) && player->max_depth < MAX_DEPTH - 1
-                  && !is_quest(player->max_depth)){
-
+                if (OPT(birth_force_descend) &&
+					player->max_depth < MAX_DEPTH - 1 &&
+					!is_quest(player->max_depth)) {
                     player->max_depth = player->max_depth + 1;
                 }
 
@@ -941,10 +828,8 @@ static void process_player(void)
 		/* Redraw stuff (if needed) */
 		if (player->upkeep->redraw) redraw_stuff(player->upkeep);
 
-
 		/* Place cursor on player/target */
 		place_cursor();
-
 
 		/* Refresh (optional) */
 		Term_fresh();
@@ -956,8 +841,7 @@ static void process_player(void)
 		player->upkeep->energy_use = 0;
 
 		/* Dwarves detect treasure */
-		if (player_has(PF_SEE_ORE))
-		{
+		if (player_has(PF_SEE_ORE)) {
 			/* Only if they are in good shape */
 			if (!player->timed[TMD_IMAGE] &&
 					!player->timed[TMD_CONFUSED] &&
@@ -991,16 +875,12 @@ static void process_player(void)
 				
 		}
 
-		/* Paralyzed or Knocked Out */
+		/* Paralyzed or Knocked Out player gets no turn */
 		if ((player->timed[TMD_PARALYZED]) || (player->timed[TMD_STUN] >= 100))
-		{
-			/* Take a turn */
 			player->upkeep->energy_use = 100;
-		}
 
 		/* Picking up objects */
-		else if (player->upkeep->notice & PN_PICKUP)
-		{
+		else if (player->upkeep->notice & PN_PICKUP) {
 			player->upkeep->energy_use = do_autopickup() * 10;
 			if (player->upkeep->energy_use > 100)
 				player->upkeep->energy_use = 100;
@@ -1012,20 +892,14 @@ static void process_player(void)
 
 		/* Resting */
 		else if (player_is_resting(player))
-		{
 			player_resting_step_turn(player);
-		}
 
 		/* Running */
 		else if (player->upkeep->running)
-		{
-			/* Take a step */
 			run_step(0);
-		}
 
 		/* Repeated command */
-		else if (cmd_get_nrepeats() > 0)
-		{
+		else if (cmd_get_nrepeats() > 0) {
 			/* Hack -- Assume messages were seen */
 			msg_flag = FALSE;
 
@@ -1034,11 +908,7 @@ static void process_player(void)
 
 			/* Process the command */
 			process_command(CMD_GAME, TRUE);
-		}
-
-		/* Normal command */
-		else
-		{
+		} else { /* Normal command */
 			/* Check monster recall */
 			if (player->upkeep->monster_race)
 				player->upkeep->redraw |= (PR_MONSTER);
@@ -1058,8 +928,7 @@ static void process_player(void)
 		/*** Clean up ***/
 
 		/* Significant */
-		if (player->upkeep->energy_use)
-		{
+		if (player->upkeep->energy_use) {
 			/* Use some energy */
 			player->energy -= player->upkeep->energy_use;
 
@@ -1068,7 +937,6 @@ static void process_player(void)
 
 			/* Hack -- constant hallucination */
 			if (player->timed[TMD_IMAGE])
-			{
 				player->upkeep->redraw |= (PR_MAP);
 			}
 			
@@ -1082,8 +950,7 @@ static void process_player(void)
 			}
 
 			/* Shimmer multi-hued monsters */
-			for (i = 1; i < cave_monster_max(cave); i++)
-			{
+			for (i = 1; i < cave_monster_max(cave); i++) {
 				struct monster *mon = cave_monster(cave, i);
 				if (!mon->race)
 					continue;
@@ -1093,13 +960,12 @@ static void process_player(void)
 			}
 
 			/* Clear NICE flag, and show marked monsters */
-			for (i = 1; i < cave_monster_max(cave); i++)
-			{
+			for (i = 1; i < cave_monster_max(cave); i++) {
 				struct monster *mon = cave_monster(cave, i);
-				mon->mflag &= ~MFLAG_NICE;
-				if (mon->mflag & MFLAG_MARK) {
-					if (!(mon->mflag & MFLAG_SHOW)) {
-						mon->mflag &= ~MFLAG_MARK;
+				mflag_off(mon->mflag, MFLAG_NICE);
+				if (mflag_has(mon->mflag, MFLAG_MARK)) {
+					if (!mflag_has(mon->mflag, MFLAG_SHOW)) {
+						mflag_off(mon->mflag, MFLAG_MARK);
 						update_mon(mon, cave, FALSE);
 					}
 				}
@@ -1107,10 +973,9 @@ static void process_player(void)
 		}
 
 		/* Clear SHOW flag */
-		for (i = 1; i < cave_monster_max(cave); i++)
-		{
+		for (i = 1; i < cave_monster_max(cave); i++) {
 			struct monster *mon = cave_monster(cave, i);
-			mon->mflag &= ~MFLAG_SHOW;
+			mflag_off(mon->mflag, MFLAG_SHOW);
 		}
 
 		/* HACK: This will redraw the itemlist too frequently, but I'm don't
@@ -1180,7 +1045,7 @@ static void do_animation(void)
 		byte attr;
 		monster_type *m_ptr = cave_monster(cave, i);
 
-		if (!m_ptr || !m_ptr->race || !m_ptr->ml)
+		if (!m_ptr || !m_ptr->race || !mflag_has(m_ptr->mflag, MFLAG_VISIBLE))
 			continue;
 		else if (rf_has(m_ptr->race->flags, RF_ATTR_MULTI))
 			attr = randint1(BASIC_COLORS - 1);
@@ -1216,6 +1081,27 @@ void idle_update(void)
 }
 
 
+static bool refresh_and_check_for_leaving(void)
+{
+	/* Notice stuff */
+	if (player->upkeep->notice)
+		notice_stuff(player->upkeep);
+
+	/* Update stuff */
+	if (player->upkeep->update)
+		update_stuff(player->upkeep);
+
+	/* Redraw stuff */
+	if (player->upkeep->redraw)
+		redraw_stuff(player->upkeep);
+
+	/* Place cursor on player/target */
+	place_cursor();
+
+	/* Are we leaving the level/game? */
+	return player->upkeep->leaving;
+}
+
 /*
  * Interact with the current dungeon level.
  *
@@ -1224,10 +1110,6 @@ void idle_update(void)
  */
 static void dungeon(struct chunk *c)
 {
-	monster_type *m_ptr;
-	int i;
-
-
 
 	/* Hack -- enforce illegal panel */
 	Term->offset_y = z_info->dungeon_hgt;
@@ -1255,20 +1137,15 @@ static void dungeon(struct chunk *c)
 
 	/* Track maximum player level */
 	if (player->max_lev < player->lev)
-	{
 		player->max_lev = player->lev;
-	}
 
 
 	/* Track maximum dungeon level */
 	if (player->max_depth < player->depth)
-	{
 		player->max_depth = player->depth;
-	}
 
 	/* If autosave is pending, do it now. */
-	if (player->upkeep->autosave)
-	{
+	if (player->upkeep->autosave) {
 		save_game();
 		player->upkeep->autosave = FALSE;
 	}
@@ -1276,18 +1153,14 @@ static void dungeon(struct chunk *c)
 	/* Choose panel */
 	verify_panel();
 
-
 	/* Flush messages */
 	message_flush();
-
 
 	/* Hack -- Increase "xtra" depth */
 	character_xtra++;
 
-
 	/* Clear */
 	Term_clear();
-
 
 	/* Update stuff */
 	player->upkeep->update |= (PU_BONUS | PU_HP | PU_MANA | PU_SPELLS);
@@ -1297,7 +1170,6 @@ static void dungeon(struct chunk *c)
 
 	/* Update stuff */
 	update_stuff(player->upkeep);
-
 
 	/* Fully update the visuals (and monster distances) */
 	player->upkeep->update |= (PU_FORGET_VIEW | PU_UPDATE_VIEW | PU_DISTANCE);
@@ -1317,10 +1189,8 @@ static void dungeon(struct chunk *c)
 	/* Redraw stuff */
 	redraw_stuff(player->upkeep);
 
-
 	/* Hack -- Decrease "xtra" depth */
 	character_xtra--;
-
 
 	/* Update stuff */
 	player->upkeep->update |= (PU_BONUS | PU_HP | PU_MANA | PU_SPELLS | PU_INVEN);
@@ -1346,7 +1216,8 @@ static void dungeon(struct chunk *c)
 	/* Announce (or repeat) the feeling */
 	if (player->depth) display_feeling(FALSE);
 
-	/* Give player minimum energy to start a new level, but do not reduce higher value from savefile for level in progress */
+	/* Give player minimum energy to start a new level, but do not reduce
+	 * higher value from savefile for level in progress */
 	if (player->energy < INITIAL_DUNGEON_ENERGY)
 		player->energy = INITIAL_DUNGEON_ENERGY;
 
@@ -1354,36 +1225,33 @@ static void dungeon(struct chunk *c)
 	/*** Process this dungeon level ***/
 
 	/* Main loop */
-	while (TRUE)
-	{
-		/* Hack -- Compact the monster list occasionally */
+	while (TRUE) {
+		/* Compact the monster list if we're approaching the limit */
 		if (cave_monster_count(cave) + 32 > z_info->level_monster_max) 
 			compact_monsters(64);
 
-		/* Hack -- Compress the monster list occasionally */
+		/* Too many holes in the monster list - compress */
 		if (cave_monster_count(cave) + 32 < cave_monster_max(cave)) 
 			compact_monsters(0);
 
-		/* Hack -- Compact the object list occasionally */
+		/* Compact the object list if we're approaching the limit */
 		if (cave_object_count(cave) + 32 > z_info->level_object_max) 
 			compact_objects(64);
 
-		/* Hack -- Compress the object list occasionally */
+		/* Too many holes in the object list - compress */
 		if (cave_object_count(cave) + 32 < cave_object_max(cave)) 
 			compact_objects(0);
 
 		/* Can the player move? */
-		while ((player->energy >= 100) && !player->upkeep->leaving)
-		{
+		while ((player->energy >= 100) && !player->upkeep->leaving) {
     		/* Do any necessary animations */
     		do_animation(); 
 
 			/* process monster with even more energy first */
-			process_monsters(c, (byte)(player->energy + 1));
+			process_monsters(c, player->energy + 1);
 
 			/* if still alive */
-			if (!player->upkeep->leaving)
-			{
+			if (!player->upkeep->leaving) {
 			        /* Mega hack -redraw big graphics - sorry NRM */
 			        if ((tile_width > 1) || (tile_height > 1)) 
 				        player->upkeep->redraw |= (PR_MAP);
@@ -1393,83 +1261,32 @@ static void dungeon(struct chunk *c)
 			}
 		}
 
-		/* Notice stuff */
-		if (player->upkeep->notice) notice_stuff(player->upkeep);
-
-		/* Update stuff */
-		if (player->upkeep->update) update_stuff(player->upkeep);
-
-		/* Redraw stuff */
-		if (player->upkeep->redraw) redraw_stuff(player->upkeep);
-
-		/* Place cursor on player/target */
-		place_cursor();
-
-		/* Handle "leaving" */
-		if (player->upkeep->leaving) break;
-
+		/* Refresh */
+		if (refresh_and_check_for_leaving())
+			break;
 
 		/* Process all of the monsters */
-		process_monsters(c, 100);
+		process_monsters(c, 0);
 
-		/* Notice stuff */
-		if (player->upkeep->notice) notice_stuff(player->upkeep);
+		/* Reset Monsters */
+		reset_monsters();
 
-		/* Update stuff */
-		if (player->upkeep->update) update_stuff(player->upkeep);
+		/* Refresh */
+		if (refresh_and_check_for_leaving())
+			break;
 
-		/* Redraw stuff */
-		if (player->upkeep->redraw) redraw_stuff(player->upkeep);
+		/* Process the world every ten turns */
+		if (!(turn % 10))
+			process_world(c);
 
-		/* Place cursor on player/target */
-		place_cursor();
-
-		/* Handle "leaving" */
-		if (player->upkeep->leaving) break;
-
-
-		/* Process the world */
-		process_world(c);
-
-		/* Notice stuff */
-		if (player->upkeep->notice) notice_stuff(player->upkeep);
-
-		/* Update stuff */
-		if (player->upkeep->update) update_stuff(player->upkeep);
-
-		/* Redraw stuff */
-		if (player->upkeep->redraw) redraw_stuff(player->upkeep);
-
-		/* Place cursor on player/target */
-		place_cursor();
-
-		/* Handle "leaving" */
-		if (player->upkeep->leaving) break;
+		/* Refresh */
+		if (refresh_and_check_for_leaving())
+			break;
 
 		/*** Apply energy ***/
 
 		/* Give the player some energy */
 		player->energy += extract_energy[player->state.speed];
-
-		/* Give energy to all monsters */
-		for (i = cave_monster_max(cave) - 1; i >= 1; i--)
-		{
-			int mspeed;
-			
-			/* Access the monster (if alive) */
-			m_ptr = cave_monster(cave, i);
-			if (!m_ptr->race) continue;
-
-			/* Calculate the net speed */
-			mspeed = m_ptr->mspeed;
-			if (m_ptr->m_timed[MON_TMD_FAST])
-				mspeed += 10;
-			if (m_ptr->m_timed[MON_TMD_SLOW])
-				mspeed -= 10;
-
-			/* Give this monster some energy */
-			m_ptr->energy += extract_energy[mspeed];
-		}
 
 		/* Count game turns */
 		turn++;

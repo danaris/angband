@@ -1,6 +1,6 @@
 /**
-   \file player-attack.c
-   \brief Attacks (both throwing and melee) by the player
+ * \file player-attack.c
+ * \brief Attacks (both throwing and melee) by the player
  *
  * Copyright (c) 1997 Ben Harrison, James E. Wilson, Robert A. Koeneke
  *
@@ -62,6 +62,22 @@ int breakage_chance(const object_type *o_ptr, bool hit_target) {
 	return perc;
 }
 
+static int chance_of_missile_hit(struct player *p, struct object *missile,
+								 struct object *launcher, int y, int x)
+{
+	bool throw = (launcher ? FALSE : TRUE);
+	int bonus = p->state.to_h + missile->to_h;
+	int chance;
+
+	if (throw)
+		chance = p->state.skills[SKILL_TO_HIT_THROW] + bonus * BTH_PLUS_ADJ;
+	else {
+		bonus += launcher->to_h;
+		chance = player->state.skills[SKILL_TO_HIT_BOW] + bonus * BTH_PLUS_ADJ;
+	}
+
+	return chance - distance(p->py, p->px, y, x);
+}
 
 /**
  * Determine if the player "hits" a monster.
@@ -84,6 +100,52 @@ bool test_hit(int chance, int ac, int vis) {
 	return randint0(chance) >= (ac * 2 / 3);
 }
 
+
+/**
+ * Determine standard melee damage.
+ *
+ * Factor in damage dice, to-dam and any brand or slay.
+ */
+static int melee_damage(struct object *obj, const struct brand *b,
+						const struct slay *s)
+{
+	int dmg = damroll(obj->dd, obj->ds);
+
+	if (s)
+		dmg *= s->multiplier;
+	else if (b)
+		dmg *= b->multiplier;
+
+	dmg += obj->to_d;
+
+	return dmg;
+}
+
+/**
+ * Determine standard ranged damage.
+ *
+ * Factor in damage dice, to-dam, multiplier and any brand or slay.
+ */
+static int ranged_damage(struct object *missile, struct object *launcher, 
+						 const struct brand *b, const struct slay *s, int mult)
+{
+	int dam;
+
+	/* If we have a slay, modify the multiplier appropriately */
+	if (b)
+		mult += b->multiplier;
+	else if (s)
+		mult += s->multiplier;
+
+	/* Apply damage: multiplier, slays, criticals, bonuses */
+	dam = damroll(missile->dd, missile->ds);
+	dam += missile->to_d;
+	if (launcher)
+		dam += launcher->to_d;
+	dam *= mult;
+
+	return dam;
+}
 
 /**
  * Determine damage for critical hits from shooting.
@@ -209,6 +271,47 @@ static int critical_sneak(int weight, int plus, int dam, u32b *msg_type) {
 		*msg_type = MSG_HIT_HI_SUPERB;
 		return 4 * dam + 20;
 	}
+	
+}
+
+/**
+ * Apply the player damage bonuses
+ */
+static int player_damage_bonus(struct player_state *state)
+{
+	return state->to_d;
+}
+
+/**
+ * Apply blow side effects
+ */
+static void blow_side_effects(struct player *p, struct monster *mon)
+{
+	/* Confusion attack */
+	if (p->confusing) {
+		p->confusing = FALSE;
+		msg("Your hands stop glowing.");
+
+		mon_inc_timed(mon, MON_TMD_CONF, (10 + randint0(p->lev) / 10),
+					  MON_TMD_FLG_NOTIFY, FALSE);
+	}
+}
+
+/**
+ * Apply blow after effects
+ */
+static bool blow_after_effects(int y, int x, bool quake)
+{
+	/* Apply earthquake brand */
+	if (quake) {
+		effect_simple(EF_EARTHQUAKE, "0", 0, 10, 0, NULL);
+
+		/* Monster may be dead or moved */
+		if (!square_monster(cave, y, x))
+			return TRUE;
+	}
+
+	return FALSE;
 }
 
 /* A list of the different hit types and their associated special message */
@@ -270,10 +373,12 @@ static bool py_attack_real(int y, int x, bool *fear) {
 				 MDESC_OBJE | MDESC_IND_HID | MDESC_PRO_HID);
 
 	/* Auto-Recall if possible and visible */
-	if (m_ptr->ml) monster_race_track(player->upkeep, m_ptr->race);
+	if (mflag_has(m_ptr->mflag, MFLAG_VISIBLE))
+		monster_race_track(player->upkeep, m_ptr->race);
 
 	/* Track a new monster */
-	if (m_ptr->ml) health_track(player->upkeep, m_ptr);
+	if (mflag_has(m_ptr->mflag, MFLAG_VISIBLE))
+		health_track(player->upkeep, m_ptr);
 
 	/* Handle player fear (only for invisible monsters) */
 	if (player_of_has(player, OF_AFRAID)) {
@@ -292,7 +397,8 @@ static bool py_attack_real(int y, int x, bool *fear) {
 	mon_clear_timed(m_ptr, MON_TMD_SLEEP, MON_TMD_FLG_NOMESSAGE, FALSE);
 
 	/* See if the player hit */
-	success = test_hit(chance, m_ptr->race->ac, m_ptr->ml);
+	success = test_hit(chance, m_ptr->race->ac,
+					   mflag_has(m_ptr->mflag, MFLAG_VISIBLE));
 
 	/* If a miss, skip this hit */
 	if (!success) {
@@ -319,14 +425,8 @@ static bool py_attack_real(int y, int x, bool *fear) {
 
 		improve_attack_modifier(o_ptr, m_ptr, &b, &s, hit_verb, 
 								TRUE, FALSE);
-
-		dmg = damroll(o_ptr->dd, o_ptr->ds);
-		if (s)
-			dmg *= s->multiplier;
-		else if (b)
-			dmg *= b->multiplier;
-
-		dmg += o_ptr->to_d;
+		
+		dmg = melee_damage(o_ptr, b, s);
 		if (sneak_attack) {
 			my_strcpy(hit_verb, "sneak attack", sizeof(hit_verb));
 			dmg = critical_sneak(o_ptr->weight, o_ptr->to_h, dmg, &msg_type);
@@ -347,7 +447,7 @@ static bool py_attack_real(int y, int x, bool *fear) {
 	wieldeds_notice_on_attack();
 
 	/* Apply the player damage bonuses */
-	dmg += player->state.to_d;
+	dmg += player_damage_bonus(&player->state);
 
 	/* No negative damage; change verb if no damage done */
 	if (dmg <= 0) {
@@ -372,14 +472,8 @@ static bool py_attack_real(int y, int x, bool *fear) {
 			msgt(msg_type, "You %s %s%s.", hit_verb, m_name, dmg_text);
 	}
 
-	/* Confusion attack */
-	if (player->confusing) {
-		player->confusing = FALSE;
-		msg("Your hands stop glowing.");
-
-		mon_inc_timed(m_ptr, MON_TMD_CONF,
-				(10 + randint0(player->lev) / 10), MON_TMD_FLG_NOTIFY, FALSE);
-	}
+	/* Pre-damage side effects */
+	blow_side_effects(player, m_ptr);
 
 	/* Damage, check for fear and death */
 	stop = mon_take_hit(m_ptr, dmg, fear, NULL);
@@ -387,11 +481,9 @@ static bool py_attack_real(int y, int x, bool *fear) {
 	if (stop)
 		(*fear) = FALSE;
 
-	/* Apply earthquake brand */
-	if (do_quake) {
-		effect_simple(EF_EARTHQUAKE, "0", 0, 10, 0, NULL);
-		if (cave->m_idx[y][x] == 0) stop = TRUE;
-	}
+	/* Post-damage effects */
+	if (blow_after_effects(y, x, do_quake))
+		stop = TRUE;
 
 	return stop;
 }
@@ -427,7 +519,7 @@ void py_attack(int y, int x) {
 	}
 	
 	/* Hack - delay fear messages */
-	if (fear && m_ptr->ml) {
+	if (fear && mflag_has(m_ptr->mflag, MFLAG_VISIBLE)) {
 		char m_name[80];
 		/* XXX Don't set monster_desc flags, since add_monster_message does string processing on m_name */
 		monster_desc(m_name, sizeof(m_name), m_ptr, MDESC_DEFAULT);
@@ -534,7 +626,7 @@ static void ranged_helper(int item, int dir, int range, int shots, ranged_attack
 		/* Try the attack on the monster at (x, y) if any */
 		if (cave->m_idx[y][x] > 0) {
 			monster_type *m_ptr = square_monster(cave, y, x);
-			int visible = m_ptr->ml;
+			int visible = mflag_has(m_ptr->mflag, MFLAG_VISIBLE);
 
 			bool fear = FALSE;
 			const char *note_dies = monster_is_unusual(m_ptr->race) ? 
@@ -588,15 +680,16 @@ static void ranged_helper(int item, int dir, int range, int shots, ranged_attack
 					}
 					
 					/* Track this monster */
-					if (m_ptr->ml) 
+					if (mflag_has(m_ptr->mflag, MFLAG_VISIBLE)) {
 						monster_race_track(player->upkeep, m_ptr->race);
-					if (m_ptr->ml) health_track(player->upkeep, m_ptr);
+						health_track(player->upkeep, m_ptr);
+					}
 				}
 
 				/* Hit the monster, check for death */
 				if (!mon_take_hit(m_ptr, dmg, &fear, note_dies)) {
 					message_pain(m_ptr, dmg);
-					if (fear && m_ptr->ml) {
+					if (fear && mflag_has(m_ptr->mflag, MFLAG_VISIBLE)) {
 						char m_name[80];
 						monster_desc(m_name, sizeof(m_name), m_ptr, 
 									 MDESC_DEFAULT);
@@ -636,16 +729,14 @@ static void ranged_helper(int item, int dir, int range, int shots, ranged_attack
  * Helper function used with ranged_helper by do_cmd_fire.
  */
 static struct attack_result make_ranged_shot(object_type *o_ptr, int y, int x) {
-	char *hit_verb = mem_alloc(20*sizeof(char));
+	char *hit_verb = mem_alloc(20 * sizeof(char));
 	struct attack_result result = {FALSE, 0, 0, hit_verb};
 
 	object_type *j_ptr = equipped_item_by_slot_name(player, "shooting");
 
 	monster_type *m_ptr = square_monster(cave, y, x);
 	
-	int bonus = player->state.to_h + o_ptr->to_h + j_ptr->to_h;
-	int chance = player->state.skills[SKILL_TO_HIT_BOW] + bonus * BTH_PLUS_ADJ;
-	int chance2 = chance - distance(player->py, player->px, y, x);
+	int chance = chance_of_missile_hit(player, o_ptr, j_ptr, y, x);
 
 	int multiplier = player->state.ammo_mult;
 	const struct brand *b = NULL;
@@ -655,14 +746,14 @@ static struct attack_result make_ranged_shot(object_type *o_ptr, int y, int x) {
 	my_strcpy(hit_verb, "hits", sizeof(hit_verb));
 
 	/* Did we hit it (penalize distance travelled) */
-	if (!test_hit(chance2, m_ptr->race->ac, m_ptr->ml)) return result;
+	if (!test_hit(chance, m_ptr->race->ac,
+				  mflag_has(m_ptr->mflag, MFLAG_VISIBLE)))
+		return result;
 
 	result.success = TRUE;
 
-	improve_attack_modifier(o_ptr, m_ptr, &b, &s, result.hit_verb,
-							TRUE, FALSE);
-	improve_attack_modifier(j_ptr, m_ptr, &b, &s, result.hit_verb,
-							TRUE, FALSE);
+	improve_attack_modifier(o_ptr, m_ptr, &b, &s, result.hit_verb, TRUE, FALSE);
+	improve_attack_modifier(j_ptr, m_ptr, &b, &s, result.hit_verb, TRUE, FALSE);
 
 	/* If we have a slay, modify the multiplier appropriately */
 	
@@ -674,15 +765,8 @@ static struct attack_result make_ranged_shot(object_type *o_ptr, int y, int x) {
 		}
 	} 
 	
-	if (b)
-		multiplier += b->multiplier;
-	else if (s)
-		multiplier += s->multiplier;
-
-	/* Apply damage: multiplier, slays, criticals, bonuses */
-	result.dmg = damroll(o_ptr->dd, o_ptr->ds);
-	result.dmg += o_ptr->to_d + j_ptr->to_d;
-	result.dmg *= multiplier;
+	
+	result.dmg = ranged_damage(o_ptr, j_ptr, b, s, multiplier);
     if (sneak_attack) {
         result.dmg = critical_shot_sneak(o_ptr->weight, o_ptr->to_h, result.dmg, &result.msg_type);
     } else {
@@ -704,9 +788,7 @@ static struct attack_result make_ranged_throw(object_type *o_ptr, int y, int x) 
 
 	monster_type *m_ptr = square_monster(cave, y, x);
 	
-	int bonus = player->state.to_h + o_ptr->to_h;
-	int chance = player->state.skills[SKILL_TO_HIT_THROW] + bonus * BTH_PLUS_ADJ;
-	int chance2 = chance - distance(player->py, player->px, y, x);
+	int chance = chance_of_missile_hit(player, o_ptr, NULL, y, x);
 
 	int multiplier = 1;
 	const struct brand *b = NULL;
@@ -715,24 +797,17 @@ static struct attack_result make_ranged_throw(object_type *o_ptr, int y, int x) 
 	my_strcpy(hit_verb, "hits", sizeof(hit_verb));
 
 	/* If we missed then we're done */
-	if (!test_hit(chance2, m_ptr->race->ac, m_ptr->ml)) return result;
+	if (!test_hit(chance, m_ptr->race->ac,
+				  mflag_has(m_ptr->mflag, MFLAG_VISIBLE)))
+		return result;
 
 	result.success = TRUE;
 
-	improve_attack_modifier(o_ptr, m_ptr, &b, &s, result.hit_verb,
-							TRUE, FALSE);
+	improve_attack_modifier(o_ptr, m_ptr, &b, &s, result.hit_verb, TRUE, FALSE);
 
-	/* If we have a slay, modify the multiplier appropriately */
-	if (b)
-		multiplier += b->multiplier;
-	else if (s)
-		multiplier += s->multiplier;
-
-	/* Apply damage: multiplier, slays, criticals, bonuses */
-	result.dmg = damroll(o_ptr->dd, o_ptr->ds);
-	result.dmg += o_ptr->to_d;
-	result.dmg *= multiplier;
-	result.dmg = critical_norm(o_ptr->weight, o_ptr->to_h, result.dmg, &result.msg_type);
+	result.dmg = ranged_damage(o_ptr, NULL, b, s, multiplier);
+	result.dmg = critical_norm(o_ptr->weight, o_ptr->to_h, result.dmg,
+							   &result.msg_type);
 
 	return result;
 }

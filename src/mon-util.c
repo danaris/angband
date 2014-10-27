@@ -227,7 +227,7 @@ void update_mon(struct monster *m_ptr, struct chunk *c, bool full)
 	}
 
 	/* Detected */
-	if (m_ptr->mflag & (MFLAG_MARK)) flag = TRUE;
+	if (mflag_has(m_ptr->mflag, MFLAG_MARK)) flag = TRUE;
 
 	/* Check if telepathy works */
 	if (square_isno_esp(c, fy, fx) ||
@@ -325,9 +325,9 @@ void update_mon(struct monster *m_ptr, struct chunk *c, bool full)
 					RF_SMART, RF_STUPID, FLAG_END);
 
 		/* It was previously unseen */
-		if (!m_ptr->ml) {
+		if (!mflag_has(m_ptr->mflag, MFLAG_VISIBLE)) {
 			/* Mark as visible */
-			m_ptr->ml = TRUE;
+			mflag_on(m_ptr->mflag, MFLAG_VISIBLE);
 
 			/* Draw the monster */
 			square_light_spot(c, fy, fx);
@@ -348,13 +348,13 @@ void update_mon(struct monster *m_ptr, struct chunk *c, bool full)
 	/* The monster is not visible */
 	else {
 		/* It was previously seen */
-		if (m_ptr->ml) {
+		if (mflag_has(m_ptr->mflag, MFLAG_VISIBLE)) {
 			/* Treat mimics differently */
 			if (!m_ptr->mimicked_o_idx || 
 				ignore_item_ok(cave_object(c, m_ptr->mimicked_o_idx)))
 			{
 				/* Mark as not visible */
-				m_ptr->ml = FALSE;
+				mflag_off(m_ptr->mflag, MFLAG_VISIBLE);
 
 				/* Erase the monster */
 				square_light_spot(c, fy, fx);
@@ -373,9 +373,9 @@ void update_mon(struct monster *m_ptr, struct chunk *c, bool full)
 	/* The monster is now easily visible */
 	if (easy) {
 		/* Change */
-		if (!(m_ptr->mflag & (MFLAG_VIEW))) {
+		if (!mflag_has(m_ptr->mflag, MFLAG_VIEW)) {
 			/* Mark as easily visible */
-			m_ptr->mflag |= (MFLAG_VIEW);
+			mflag_on(m_ptr->mflag, MFLAG_VIEW);
 
 			/* Disturb on appearance */
 			if (OPT(disturb_near)) disturb(player, 1);
@@ -388,9 +388,9 @@ void update_mon(struct monster *m_ptr, struct chunk *c, bool full)
 	/* The monster is not easily visible */
 	else {
 		/* Change */
-		if (m_ptr->mflag & (MFLAG_VIEW)) {
+		if (mflag_has(m_ptr->mflag, MFLAG_VIEW)) {
 			/* Mark as not easily visible */
-			m_ptr->mflag &= ~(MFLAG_VIEW);
+			mflag_off(m_ptr->mflag, MFLAG_VIEW);
 
 			/* Disturb on disappearance */
 			if (OPT(disturb_near) && !is_mimicking(m_ptr)) disturb(player, 1);
@@ -602,8 +602,8 @@ void become_aware(struct monster *m_ptr)
 {
 	monster_lore *l_ptr = get_lore(m_ptr->race);
 
-	if (m_ptr->unaware) {
-		m_ptr->unaware = FALSE;
+	if (mflag_has(m_ptr->mflag, MFLAG_UNAWARE)) {
+		mflag_off(m_ptr->mflag, MFLAG_UNAWARE);
 
 		/* Learn about mimicry */
 		if (rf_has(m_ptr->race->flags, RF_UNAWARE))
@@ -625,7 +625,7 @@ void become_aware(struct monster *m_ptr)
 			if (rf_has(m_ptr->race->flags, RF_MIMIC_INV)) {
 				object_type *i_ptr;
 				object_type object_type_body;
-				
+
 				/* Get local object */
 				i_ptr = &object_type_body;
 
@@ -635,12 +635,12 @@ void become_aware(struct monster *m_ptr)
 				/* Carry the object */
 				monster_carry(cave, m_ptr, i_ptr);
 			}
-				
+
 			/* Delete the mimicked object */
 			delete_object_idx(m_ptr->mimicked_o_idx);
 			m_ptr->mimicked_o_idx = 0;
 		}
-		
+
 		/* Update monster and item lists */
 		player->upkeep->update |= (PU_UPDATE_VIEW | PU_MONSTERS);
 		player->upkeep->redraw |= (PR_MONLIST | PR_ITEMLIST);
@@ -652,7 +652,7 @@ void become_aware(struct monster *m_ptr)
  */
 bool is_mimicking(struct monster *m_ptr)
 {
-	return (m_ptr->unaware && m_ptr->mimicked_o_idx);
+	return (mflag_has(m_ptr->mflag, MFLAG_UNAWARE) && m_ptr->mimicked_o_idx);
 }
 
 

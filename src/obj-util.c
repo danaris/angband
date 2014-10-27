@@ -486,7 +486,7 @@ void delete_object_idx(int o_idx)
 
 		square_light_spot(cave, y, x);
 	}
-	
+
 	/* Delete the mimicking monster if necessary */
 	if (j_ptr->mimicking_m_idx) {
 		monster_type *m_ptr;
@@ -495,7 +495,7 @@ void delete_object_idx(int o_idx)
 		
 		/* Clear the mimicry */
 		m_ptr->mimicked_o_idx = 0;
-		m_ptr->unaware = FALSE;
+		mflag_off(m_ptr->mflag, MFLAG_UNAWARE);
 	}
 
 	/* Wipe the object */
@@ -2120,7 +2120,7 @@ bool item_is_available(int item, bool (*tester)(const object_type *), int mode)
 	int item_num;
 	int i;
 
-	item_num = scan_items(item_list, N_ELEMENTS(item_list), mode, tester);
+	item_num = scan_items(item_list, item_max, mode, tester);
 
 	for (i = 0; i < item_num; i++)
 		if (item_list[i] == item) {
