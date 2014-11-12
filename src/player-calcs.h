@@ -20,7 +20,7 @@
 #ifndef PLAYER_CALCS_H
 #define PLAYER_CALCS_H
 
-/*
+/**
  * Indexes of the various "stats" (hard-coded by savefiles, etc).
  */
 enum
@@ -33,7 +33,7 @@ enum
 };
 
 
-/*
+/**
  * Player race and class flags
  */
 enum
@@ -67,7 +67,7 @@ enum
 #define player_has(flag)       (pf_has(player->race->pflags, (flag)) || pf_has(player->class->pflags, (flag)))
 
 
-/*
+/**
  * Skill indexes
  */
 enum
@@ -164,16 +164,16 @@ enum
 #define PR_EXTRA \
 	(PR_STATUS | PR_STATE | PR_STUDY)
 
-/*
+/**
  * The range of possible indexes into tables based upon stats.
  * Currently things range from 3 to 18/220 = 40.
  */
 #define STAT_RANGE 38
 
-/** Inventory **/
+/**
+ * Gear handling constants
+ */
 
-#define QUIVER_SIZE		10
-#define INVEN_PACK		23
 #define MAX_GEAR		60
 #define MAX_GEAR_INCR	10
 #define NO_OBJECT		0
@@ -289,8 +289,8 @@ typedef struct player_upkeep {
 	bool running_withpathfind;	/* Are we using the pathfinder ? */
 	bool running_firststep;		/* Is this our first step running? */
 
-	int quiver[QUIVER_SIZE];	/* Quiver indices into the gear array */
-	int inven[INVEN_PACK + 1];	/* Inventory indices into the gear array */
+	int *quiver;				/* Quiver indices into the gear array */
+	int *inven;					/* Inventory indices into the gear array */
 	int total_weight;			/* Total weight being carried */
 	int inven_cnt;				/* Number of items in inventory */
 	int equip_cnt;				/* Number of items in equipment */

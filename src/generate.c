@@ -275,13 +275,14 @@ static errr finish_parse_profile(struct parser *p) {
 
 static void cleanup_profile(void)
 {
-	struct room_template *t, *next;
-	for (t = room_templates; t; t = next) {
-		next = t->next;
-		mem_free(t->name);
-		mem_free(t->text);
-		mem_free(t);
+	int i, j;
+	for (i = 0; i < z_info->profile_max; i++) {
+		for (j = 0; j < cave_profiles[i].n_room_profiles; j++)
+			string_free((char *) cave_profiles[i].room_profiles[j].name);
+		mem_free(cave_profiles[i].room_profiles);
+		string_free((char *) cave_profiles[i].name);
 	}
+	mem_free(cave_profiles);
 }
 
 static struct file_parser profile_parser = {
@@ -495,7 +496,7 @@ static void place_feeling(struct chunk *c)
 				continue;
 
 			/* Set the cave square appropriately */
-			sqinfo_on(c->info[y][x], SQUARE_FEEL);
+			sqinfo_on(c->squares[y][x].info, SQUARE_FEEL);
 			
 			break;
 		}
@@ -723,10 +724,10 @@ void cave_generate(struct chunk **c, struct player *p) {
 		/* Clear generation flags. */
 		for (y = 0; y < chunk->height; y++) {
 			for (x = 0; x < chunk->width; x++) {
-				sqinfo_off(chunk->info[y][x], SQUARE_WALL_INNER);
-				sqinfo_off(chunk->info[y][x], SQUARE_WALL_OUTER);
-				sqinfo_off(chunk->info[y][x], SQUARE_WALL_SOLID);
-				sqinfo_off(chunk->info[y][x], SQUARE_MON_RESTRICT);
+				sqinfo_off(chunk->squares[y][x].info, SQUARE_WALL_INNER);
+				sqinfo_off(chunk->squares[y][x].info, SQUARE_WALL_OUTER);
+				sqinfo_off(chunk->squares[y][x].info, SQUARE_WALL_SOLID);
+				sqinfo_off(chunk->squares[y][x].info, SQUARE_MON_RESTRICT);
 			}
 		}
 
@@ -758,8 +759,7 @@ void cave_generate(struct chunk **c, struct player *p) {
 	/* Save the town */
 	else if (!chunk_find_name("Town")) {
 		struct chunk *town = chunk_write(0, 0, z_info->town_hgt,
-										 z_info->town_wid, FALSE, FALSE, FALSE,
-										 TRUE);
+										 z_info->town_wid, FALSE, FALSE, FALSE);
 		town->name = string_make("Town");
 		chunk_list_add(town);
 	}

@@ -1,6 +1,6 @@
 /**
-   \file cave-square.c
-   \brief functions for dealing with individual squares
+ * \file cave-square.c
+ * \brief functions for dealing with individual squares
  *
  * Copyright (c) 1997 Ben Harrison, James E. Wilson, Robert A. Koeneke
  *
@@ -109,7 +109,7 @@ bool feat_is_boring(int feat)
  * SQUARE FEATURE PREDICATES
  *
  * These functions are used to figure out what kind of square something is,
- * via c->feat[y][x]. All direct testing of c->feat[y][x] should be rewritten
+ * via c->squares[y][x].feat. All direct testing of c->squares[y][x].feat should be rewritten
  * in terms of these functions.
  *
  * It's often better to use square behavior predicates (written in terms of
@@ -125,7 +125,7 @@ bool feat_is_boring(int feat)
  */
 bool square_isfloor(struct chunk *c, int y, int x)
 {
-	return tf_has(f_info[c->feat[y][x]].flags, TF_FLOOR);
+	return tf_has(f_info[c->squares[y][x].feat].flags, TF_FLOOR);
 }
 
 /**
@@ -133,8 +133,8 @@ bool square_isfloor(struct chunk *c, int y, int x)
  */
 bool square_isrock(struct chunk *c, int y, int x)
 {
-	return (tf_has(f_info[c->feat[y][x]].flags, TF_GRANITE) &&
-			!tf_has(f_info[c->feat[y][x]].flags, TF_DOOR_ANY));
+	return (tf_has(f_info[c->squares[y][x].feat].flags, TF_GRANITE) &&
+			!tf_has(f_info[c->squares[y][x].feat].flags, TF_DOOR_ANY));
 }
 
 /**
@@ -142,8 +142,8 @@ bool square_isrock(struct chunk *c, int y, int x)
  */
 bool square_isperm(struct chunk *c, int y, int x)
 {
-	return (tf_has(f_info[c->feat[y][x]].flags, TF_PERMANENT) &&
-			tf_has(f_info[c->feat[y][x]].flags, TF_ROCK));
+	return (tf_has(f_info[c->squares[y][x].feat].flags, TF_PERMANENT) &&
+			tf_has(f_info[c->squares[y][x].feat].flags, TF_ROCK));
 }
 
 /**
@@ -151,7 +151,7 @@ bool square_isperm(struct chunk *c, int y, int x)
  */
 bool square_ismagma(struct chunk *c, int y, int x)
 {
-	return feat_is_magma(c->feat[y][x]);
+	return feat_is_magma(c->squares[y][x].feat);
 }
 
 /**
@@ -159,7 +159,7 @@ bool square_ismagma(struct chunk *c, int y, int x)
  */
 bool square_isquartz(struct chunk *c, int y, int x)
 {
-	return feat_is_quartz(c->feat[y][x]);
+	return feat_is_quartz(c->squares[y][x].feat);
 }
 
 /**
@@ -173,7 +173,7 @@ bool square_ismineral(struct chunk *c, int y, int x)
 
 bool square_hasgoldvein(struct chunk *c, int y, int x)
 {
-	return tf_has(f_info[c->feat[y][x]].flags, TF_GOLD);
+	return tf_has(f_info[c->squares[y][x].feat].flags, TF_GOLD);
 }
 
 /**
@@ -181,8 +181,8 @@ bool square_hasgoldvein(struct chunk *c, int y, int x)
  */
 bool square_isrubble(struct chunk *c, int y, int x)
 {
-    return (!tf_has(f_info[c->feat[y][x]].flags, TF_WALL) &&
-			tf_has(f_info[c->feat[y][x]].flags, TF_ROCK));
+    return (!tf_has(f_info[c->squares[y][x].feat].flags, TF_WALL) &&
+			tf_has(f_info[c->squares[y][x].feat].flags, TF_ROCK));
 }
 
 /**
@@ -193,8 +193,8 @@ bool square_isrubble(struct chunk *c, int y, int x)
  */
 bool square_issecretdoor(struct chunk *c, int y, int x)
 {
-    return (tf_has(f_info[c->feat[y][x]].flags, TF_DOOR_ANY) &&
-			tf_has(f_info[c->feat[y][x]].flags, TF_ROCK));
+    return (tf_has(f_info[c->squares[y][x].feat].flags, TF_DOOR_ANY) &&
+			tf_has(f_info[c->squares[y][x].feat].flags, TF_ROCK));
 }
 
 /**
@@ -202,7 +202,7 @@ bool square_issecretdoor(struct chunk *c, int y, int x)
  */
 bool square_isopendoor(struct chunk *c, int y, int x)
 {
-    return (tf_has(f_info[c->feat[y][x]].flags, TF_CLOSABLE));
+    return (tf_has(f_info[c->squares[y][x].feat].flags, TF_CLOSABLE));
 }
 
 /**
@@ -210,13 +210,13 @@ bool square_isopendoor(struct chunk *c, int y, int x)
  */
 bool square_iscloseddoor(struct chunk *c, int y, int x)
 {
-	int feat = c->feat[y][x];
+	int feat = c->squares[y][x].feat;
 	return tf_has(f_info[feat].flags, TF_DOOR_CLOSED);
 }
 
 bool square_isbrokendoor(struct chunk *c, int y, int x)
 {
-	int feat = c->feat[y][x];
+	int feat = c->squares[y][x].feat;
     return (tf_has(f_info[feat].flags, TF_DOOR_ANY) &&
 			tf_has(f_info[feat].flags, TF_PASSABLE) &&
 			!tf_has(f_info[feat].flags, TF_CLOSABLE));
@@ -229,7 +229,7 @@ bool square_isbrokendoor(struct chunk *c, int y, int x)
  */
 bool square_isdoor(struct chunk *c, int y, int x)
 {
-	int feat = c->feat[y][x];
+	int feat = c->squares[y][x].feat;
 	return tf_has(f_info[feat].flags, TF_DOOR_ANY);
 }
 
@@ -238,7 +238,7 @@ bool square_isdoor(struct chunk *c, int y, int x)
  */
 bool square_isstairs(struct chunk*c, int y, int x)
 {
-	int feat = c->feat[y][x];
+	int feat = c->squares[y][x].feat;
 	return tf_has(f_info[feat].flags, TF_STAIR);
 }
 
@@ -247,7 +247,7 @@ bool square_isstairs(struct chunk*c, int y, int x)
  */
 bool square_isupstairs(struct chunk*c, int y, int x)
 {
-	int feat = c->feat[y][x];
+	int feat = c->squares[y][x].feat;
 	return tf_has(f_info[feat].flags, TF_UPSTAIR);
 }
 
@@ -256,7 +256,7 @@ bool square_isupstairs(struct chunk*c, int y, int x)
  */
 bool square_isdownstairs(struct chunk *c, int y, int x)
 {
-	int feat = c->feat[y][x];
+	int feat = c->squares[y][x].feat;
 	return tf_has(f_info[feat].flags, TF_DOWNSTAIR);
 }
 
@@ -265,19 +265,19 @@ bool square_isdownstairs(struct chunk *c, int y, int x)
  */
 bool square_isshop(struct chunk *c, int y, int x)
 {
-	return feat_is_shop(c->feat[y][x]);
+	return feat_is_shop(c->squares[y][x].feat);
 }
 
 bool square_noticeable(struct chunk *c, int y, int x)
 {
-	return tf_has(f_info[c->feat[y][x]].flags, TF_INTERESTING);
+	return tf_has(f_info[c->squares[y][x].feat].flags, TF_INTERESTING);
 }
 
 /**
  * True if the square contains the player
  */
 bool square_isplayer(struct chunk *c, int y, int x) {
-	return c->m_idx[y][x] < 0 ? TRUE : FALSE;
+	return c->squares[y][x].mon < 0 ? TRUE : FALSE;
 }
 
 /**
@@ -293,7 +293,7 @@ bool square_isplayer(struct chunk *c, int y, int x) {
  */
 bool square_ismark(struct chunk *c, int y, int x) {
 	assert(square_in_bounds(c, y, x));
-	return sqinfo_has(c->info[y][x], SQUARE_MARK);
+	return sqinfo_has(c->squares[y][x].info, SQUARE_MARK);
 }
 
 /**
@@ -301,7 +301,7 @@ bool square_ismark(struct chunk *c, int y, int x) {
  */
 bool square_isglow(struct chunk *c, int y, int x) {
 	assert(square_in_bounds(c, y, x));
-	return sqinfo_has(c->info[y][x], SQUARE_GLOW);
+	return sqinfo_has(c->squares[y][x].info, SQUARE_GLOW);
 }
 
 /**
@@ -311,7 +311,7 @@ bool square_isglow(struct chunk *c, int y, int x) {
  */
 bool square_isvault(struct chunk *c, int y, int x) {
 	assert(square_in_bounds(c, y, x));
-	return sqinfo_has(c->info[y][x], SQUARE_VAULT);
+	return sqinfo_has(c->squares[y][x].info, SQUARE_VAULT);
 }
 
 /**
@@ -319,7 +319,7 @@ bool square_isvault(struct chunk *c, int y, int x) {
  */
 bool square_isroom(struct chunk *c, int y, int x) {
 	assert(square_in_bounds(c, y, x));
-	return sqinfo_has(c->info[y][x], SQUARE_ROOM);
+	return sqinfo_has(c->squares[y][x].info, SQUARE_ROOM);
 }
 
 /**
@@ -327,7 +327,7 @@ bool square_isroom(struct chunk *c, int y, int x) {
  */
 bool square_isseen(struct chunk *c, int y, int x) {
 	assert(square_in_bounds(c, y, x));
-	return sqinfo_has(c->info[y][x], SQUARE_SEEN);
+	return sqinfo_has(c->squares[y][x].info, SQUARE_SEEN);
 }
 
 /**
@@ -335,7 +335,7 @@ bool square_isseen(struct chunk *c, int y, int x) {
  */
 bool square_isview(struct chunk *c, int y, int x) {
 	assert(square_in_bounds(c, y, x));
-	return sqinfo_has(c->info[y][x], SQUARE_VIEW);
+	return sqinfo_has(c->squares[y][x].info, SQUARE_VIEW);
 }
 
 /**
@@ -343,7 +343,7 @@ bool square_isview(struct chunk *c, int y, int x) {
  */
 bool square_wasseen(struct chunk *c, int y, int x) {
 	assert(square_in_bounds(c, y, x));
-	return sqinfo_has(c->info[y][x], SQUARE_WASSEEN);
+	return sqinfo_has(c->squares[y][x].info, SQUARE_WASSEEN);
 }
 
 /**
@@ -351,7 +351,7 @@ bool square_wasseen(struct chunk *c, int y, int x) {
  */
 bool square_isdtrap(struct chunk *c, int y, int x) {
 	assert(square_in_bounds(c, y, x));
-	return sqinfo_has(c->info[y][x], SQUARE_DTRAP);
+	return sqinfo_has(c->squares[y][x].info, SQUARE_DTRAP);
 }
 
 /**
@@ -359,7 +359,7 @@ bool square_isdtrap(struct chunk *c, int y, int x) {
  */
 bool square_isfeel(struct chunk *c, int y, int x) {
 	assert(square_in_bounds(c, y, x));
-	return sqinfo_has(c->info[y][x], SQUARE_FEEL);
+	return sqinfo_has(c->squares[y][x].info, SQUARE_FEEL);
 }
 
 /**
@@ -367,7 +367,7 @@ bool square_isfeel(struct chunk *c, int y, int x) {
  */
 bool square_isdedge(struct chunk *c, int y, int x) {
 	assert(square_in_bounds(c, y, x));
-	return sqinfo_has(c->info[y][x], SQUARE_DEDGE);
+	return sqinfo_has(c->squares[y][x].info, SQUARE_DEDGE);
 }
 
 /**
@@ -375,7 +375,7 @@ bool square_isdedge(struct chunk *c, int y, int x) {
  */
 bool square_istrap(struct chunk *c, int y, int x) {
 	assert(square_in_bounds(c, y, x));
-	return sqinfo_has(c->info[y][x], SQUARE_TRAP);
+	return sqinfo_has(c->squares[y][x].info, SQUARE_TRAP);
 }
 
 /**
@@ -383,7 +383,7 @@ bool square_istrap(struct chunk *c, int y, int x) {
  */
 bool square_isinvis(struct chunk *c, int y, int x) {
 	assert(square_in_bounds(c, y, x));
-	return sqinfo_has(c->info[y][x], SQUARE_INVIS);
+	return sqinfo_has(c->squares[y][x].info, SQUARE_INVIS);
 }
 
 /**
@@ -391,7 +391,7 @@ bool square_isinvis(struct chunk *c, int y, int x) {
  */
 bool square_iswall_inner(struct chunk *c, int y, int x) {
 	assert(square_in_bounds(c, y, x));
-	return sqinfo_has(c->info[y][x], SQUARE_WALL_INNER);
+	return sqinfo_has(c->squares[y][x].info, SQUARE_WALL_INNER);
 }
 
 /**
@@ -399,7 +399,7 @@ bool square_iswall_inner(struct chunk *c, int y, int x) {
  */
 bool square_iswall_outer(struct chunk *c, int y, int x) {
 	assert(square_in_bounds(c, y, x));
-	return sqinfo_has(c->info[y][x], SQUARE_WALL_OUTER);
+	return sqinfo_has(c->squares[y][x].info, SQUARE_WALL_OUTER);
 }
 
 /**
@@ -407,7 +407,7 @@ bool square_iswall_outer(struct chunk *c, int y, int x) {
  */
 bool square_iswall_solid(struct chunk *c, int y, int x) {
 	assert(square_in_bounds(c, y, x));
-	return sqinfo_has(c->info[y][x], SQUARE_WALL_SOLID);
+	return sqinfo_has(c->squares[y][x].info, SQUARE_WALL_SOLID);
 }
 
 /**
@@ -415,7 +415,7 @@ bool square_iswall_solid(struct chunk *c, int y, int x) {
  */
 bool square_ismon_restrict(struct chunk *c, int y, int x) {
 	assert(square_in_bounds(c, y, x));
-	return sqinfo_has(c->info[y][x], SQUARE_MON_RESTRICT);
+	return sqinfo_has(c->squares[y][x].info, SQUARE_MON_RESTRICT);
 }
 
 /**
@@ -423,7 +423,7 @@ bool square_ismon_restrict(struct chunk *c, int y, int x) {
  */
 bool square_isno_teleport(struct chunk *c, int y, int x) {
 	assert(square_in_bounds(c, y, x));
-	return sqinfo_has(c->info[y][x], SQUARE_NO_TELEPORT);
+	return sqinfo_has(c->squares[y][x].info, SQUARE_NO_TELEPORT);
 }
 
 /**
@@ -431,7 +431,7 @@ bool square_isno_teleport(struct chunk *c, int y, int x) {
  */
 bool square_isno_map(struct chunk *c, int y, int x) {
 	assert(square_in_bounds(c, y, x));
-	return sqinfo_has(c->info[y][x], SQUARE_NO_MAP);
+	return sqinfo_has(c->squares[y][x].info, SQUARE_NO_MAP);
 }
 
 /**
@@ -439,7 +439,7 @@ bool square_isno_map(struct chunk *c, int y, int x) {
  */
 bool square_isno_esp(struct chunk *c, int y, int x) {
 	assert(square_in_bounds(c, y, x));
-	return sqinfo_has(c->info[y][x], SQUARE_NO_ESP);
+	return sqinfo_has(c->squares[y][x].info, SQUARE_NO_ESP);
 }
 
 /**
@@ -447,7 +447,7 @@ bool square_isno_esp(struct chunk *c, int y, int x) {
  */
 bool square_isproject(struct chunk *c, int y, int x) {
 	assert(square_in_bounds(c, y, x));
-	return sqinfo_has(c->info[y][x], SQUARE_PROJECT);
+	return sqinfo_has(c->squares[y][x].info, SQUARE_PROJECT);
 }
 
 
@@ -465,7 +465,7 @@ bool square_isproject(struct chunk *c, int y, int x) {
  * True if the square is open (a floor square not occupied by a monster).
  */
 bool square_isopen(struct chunk *c, int y, int x) {
-	return square_isfloor(c, y, x) && !c->m_idx[y][x];
+	return square_isfloor(c, y, x) && !c->squares[y][x].mon;
 }
 
 /**
@@ -500,7 +500,7 @@ bool square_isdiggable(struct chunk *c, int y, int x) {
 bool square_is_monster_walkable(struct chunk *c, int y, int x)
 {
 	assert(square_in_bounds(c, y, x));
-	return feat_is_monster_walkable(c->feat[y][x]);
+	return feat_is_monster_walkable(c->squares[y][x].feat);
 }
 
 /**
@@ -508,7 +508,7 @@ bool square_is_monster_walkable(struct chunk *c, int y, int x)
  */
 bool square_ispassable(struct chunk *c, int y, int x) {
 	assert(square_in_bounds(c, y, x));
-	return feat_is_passable(c->feat[y][x]);
+	return feat_is_passable(c->squares[y][x].feat);
 }
 
 /**
@@ -518,7 +518,7 @@ bool square_ispassable(struct chunk *c, int y, int x) {
  */
 bool square_isprojectable(struct chunk *c, int y, int x) {
 	assert(square_in_bounds(c, y, x));
-	return feat_is_projectable(c->feat[y][x]);
+	return feat_is_projectable(c->squares[y][x].feat);
 }
 
 /**
@@ -547,7 +547,7 @@ bool square_isstrongwall(struct chunk *c, int y, int x) {
  */
 bool square_isboring(struct chunk *c, int y, int x) {
 	assert(square_in_bounds(c, y, x));
-	return feat_is_boring(c->feat[y][x]);
+	return feat_is_boring(c->squares[y][x].feat);
 }
 
 bool square_iswarded(struct chunk *c, int y, int x)
@@ -563,12 +563,12 @@ bool square_canward(struct chunk *c, int y, int x)
 
 bool square_seemslikewall(struct chunk *c, int y, int x)
 {
-	return tf_has(f_info[c->feat[y][x]].flags, TF_ROCK);
+	return tf_has(f_info[c->squares[y][x].feat].flags, TF_ROCK);
 }
 
 bool square_isinteresting(struct chunk *c, int y, int x)
 {
-	int f = c->feat[y][x];
+	int f = c->squares[y][x].feat;
 	return tf_has(f_info[f].flags, TF_INTERESTING);
 }
 
@@ -682,7 +682,7 @@ struct feature *square_feat(struct chunk *c, int y, int x)
 	assert(y >= 0 && y < c->height);
 	assert(x >= 0 && x < c->width);
 
-	return &f_info[c->feat[y][x]];
+	return &f_info[c->squares[y][x].feat];
 }
 
 /**
@@ -690,8 +690,8 @@ struct feature *square_feat(struct chunk *c, int y, int x)
  */
 struct monster *square_monster(struct chunk *c, int y, int x)
 {
-	if (c->m_idx[y][x] > 0) {
-		struct monster *mon = cave_monster(c, c->m_idx[y][x]);
+	if (c->squares[y][x].mon > 0) {
+		struct monster *mon = cave_monster(c, c->squares[y][x].mon);
 		return mon->race ? mon : NULL;
 	}
 
@@ -712,7 +712,7 @@ struct object *square_object(struct chunk *c, int y, int x) {
 
 void square_set_feat(struct chunk *c, int y, int x, int feat)
 {
-	int current_feat = c->feat[y][x];
+	int current_feat = c->squares[y][x].feat;
 
 	assert(c);
 	assert(y >= 0 && y < c->height);
@@ -723,7 +723,7 @@ void square_set_feat(struct chunk *c, int y, int x, int feat)
 	if (feat) c->feat_count[feat]++;
 
 	/* Make the change */
-	c->feat[y][x] = feat;
+	c->squares[y][x].feat = feat;
 
 	/* Make the new terrain feel at home */
 	if (character_dungeon) {
@@ -731,9 +731,9 @@ void square_set_feat(struct chunk *c, int y, int x, int feat)
 		square_light_spot(c, y, x);
 	} else {
 		/* Make sure no incorrect wall flags set for dungeon generation */
-		   sqinfo_off(c->info[y][x], SQUARE_WALL_INNER);
-		   sqinfo_off(c->info[y][x], SQUARE_WALL_OUTER);
-		   sqinfo_off(c->info[y][x], SQUARE_WALL_SOLID);
+		   sqinfo_off(c->squares[y][x].info, SQUARE_WALL_INNER);
+		   sqinfo_off(c->squares[y][x].info, SQUARE_WALL_OUTER);
+		   sqinfo_off(c->squares[y][x].info, SQUARE_WALL_SOLID);
 	}
 }
 
@@ -840,7 +840,7 @@ void square_remove_ward(struct chunk *c, int y, int x)
 {
 	struct trap_kind *rune = lookup_trap("glyph of warding");
 	assert(square_iswarded(c, y, x));
-	square_remove_trap_kind(c, y, x, TRUE, rune->tidx);
+	square_remove_trap(c, y, x, TRUE, rune->tidx);
 }
 
 /**
@@ -848,9 +848,9 @@ void square_remove_ward(struct chunk *c, int y, int x)
  */
 void square_upgrade_mineral(struct chunk *c, int y, int x)
 {
-	if (c->feat[y][x] == FEAT_MAGMA)
+	if (c->squares[y][x].feat == FEAT_MAGMA)
 		square_set_feat(c, y, x, FEAT_MAGMA_K);
-	if (c->feat[y][x] == FEAT_QUARTZ)
+	if (c->squares[y][x].feat == FEAT_QUARTZ)
 		square_set_feat(c, y, x, FEAT_QUARTZ_K);
 }
 
@@ -865,18 +865,18 @@ void square_force_floor(struct chunk *c, int y, int x) {
 
 int square_shopnum(struct chunk *c, int y, int x) {
 	if (square_isshop(c, y, x))
-		return f_info[c->feat[y][x]].shopnum;
+		return f_info[c->squares[y][x].feat].shopnum;
 	return -1;
 }
 
 int square_digging(struct chunk *c, int y, int x) {
 	if (square_isdiggable(c, y, x))
-		return f_info[c->feat[y][x]].dig;
+		return f_info[c->squares[y][x].feat].dig;
 	return 0;
 }
 
 const char *square_apparent_name(struct chunk *c, struct player *p, int y, int x) {
-	int f = f_info[c->feat[y][x]].mimic;
+	int f = f_info[c->squares[y][x].feat].mimic;
 
 	if (!square_ismark(c, y, x) && !player_can_see_bold(y, x))
 		return "unknown_grid";

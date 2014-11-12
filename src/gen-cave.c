@@ -16,10 +16,10 @@
  *    and not for profit purposes provided that this copyright and statement
  *    are included in all such copies.  Other copyrights may also apply.
  *
- * In this file, we use the SQUARE_WALL flags to cave->info, which should only
- * be applied to granite.  SQUARE_WALL_SOLID indicates the wall should not be
- * tunnelled; SQUARE_WALL_INNER is the inward-facing wall of a room;
- * SQUARE_WALL_OUTER is the outer wall of a room.
+ * In this file, we use the SQUARE_WALL flags to the info field in
+ * cave->squares, which should only be applied to granite.  SQUARE_WALL_SOLID
+ * indicates the wall should not be tunnelled; SQUARE_WALL_INNER is the
+ * inward-facing wall of a room; SQUARE_WALL_OUTER is the outer wall of a room.
  *
  * We use SQUARE_WALL_SOLID to prevent multiple corridors from piercing a wall
  * in two adjacent locations, which would be messy, and SQUARE_WALL_OUTER
@@ -83,8 +83,8 @@
  */
 static bool square_is_granite_with_flag(struct chunk *c, int y, int x, int flag)
 {
-	if (c->feat[y][x] != FEAT_GRANITE) return FALSE;
-	if (!sqinfo_has(c->info[y][x], flag)) return FALSE;
+	if (c->squares[y][x].feat != FEAT_GRANITE) return FALSE;
+	if (!sqinfo_has(c->squares[y][x].info, flag)) return FALSE;
 
 	return TRUE;
 }
@@ -273,8 +273,7 @@ static void build_tunnel(struct chunk *c, int row1, int col1, int row2, int col2
 			row1 = tmp_row;
 			col1 = tmp_col;
 
-		} else if (tf_has(f_info[c->feat[tmp_row][tmp_col]].flags, TF_GRANITE)||
-				   tf_has(f_info[c->feat[tmp_row][tmp_col]].flags, TF_PERMANENT)){
+		} else if (tf_has(f_info[c->squares[tmp_row][tmp_col].feat].flags, TF_GRANITE)|| tf_has(f_info[c->squares[tmp_row][tmp_col].feat].flags, TF_PERMANENT)){
 			/* Tunnel through all other walls */
 			/* Accept this location */
 			row1 = tmp_row;
@@ -745,7 +744,7 @@ struct chunk *labyrinth_chunk(int depth, int h, int w, bool lit, bool soft)
 			int k = yx_to_i(y, x, w);
 			sets[k] = k;
 			square_set_feat(c, y + 1, x + 1, FEAT_FLOOR);
-			if (lit) sqinfo_on(c->info[y + 1][x + 1], SQUARE_GLOW);
+			if (lit) sqinfo_on(c->squares[y + 1][x + 1].info, SQUARE_GLOW);
 		}
     }
 
@@ -774,7 +773,7 @@ struct chunk *labyrinth_chunk(int depth, int h, int w, bool lit, bool soft)
 			int sa = sets[a];
 			int sb = sets[b];
 			square_set_feat(c, y + 1, x + 1, FEAT_FLOOR);
-			if (lit) sqinfo_on(c->info[y + 1][x + 1], SQUARE_GLOW);
+			if (lit) sqinfo_on(c->squares[y + 1][x + 1].info, SQUARE_GLOW);
 
 			for (k = 0; k < n; k++) {
 				if (sets[k] == sb) sets[k] = sa;
@@ -953,7 +952,7 @@ static void mutate_cavern(struct chunk *c) {
 			else if (count < 4)
 				temp[y * w + x] = FEAT_FLOOR;
 			else
-				temp[y * w + x] = c->feat[y][x];
+				temp[y * w + x] = c->squares[y][x].feat;
 		}
     }
 
@@ -1005,7 +1004,7 @@ static void glow_point(struct chunk *c, int y, int x) {
     int i, j;
     for (i = -1; i <= -1; i++)
 		for (j = -1; j <= -1; j++)
-			sqinfo_on(c->info[y + i][x + j], SQUARE_GLOW);
+			sqinfo_on(c->squares[y + i][x + j].info, SQUARE_GLOW);
 }
 #endif
 
@@ -1545,7 +1544,7 @@ struct chunk *town_gen(struct player *p)
 		for (y = 0; y < c_new->height; y++) {
 			bool found = FALSE;
 			for (x = 0; x < c_new->width; x++) {
-				if (c_new->feat[y][x] == FEAT_MORE) {
+				if (c_new->squares[y][x].feat == FEAT_MORE) {
 					found = TRUE;
 					break;
 				}

@@ -1,6 +1,6 @@
 /**
-   \file cave.c
-   \brief chunk allocation and utility functions
+ * \file cave.c
+ * \brief chunk allocation and utility functions
  *
  * Copyright (c) 1997 Ben Harrison, James E. Wilson, Robert A. Koeneke
  *
@@ -93,21 +93,16 @@ struct chunk *cave_new(int height, int width) {
 	c->height = height;
 	c->width = width;
 	c->feat_count = mem_zalloc((z_info->f_max + 1) * sizeof(int));
-	c->info = mem_zalloc(c->height * sizeof(bitflag**));
-	c->feat = mem_zalloc(c->height * sizeof(byte*));
-	c->cost = mem_zalloc(c->height * sizeof(byte*));
-	c->when = mem_zalloc(c->height * sizeof(byte*));
-	c->m_idx = mem_zalloc(c->height * sizeof(s16b*));
 	c->o_idx = mem_zalloc(c->height * sizeof(s16b*));
 	for (y = 0; y < c->height; y++){
-		c->info[y] = mem_zalloc(c->width * sizeof(bitflag*));
-		for (x = 0; x < c->width; x++)
-			c->info[y][x] = mem_zalloc(SQUARE_SIZE * sizeof(bitflag));
-		c->feat[y] = mem_zalloc(c->width * sizeof(byte));
-		c->cost[y] = mem_zalloc(c->width * sizeof(byte));
-		c->when[y] = mem_zalloc(c->width * sizeof(byte));
-		c->m_idx[y] = mem_zalloc(c->width * sizeof(s16b));
 		c->o_idx[y] = mem_zalloc(c->width * sizeof(s16b));
+	}
+
+	c->squares = mem_zalloc(c->height * sizeof(struct square*));
+	for (y = 0; y < c->height; y++) {
+		c->squares[y] = mem_zalloc(c->width * sizeof(struct square));
+		for (x = 0; x < c->width; x++)
+			c->squares[y][x].info = mem_zalloc(SQUARE_SIZE * sizeof(bitflag));
 	}
 
 	c->monsters = mem_zalloc(z_info->level_monster_max *sizeof(struct monster));
@@ -117,37 +112,37 @@ struct chunk *cave_new(int height, int width) {
 	c->objects = mem_zalloc(z_info->level_object_max * sizeof(struct object));
 	c->obj_max = 1;
 
-	c->traps = mem_zalloc(z_info->level_trap_max * sizeof(struct trap));
-	c->trap_max = 1;
-
 	c->created_at = turn;
 	return c;
 }
+
 /**
  * Free a chunk
  */
 void cave_free(struct chunk *c) {
 	int y, x;
+
+	wipe_o_list(c);
+
+	for (y = 0; y < c->height; y++) {
+		for (x = 0; x < c->width; x++) {
+			mem_free(c->squares[y][x].info);
+			if (c->squares[y][x].trap)
+				square_free_trap(c, y, x);
+		}
+		mem_free(c->squares[y]);
+	}
+	mem_free(c->squares);
+
 	for (y = 0; y < c->height; y++){
-		for (x = 0; x < c->width; x++)
-			mem_free(c->info[y][x]);
-		mem_free(c->info[y]);
-		mem_free(c->feat[y]);
-		mem_free(c->cost[y]);
-		mem_free(c->when[y]);
-		mem_free(c->m_idx[y]);
 		mem_free(c->o_idx[y]);
 	}
 	mem_free(c->feat_count);
-	mem_free(c->info);
-	mem_free(c->feat);
-	mem_free(c->cost);
-	mem_free(c->when);
-	mem_free(c->m_idx);
 	mem_free(c->o_idx);
 	mem_free(c->monsters);
 	mem_free(c->objects);
-	mem_free(c->traps);
+	if (c->name)
+		mem_free(c->name);
 	mem_free(c);
 }
 
@@ -237,21 +232,6 @@ int cave_object_max(struct chunk *c) {
  */
 int cave_object_count(struct chunk *c) {
 	return c->obj_cnt;
-}
-
-/**
- * Get a trap on the current level by its index.
- */
-struct trap *cave_trap(struct chunk *c, int idx) {
-	return &c->traps[idx];
-}
-
-/**
- * The maximum number of traps allowed in the level.
- */
-int cave_trap_max(struct chunk *c)
-{
-	return c->trap_max;
 }
 
 /**

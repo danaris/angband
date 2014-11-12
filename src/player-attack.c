@@ -20,6 +20,7 @@
 #include "cave.h"
 #include "cmds.h"
 #include "game-event.h"
+#include "init.h"
 #include "mon-desc.h"
 #include "mon-lore.h"
 #include "mon-make.h"
@@ -624,7 +625,7 @@ static void ranged_helper(int item, int dir, int range, int shots, ranged_attack
 							 object_char(o_ptr), object_attr(o_ptr), see, y, x);
 
 		/* Try the attack on the monster at (x, y) if any */
-		if (cave->m_idx[y][x] > 0) {
+		if (cave->squares[y][x].mon > 0) {
 			monster_type *m_ptr = square_monster(cave, y, x);
 			int visible = mflag_has(m_ptr->mflag, MFLAG_VISIBLE);
 
@@ -920,7 +921,7 @@ void do_cmd_fire_at_nearest(void) {
 	}
 
 	/* Find first eligible ammo in the quiver */
-	for (i = 0; i < QUIVER_SIZE; i++) {
+	for (i = 0; i < z_info->quiver_size; i++) {
 		if (player->gear[player->upkeep->quiver[i]].tval !=
 			player->state.ammo_tval)
 			continue;

@@ -102,8 +102,6 @@ typedef struct feature
 	byte mimic;    /**< Feature to mimic */
 	byte priority; /**< Display priority */
 
-	byte locked;   /**< How locked is it? */
-	byte jammed;   /**< How jammed is it? */
 	byte shopnum;  /**< Which shop does it take you to? */
 	byte dig;      /**< How hard is it to dig through? */
 
@@ -113,7 +111,7 @@ typedef struct feature
 	wchar_t d_char;   /**< Default feature character */
 
 	byte x_attr[4];   /**< Desired feature attribute (set by user/pref file) */
-	wchar_t x_char[4];   /**< Desired feature character (set by user/pref file) */
+	wchar_t x_char[4]; /**< Desired feature character (set by user/pref file) */
 } feature_type;
 
 extern feature_type *f_info;
@@ -132,7 +130,7 @@ typedef struct
 	u32b m_idx;				/* Monster index */
 	u32b f_idx;				/* Feature index */
 	struct object_kind *first_kind;	/* The kind of the first item on the grid */
-	u32b trap;				/* Trap index */
+	struct trap *trap;		/* Trap */
 	bool multiple_objects;	/* Is there more than one item there? */
 	bool unseen_object;		/* Is there an unaware object there? */
 	bool unseen_money;		/* Is there some unaware money there? */
@@ -144,7 +142,15 @@ typedef struct
 	bool trapborder;
 } grid_data;
 
-
+struct square {
+	byte feat;
+	bitflag *info;
+	byte cost;
+	byte when;
+	s16b mon;
+	struct object *obj;
+	struct trap *trap;
+};
 
 struct chunk {
 	char *name;
@@ -162,12 +168,11 @@ struct chunk {
 	u16b feeling_squares; /* How many feeling squares the player has visited */
 	int *feat_count;
 
-	bitflag ***info;
 	byte **feat;
-	byte **cost;
-	byte **when;
 	s16b **m_idx;
 	s16b **o_idx;
+
+	struct square **squares;
 
 	struct monster *monsters;
 	u16b mon_max;
@@ -177,9 +182,6 @@ struct chunk {
 	struct object *objects;
 	u16b obj_max;
 	u16b obj_cnt;
-
-	struct trap *traps;
-	u16b trap_max;
 };
 
 /*** Feature Indexes (see "lib/edit/terrain.txt") ***/
@@ -377,9 +379,6 @@ int cave_monster_count(struct chunk *c);
 struct object *cave_object(struct chunk *c, int idx); 
 int cave_object_max(struct chunk *c);
 int cave_object_count(struct chunk *c);
-
-struct trap *cave_trap(struct chunk *c, int idx);
-int cave_trap_max(struct chunk *c);
 
 int count_feats(int *y, int *x, bool (*test)(struct chunk *cave, int y, int x), bool under);
 

@@ -155,7 +155,7 @@ int project_path(struct loc *gp, int range, int y1, int x1, int y2, int x2, int 
 
 			/* Sometimes stop at non-initial monsters/players */
 			if (flg & (PROJECT_STOP))
-				if ((n > 0) && (cave->m_idx[y][x] != 0)) break;
+				if ((n > 0) && (cave->squares[y][x].mon != 0)) break;
 
 			/* Slant */
 			if (m) {
@@ -209,7 +209,7 @@ int project_path(struct loc *gp, int range, int y1, int x1, int y2, int x2, int 
 
 			/* Sometimes stop at non-initial monsters/players */
 			if (flg & (PROJECT_STOP))
-				if ((n > 0) && (cave->m_idx[y][x] != 0)) break;
+				if ((n > 0) && (cave->squares[y][x].mon != 0)) break;
 
 			/* Slant */
 			if (m) {
@@ -257,7 +257,7 @@ int project_path(struct loc *gp, int range, int y1, int x1, int y2, int x2, int 
 
 			/* Sometimes stop at non-initial monsters/players */
 			if (flg & (PROJECT_STOP))
-				if ((n > 0) && (cave->m_idx[y][x] != 0)) break;
+				if ((n > 0) && (cave->squares[y][x].mon != 0)) break;
 
 			/* Advance */
 			y += sy;
@@ -656,7 +656,7 @@ bool project(int who, int rad, int y, int x, int dam, int typ, int flg,
 		blast_grid[num_grids].y = y;
 		blast_grid[num_grids].x = x;
 		distance_to_grid[num_grids] = 0;
-		sqinfo_on(cave->info[y][x], SQUARE_PROJECT);
+		sqinfo_on(cave->squares[y][x].info, SQUARE_PROJECT);
 		num_grids++;
 		}
 
@@ -700,7 +700,7 @@ bool project(int who, int rad, int y, int x, int dam, int typ, int flg,
 					blast_grid[num_grids].y = y;
 					blast_grid[num_grids].x = x;
 					distance_to_grid[num_grids] = 0;
-					sqinfo_on(cave->info[y][x], SQUARE_PROJECT);
+					sqinfo_on(cave->squares[y][x].info, SQUARE_PROJECT);
 					num_grids++;
 				}
 
@@ -709,7 +709,7 @@ bool project(int who, int rad, int y, int x, int dam, int typ, int flg,
 					blast_grid[num_grids].y = y;
 					blast_grid[num_grids].x = x;
 					distance_to_grid[num_grids] = 0;
-					sqinfo_on(cave->info[y][x], SQUARE_PROJECT);
+					sqinfo_on(cave->squares[y][x].info, SQUARE_PROJECT);
 					num_grids++;
 				}
 
@@ -764,7 +764,7 @@ bool project(int who, int rad, int y, int x, int dam, int typ, int flg,
 			blast_grid[num_grids].y = centre.y;
 			blast_grid[num_grids].x = centre.x;
 			distance_to_grid[num_grids] = 0;
-			sqinfo_on(cave->info[centre.y][centre.x], SQUARE_PROJECT);
+			sqinfo_on(cave->squares[centre.y][centre.x].info, SQUARE_PROJECT);
 			num_grids++;
 		}
 
@@ -825,7 +825,7 @@ bool project(int who, int rad, int y, int x, int dam, int typ, int flg,
 						blast_grid[num_grids].y = y;
 						blast_grid[num_grids].x = x;
 						distance_to_grid[num_grids] = dist_from_centre;
-						sqinfo_on(cave->info[y][x], SQUARE_PROJECT);
+						sqinfo_on(cave->squares[y][x].info, SQUARE_PROJECT);
 						num_grids++;
 					}
 				}
@@ -856,7 +856,7 @@ bool project(int who, int rad, int y, int x, int dam, int typ, int flg,
 							blast_grid[num_grids].y = y;
 							blast_grid[num_grids].x = x;
 							distance_to_grid[num_grids] = dist_from_centre;
-							sqinfo_on(cave->info[y][x], SQUARE_PROJECT);
+							sqinfo_on(cave->squares[y][x].info, SQUARE_PROJECT);
 							num_grids++;
 						}
 					}
@@ -973,7 +973,7 @@ bool project(int who, int rad, int y, int x, int dam, int typ, int flg,
 			y = project_m_y;
 
 			/* Track if possible */
-			if (cave->m_idx[y][x] > 0) {
+			if (cave->squares[y][x].mon > 0) {
 				monster_type *m_ptr = square_monster(cave, y, x);
 
 				/* Recall and track */
@@ -1024,7 +1024,7 @@ bool project(int who, int rad, int y, int x, int dam, int typ, int flg,
 		x = blast_grid[i].x;
 
 		/* Clear the mark */
-		sqinfo_off(cave->info[y][x], SQUARE_PROJECT);
+		sqinfo_off(cave->squares[y][x].info, SQUARE_PROJECT);
 	}
 
 	/* Update stuff if needed */

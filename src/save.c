@@ -692,7 +692,7 @@ static void wr_dungeon_aux(struct chunk * cave)
 
 	/*** Simple "Run-Length-Encoding" of cave ***/
 
-	/* Loop across bytes of cave->info */
+	/* Loop across bytes of cave->squares[y][x].info */
 	for (i = 0; i < SQUARE_SIZE; i++) {
 		count = 0;
 		prev_char = 0;
@@ -700,8 +700,8 @@ static void wr_dungeon_aux(struct chunk * cave)
 		/* Dump for each grid */
 		for (y = 0; y < cave->height; y++) {
 			for (x = 0; x < cave->width; x++) {
-				/* Extract the important cave->info flags */
-				tmp8u = cave->info[y][x][i];
+				/* Extract the important cave->squares[y][x].info flags */
+				tmp8u = cave->squares[y][x].info[i];
 
 				/* If the run is broken, or too full, flush it */
 				if ((tmp8u != prev_char) || (count == MAX_UCHAR)) {
@@ -729,7 +729,7 @@ static void wr_dungeon_aux(struct chunk * cave)
 	for (y = 0; y < cave->height; y++) {
 		for (x = 0; x < cave->width; x++) {
 			/* Extract a byte */
-			tmp8u = cave->feat[y][x];
+			tmp8u = cave->squares[y][x].feat;
 
 			/* If the run is broken, or too full, flush it */
 			if ((tmp8u != prev_char) || (count == MAX_UCHAR)) {
@@ -800,6 +800,7 @@ void wr_chunks(void)
 	wr_u16b(chunk_list_max);
 	for (j = 0; j < chunk_list_max; j++) {
 		struct chunk *c = chunk_list[j];
+		struct trap *dummy;
 
 		/* Write the name and dimensions */
 		wr_string(c->name);
@@ -808,41 +809,32 @@ void wr_chunks(void)
 
 		/*** Simple "Run-Length-Encoding" of info ***/
 
-		/* Loop across bytes of c->info */
-		for (k = 0; k < SQUARE_SIZE; k++)
-		{
+		/* Loop across bytes of c->squares[y][x].info */
+		for (k = 0; k < SQUARE_SIZE; k++){
 			/* Note that this will induce two wasted bytes */
 			count = 0;
 			prev_char = 0;
 
 			/* Dump the chunk */
-			for (y = 0; y < c->height; y++)
-			{
-				for (x = 0; x < c->width; x++)
-				{
-					/* Extract the important cave->info flags */
-					tmp8u = c->info[y][x][k];
+			for (y = 0; y < c->height; y++) {
+				for (x = 0; x < c->width; x++) {
+					/* Extract the important cave->squares[y][x].info flags */
+					tmp8u = c->squares[y][x].info[k];
 
 					/* If the run is broken, or too full, flush it */
-					if ((tmp8u != prev_char) || (count == MAX_UCHAR))
-					{
+					if ((tmp8u != prev_char) || (count == MAX_UCHAR)) {
 						wr_byte((byte)count);
 						wr_byte((byte)prev_char);
 						prev_char = tmp8u;
 						count = 1;
-					}
-
-					/* Continue the run */
-					else
-					{
+					} else
+						/* Continue the run */
 						count++;
-					}
 				}
 			}
 
 			/* Flush the data (if any) */
-			if (count)
-			{
+			if (count) {
 				wr_byte((byte)count);
 				wr_byte((byte)prev_char);
 			}
@@ -855,33 +847,25 @@ void wr_chunks(void)
 		prev_char = 0;
 
 		/* Dump the chunk */
-		for (y = 0; y < c->height; y++)
-		{
-			for (x = 0; x < c->width; x++)
-			{
+		for (y = 0; y < c->height; y++) {
+			for (x = 0; x < c->width; x++) {
 				/* Extract a byte */
-				tmp8u = c->feat[y][x];
+				tmp8u = c->squares[y][x].feat;
 
 				/* If the run is broken, or too full, flush it */
-				if ((tmp8u != prev_char) || (count == MAX_UCHAR))
-				{
+				if ((tmp8u != prev_char) || (count == MAX_UCHAR)) {
 					wr_byte((byte)count);
 					wr_byte((byte)prev_char);
 					prev_char = tmp8u;
 					count = 1;
-				}
-
-				/* Continue the run */
-				else
-				{
+				} else
+					/* Continue the run */
 					count++;
-				}
 			}
 		}
 
 		/* Flush the data (if any) */
-		if (count)
-		{
+		if (count) {
 			wr_byte((byte)count);
 			wr_byte((byte)prev_char);
 		}
@@ -909,14 +893,22 @@ void wr_chunks(void)
 			wr_monster(m_ptr);
 		}
 
-		/* Total traps */
-		wr_u16b(c->trap_max);
-
-		for (i = 0; i < c->trap_max; i++) {
-			struct trap *trap = &c->traps[i];
-
-			wr_trap(trap);
+		/* Write traps */
+		for (y = 0; y < c->height; y++) {
+			for (x = 0; x < c->width; x++) {
+				struct trap *trap = c->squares[y][x].trap;
+				while (trap) {
+					wr_trap(trap);
+					trap = trap->next;
+				}
+			}
 		}
+
+		/* Write a dummy trap record as a marker */
+		dummy = mem_zalloc(sizeof(*dummy));
+		wr_trap(dummy);
+		mem_free(dummy);
+
 	}
 }
 
@@ -1007,23 +999,28 @@ void wr_history(void)
 
 static void wr_traps_aux(struct chunk * cave)
 {
-    int i;
+    int x, y;
+	struct trap *dummy;
 
     if (player->is_dead)
 	return;
 
     wr_byte(TRF_SIZE);
-    wr_s16b(cave_trap_max(cave));
 
-    for (i = 0; i < cave_trap_max(cave); i++)
-    {
-		struct trap *trap = cave_trap(cave, i);
+	for (y = 0; y < cave->height; y++) {
+		for (x = 0; x < cave->width; x++) {
+			struct trap *trap = cave->squares[y][x].trap;
+			while (trap) {
+				wr_trap(trap);
+				trap = trap->next;
+			}
+		}
+	}
 
-		wr_trap(trap);
-    }
-
-    /* Expansion */
-    wr_u32b(0);
+	/* Write a dummy record as a marker */
+	dummy = mem_zalloc(sizeof(*dummy));
+	wr_trap(dummy);
+	mem_free(dummy);
 }
 
 void wr_traps(void)

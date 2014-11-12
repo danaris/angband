@@ -552,6 +552,8 @@ static void init_player(void) {
 	player->gear = mem_zalloc(MAX_GEAR * sizeof(object_type));
 	player->gear_k = mem_zalloc(MAX_GEAR * sizeof(object_type));
 	player->upkeep = mem_zalloc(sizeof(player_upkeep));
+	player->upkeep->inven = mem_zalloc((z_info->pack_size + 1) * sizeof(int));
+	player->upkeep->quiver = mem_zalloc(z_info->quiver_size * sizeof(int));
 	player->timed = mem_zalloc(TMD_MAX * sizeof(s16b));
 }
 
@@ -561,16 +563,19 @@ static void cleanup_player(void) {
 	player_spells_free(player);
 
 	mem_free(player->timed);
+	mem_free(player->upkeep->quiver);
+	mem_free(player->upkeep->inven);
 	mem_free(player->upkeep);
 	for (i = 0; i < player->max_gear; i++)
-		object_wipe(&player->gear[i]);
+		object_free(&player->gear[i]);
 	for (i = 0; i < player->max_gear; i++)
-		object_wipe(&player->gear_k[i]);
+		object_free(&player->gear_k[i]);
 	mem_free(player->gear);
 	mem_free(player->gear_k);
 	for (i = 0; i < player->body.count; i++)
 		string_free(player->body.slots[i].name);
 	mem_free(player->body.slots);
+	string_free(player->body.name);
 	mem_free(player->history);
 
 	mem_free(player);

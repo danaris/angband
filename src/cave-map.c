@@ -83,20 +83,20 @@ void map_info(unsigned y, unsigned x, grid_data *g)
 
 	/* Default "clear" values, others will be set later where appropriate. */
 	g->first_kind = NULL;
-	g->trap = cave_trap_max(cave);
+	g->trap = NULL;
 	g->multiple_objects = FALSE;
 	g->lighting = LIGHTING_DARK;
 	g->unseen_object = FALSE;
 	g->unseen_money = FALSE;
 
 	/* Use real feature (remove later) */
-	g->f_idx = cave->feat[y][x];
+	g->f_idx = cave->squares[y][x].feat;
 	if (f_info[g->f_idx].mimic)
 		g->f_idx = f_info[g->f_idx].mimic;
 
 	g->in_view = (square_isseen(cave, y, x)) ? TRUE : FALSE;
-	g->is_player = (cave->m_idx[y][x] < 0) ? TRUE : FALSE;
-	g->m_idx = (g->is_player) ? 0 : cave->m_idx[y][x];
+	g->is_player = (cave->squares[y][x].mon < 0) ? TRUE : FALSE;
+	g->m_idx = (g->is_player) ? 0 : cave->squares[y][x].mon;
 	g->hallucinate = player->timed[TMD_IMAGE] ? TRUE : FALSE;
 	g->trapborder = (square_isdedge(cave, y, x)) ? TRUE : FALSE;
 
@@ -108,12 +108,12 @@ void map_info(unsigned y, unsigned x, grid_data *g)
 			g->lighting = LIGHTING_TORCH;
 
 		/* Remember seen feature */
-		cave_k->feat[y][x] = cave->feat[y][x];
+		cave_k->squares[y][x].feat = cave->squares[y][x].feat;
 	}
 	else if (!square_ismark(cave, y, x))
 	{
 		g->f_idx = FEAT_NONE;
-		//cave_k->feat[y][x] = FEAT_NONE;
+		//cave_k->squares[y][x].feat = FEAT_NONE;
 	}
 	else if (square_isglow(cave, y, x))
 	{
@@ -121,28 +121,22 @@ void map_info(unsigned y, unsigned x, grid_data *g)
 	}
 
 	/* Use known feature */
-/*	g->f_idx = cave_k->feat[y][x];
+/*	g->f_idx = cave_k->squares[y][x].feat;
 	if (f_info[g->f_idx].mimic)
 		g->f_idx = f_info[g->f_idx].mimic;*/
 
     /* There is a trap in this square */
-    if (square_istrap(cave, y, x) && square_ismark(cave, y, x))
-    {
-		int i;
+    if (square_istrap(cave, y, x) && square_ismark(cave, y, x)) {
+		struct trap *trap = cave->squares[y][x].trap;
 
-		/* Scan the current trap list */
-		for (i = 0; i < cave_trap_max(cave); i++)
-		{
-			/* Point to this trap */
-			struct trap *trap = cave_trap(cave, i);
-
-			/* Find a trap in this position */
-			if ((trap->fy == y) && (trap->fx == x))
-			{
-				/* Get the trap */
-				g->trap = i;
+		/* Scan the square trap list */
+		while (trap) {
+			if (trf_has(trap->flags, TRF_TRAP)) {
+				/* Accept the trap */
+				g->trap = trap;
 				break;
 			}
+			trap = trap->next;
 		}
     }
 
@@ -239,7 +233,7 @@ void square_note_spot(struct chunk *c, int y, int x)
 		return;
 
 	/* Memorize this grid */
-	sqinfo_on(c->info[y][x], SQUARE_MARK);
+	sqinfo_on(c->squares[y][x].info, SQUARE_MARK);
 }
 
 
@@ -280,7 +274,7 @@ static void cave_light(struct point_set *ps)
 		int x = ps->pts[i].x;
 
 		/* Perma-Light */
-		sqinfo_on(cave->info[y][x], SQUARE_GLOW);
+		sqinfo_on(cave->squares[y][x].info, SQUARE_GLOW);
 	}
 
 	/* Fully update the visuals */
@@ -299,7 +293,7 @@ static void cave_light(struct point_set *ps)
 		square_light_spot(cave, y, x);
 
 		/* Process affected monsters */
-		if (cave->m_idx[y][x] > 0)
+		if (cave->squares[y][x].mon > 0)
 		{
 			int chance = 25;
 
@@ -343,11 +337,11 @@ static void cave_unlight(struct point_set *ps)
 		int x = ps->pts[i].x;
 
 		/* Darken the grid */
-		sqinfo_off(cave->info[y][x], SQUARE_GLOW);
+		sqinfo_off(cave->squares[y][x].info, SQUARE_GLOW);
 
 		/* Hack -- Forget "boring" grids */
 		if (!square_isinteresting(cave, y, x))
-			sqinfo_off(cave->info[y][x], SQUARE_MARK);
+			sqinfo_off(cave->squares[y][x].info, SQUARE_MARK);
 	}
 
 	/* Fully update the visuals */
@@ -469,14 +463,14 @@ void wiz_light(struct chunk *c, bool full)
 					int xx = x + ddx_ddd[i];
 
 					/* Perma-light the grid */
-					sqinfo_on(c->info[yy][xx], SQUARE_GLOW);
+					sqinfo_on(c->squares[yy][xx].info, SQUARE_GLOW);
 
 					/* Memorize normal features */
 					if (!square_isfloor(c, yy, xx) || 
 						square_isvisibletrap(c, yy, xx))
 					{
-						sqinfo_on(c->info[yy][xx], SQUARE_MARK);
-						cave_k->feat[yy][xx] = c->feat[yy][xx];
+						sqinfo_on(c->squares[yy][xx].info, SQUARE_MARK);
+						cave_k->squares[yy][xx].feat = c->squares[yy][xx].feat;
 					}
 				}
 			}
@@ -505,9 +499,9 @@ void wiz_dark(void)
 		for (x = 0; x < cave->width; x++)
 		{
 			/* Process the grid */
-			sqinfo_off(cave->info[y][x], SQUARE_MARK);
-			sqinfo_off(cave->info[y][x], SQUARE_DTRAP);
-			sqinfo_off(cave->info[y][x], SQUARE_DEDGE);
+			sqinfo_off(cave->squares[y][x].info, SQUARE_MARK);
+			sqinfo_off(cave->squares[y][x].info, SQUARE_DTRAP);
+			sqinfo_off(cave->squares[y][x].info, SQUARE_DEDGE);
 		}
 	}
 
@@ -545,16 +539,16 @@ void cave_illuminate(struct chunk *c, bool daytime)
 	/* Apply light or darkness */
 	for (y = 0; y < c->height; y++)
 		for (x = 0; x < c->width; x++) {
-			feature_type *f_ptr = &f_info[c->feat[y][x]];
+			feature_type *f_ptr = &f_info[c->squares[y][x].feat];
 			
 			/* Only interesting grids at night */
 			if (daytime || !tf_has(f_ptr->flags, TF_FLOOR)) {
-				sqinfo_on(c->info[y][x], SQUARE_GLOW);
-				sqinfo_on(c->info[y][x], SQUARE_MARK);
+				sqinfo_on(c->squares[y][x].info, SQUARE_GLOW);
+				sqinfo_on(c->squares[y][x].info, SQUARE_MARK);
 			}
 			else {
-				sqinfo_off(c->info[y][x], SQUARE_GLOW);
-				sqinfo_off(c->info[y][x], SQUARE_MARK);
+				sqinfo_off(c->squares[y][x].info, SQUARE_GLOW);
+				sqinfo_off(c->squares[y][x].info, SQUARE_MARK);
 			}
 		}
 			
@@ -567,8 +561,8 @@ void cave_illuminate(struct chunk *c, bool daytime)
 			for (i = 0; i < 8; i++) {
 				int yy = y + ddy_ddd[i];
 				int xx = x + ddx_ddd[i];
-				sqinfo_on(c->info[yy][xx], SQUARE_GLOW);
-				sqinfo_on(c->info[yy][xx], SQUARE_MARK);
+				sqinfo_on(c->squares[yy][xx].info, SQUARE_GLOW);
+				sqinfo_on(c->squares[yy][xx].info, SQUARE_MARK);
 			}
 		}
 	}
@@ -615,13 +609,11 @@ void cave_forget_flow(struct chunk *c)
 	if (!flow_save) return;
 
 	/* Check the entire dungeon */
-	for (y = 0; y < c->height; y++)
-	{
-		for (x = 0; x < c->width; x++)
-		{
+	for (y = 0; y < c->height; y++) {
+		for (x = 0; x < c->width; x++) {
 			/* Forget the old data */
-			c->cost[y][x] = 0;
-			c->when[y][x] = 0;
+			c->squares[y][x].cost = 0;
+			c->squares[y][x].when = 0;
 		}
 	}
 
@@ -674,8 +666,8 @@ void cave_update_flow(struct chunk *c)
 		{
 			for (x = 0; x < c->width; x++)
 			{
-				int w = c->when[y][x];
-				c->when[y][x] = (w >= 128) ? (w - 128) : 0;
+				int w = c->squares[y][x].when;
+				c->squares[y][x].when = (w >= 128) ? (w - 128) : 0;
 			}
 		}
 
@@ -690,10 +682,10 @@ void cave_update_flow(struct chunk *c)
 	/*** Player Grid ***/
 
 	/* Save the time-stamp */
-	c->when[py][px] = flow_n;
+	c->squares[py][px].when = flow_n;
 
 	/* Save the flow cost */
-	c->cost[py][px] = 0;
+	c->squares[py][px].cost = 0;
 
 	/* Enqueue that entry */
 	flow_y[flow_head] = py;
@@ -716,7 +708,7 @@ void cave_update_flow(struct chunk *c)
 		if (++flow_head == FLOW_MAX) flow_head = 0;
 
 		/* Child cost */
-		n = c->cost[ty][tx] + 1;
+		n = c->squares[ty][tx].cost + 1;
 
 		/* Hack -- Limit flow depth */
 		if (n == z_info->max_flow_depth) continue;
@@ -732,16 +724,17 @@ void cave_update_flow(struct chunk *c)
 			if (!square_in_bounds(c, y, x)) continue;
 
 			/* Ignore "pre-stamped" entries */
-			if (c->when[y][x] == flow_n) continue;
+			if (c->squares[y][x].when == flow_n) continue;
 
 			/* Ignore "walls" and "rubble" */
-			if (tf_has(f_info[c->feat[y][x]].flags, TF_NO_FLOW)) continue;
+			if (tf_has(f_info[c->squares[y][x].feat].flags, TF_NO_FLOW))
+				continue;
 
 			/* Save the time-stamp */
-			c->when[y][x] = flow_n;
+			c->squares[y][x].when = flow_n;
 
 			/* Save the flow cost */
-			c->cost[y][x] = n;
+			c->squares[y][x].cost = n;
 
 			/* Enqueue that entry */
 			flow_y[flow_tail] = y;
@@ -762,5 +755,5 @@ void cave_known (void)
 	int y,x;
 	for (y = 0; y < cave->height; y++)
 		for (x = 0; x < cave->width; x++)
-			cave_k->feat[y][x] = cave->feat[y][x];
+			cave_k->squares[y][x].feat = cave->squares[y][x].feat;
 }

@@ -864,7 +864,6 @@ static struct angband_constants TEST_DATA test_z_info = {
 	.act_max  = 2,
 	.level_object_max  = 2,
 	.level_monster_max = 2,
-	.level_trap_max    = 2,
 };
 
 static struct object TEST_DATA test_gear[MAX_GEAR];
@@ -906,8 +905,8 @@ static struct player_upkeep TEST_DATA test_player_upkeep = {
 	.running_withpathfind = 0,
 	.running_firststep = 0,
 
-	.quiver = { 0 },
-	.inven = { 0 },
+	.quiver = NULL,
+	.inven = NULL,
 
 	.total_weight = 0,
 	.inven_cnt = 0,

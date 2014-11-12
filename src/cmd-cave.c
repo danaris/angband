@@ -581,7 +581,7 @@ void do_cmd_close(struct command *cmd)
 	}
 
 	/* Monster - alert, then attack */
-	if (cave->m_idx[y][x] > 0) {
+	if (cave->squares[y][x].mon > 0) {
 		msg("There is a monster in the way!");
 		py_attack(y, x);
 	}
@@ -644,7 +644,7 @@ static bool twall(int y, int x)
 	sound(MSG_DIG);
 
 	/* Forget the wall */
-	sqinfo_off(cave->info[y][x], SQUARE_MARK);
+	sqinfo_off(cave->squares[y][x].info, SQUARE_MARK);
 
 	/* Remove the feature */
 	square_tunnel_wall(cave, y, x);
@@ -770,7 +770,7 @@ void do_cmd_tunnel(struct command *cmd)
 	}
 
 	/* Attack any monster we run into */
-	if (cave->m_idx[y][x] > 0) {
+	if (cave->squares[y][x].mon > 0) {
 		msg("There is a monster in the way!");
 		py_attack(y, x);
 	} else {
@@ -875,8 +875,7 @@ static bool do_cmd_disarm_aux(int y, int x)
 {
 	int i, j, power;
 
-	int t_idx;
-    struct trap *trap;
+    struct trap *trap = cave->squares[y][x].trap;
 
 	bool more = FALSE;
 
@@ -885,10 +884,14 @@ static bool do_cmd_disarm_aux(int y, int x)
 	if (!do_cmd_disarm_test(y, x)) return (FALSE);
 
 
-    /* Choose trap */
-    t_idx = square_trap_idx(cave, y, x);
-    if (t_idx < 0) return (FALSE);
-    trap = cave_trap(cave, t_idx);
+    /* Choose first player trap */
+	while (trap) {
+		if (trf_has(trap->flags, TRF_TRAP))
+			break;
+		trap = trap->next;
+	}
+	if (!trap)
+		return FALSE;
 
 	/* Get the "disarm" factor */
 	i = player->state.skills[SKILL_DISARM];
@@ -918,7 +921,7 @@ static bool do_cmd_disarm_aux(int y, int x)
 		player_exp_gain(player, power);
 
 		/* Forget the trap */
-		sqinfo_off(cave->info[y][x], SQUARE_MARK);
+		sqinfo_off(cave->squares[y][x].info, SQUARE_MARK);
 
 		/* Remove the trap */
 		square_destroy_trap(cave, y, x);
@@ -1013,7 +1016,7 @@ void do_cmd_disarm(struct command *cmd)
 
 
 	/* Monster */
-	if (cave->m_idx[y][x] > 0) {
+	if (cave->squares[y][x].mon > 0) {
 		msg("There is a monster in the way!");
 		py_attack(y, x);
 	}
@@ -1066,7 +1069,7 @@ void do_cmd_alter_aux(int dir)
 	}
 
 	/* Attack monsters */
-	if (cave->m_idx[y][x] > 0)
+	if (cave->squares[y][x].mon > 0)
 		py_attack(y, x);
 
 	/* Tunnel through walls and rubble */
@@ -1105,7 +1108,7 @@ void do_cmd_alter(struct command *cmd)
  */
 static bool do_cmd_walk_test(int y, int x)
 {
-	int m_idx = cave->m_idx[y][x];
+	int m_idx = cave->squares[y][x].mon;
 	struct monster *m_ptr = cave_monster(cave, m_idx);
 
 	/* Allow attack on visible monsters if unafraid */

@@ -1,6 +1,6 @@
 /**
-   \file obj-util.h
-   \brief Object list maintenance and other object utilities
+ * \file obj-util.h
+ * \brief Object list maintenance and other object utilities
  *
  * Copyright (c) 1997 Ben Harrison, James E. Wilson, Robert A. Koeneke
  *
@@ -27,14 +27,6 @@
 
 /* An item's pval (for charges, amount of gold, etc) is limited to s16b */
 #define MAX_PVAL  32767
-
-/**
- * Maximum number of objects allowed in a single dungeon grid.
- *
- * The main screen originally had a minimum size of 24 rows, so it could always
- * display 23 objects + 1 header line.
- */
-#define MAX_FLOOR_STACK			23
 
 /**
  * Modes for stacking by object_similar()

@@ -136,10 +136,10 @@ static void do_cmd_wiz_hack_ben(void)
 				if (!square_in_bounds_fully(cave, y, x)) continue;
 
 				/* Display proper cost */
-				if (cave->cost[y][x] != i) continue;
+				if (cave->squares[y][x].cost != i) continue;
 
 				/* Reliability in yellow */
-				if (cave->when[y][x] == cave->when[py][px])
+				if (cave->squares[y][x].when == cave->squares[py][px].when)
 					a = TERM_YELLOW;
 
 				/* Display player/floors/walls */
@@ -1457,7 +1457,7 @@ static void do_cmd_wiz_query(void)
 			if (!square_in_bounds_fully(cave, y, x)) continue;
 
 			/* Given flag, show only those grids */
-			if (!sqinfo_has(cave->info[y][x], flag)) continue;
+			if (!sqinfo_has(cave->squares[y][x].info, flag)) continue;
 
 			/* Given no flag, show unknown grids */
 			if (!flag && (!square_ismark(cave, y, x))) continue;
@@ -1566,7 +1566,7 @@ static void do_cmd_wiz_features(void)
 
 			/* Given feature, show only those grids */
 			for (i = 0; i < length; i++)
-				if (cave->feat[y][x] == feat[i]) show = TRUE;
+				if (cave->squares[y][x].feat == feat[i]) show = TRUE;
 
 			/* Color */
 			if (square_ispassable(cave, y, x)) a = TERM_YELLOW;

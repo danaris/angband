@@ -43,7 +43,6 @@ struct angband_constants
 	/* Maxima of things on a given level, read from constants.txt */
 	u16b level_object_max;	/**< Maximum number of objects on a given level */
 	u16b level_monster_max;	/**< Maximum number of monsters on a given level */
-	u16b level_trap_max;	/**< Maximum number of traps on a given level */
 
 	/* Monster generation constants, read from constants.txt */
 	u16b alloc_monster_chance;	/**< 1/per-turn-chance of generation */
@@ -75,6 +74,11 @@ struct angband_constants
 	u16b dungeon_wid;	/**< Maximum number of horizontical grids on a level */
 	u16b town_hgt;	/**< Maximum number of vertical grids in the town */
 	u16b town_wid;	/**< Maximum number of horizontical grids in the town */
+
+	/* Carrying capacity constants, read from constants.txt */
+	u16b pack_size;		/**< Maximum number of pack slots */
+	u16b quiver_size;	/**< Maximum number of quiver slots */
+	u16b floor_size;	/**< Maximum number of quiver slots */
 };
 
 struct init_module {
@@ -122,6 +126,7 @@ extern struct parser *init_parse_hints(void);
 extern struct parser *init_parse_trap(void);
 
 extern void init_file_paths(const char *config, const char *lib, const char *data);
+extern void init_game_constants(void);
 extern void init_arrays(void);
 extern void create_needed_dirs(void);
 extern bool init_angband(void);

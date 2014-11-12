@@ -461,8 +461,6 @@ static enum parser_error parse_constants_level_max(struct parser *p) {
 		z->level_object_max = value;
 	else if (streq(label, "monsters"))
 		z->level_monster_max = value;
-	else if (streq(label, "traps"))
-		z->level_trap_max = value;
 	else
 		return PARSE_ERROR_UNDEFINED_DIRECTIVE;
 
@@ -587,6 +585,29 @@ static enum parser_error parse_constants_dun_dim(struct parser *p) {
 	return PARSE_ERROR_NONE;
 }
 
+static enum parser_error parse_constants_carry_cap(struct parser *p) {
+	struct angband_constants *z;
+	const char *label;
+	int value;
+
+	z = parser_priv(p);
+	label = parser_getsym(p, "label");
+	value = parser_getint(p, "value");
+
+	if (value < 0)
+		return PARSE_ERROR_INVALID_VALUE;
+
+	if (streq(label, "pack-size"))
+		z->pack_size = value;
+	else if (streq(label, "quiver-size"))
+		z->quiver_size = value;
+	else if (streq(label, "floor-size"))
+		z->floor_size = value;
+	else
+		return PARSE_ERROR_UNDEFINED_DIRECTIVE;
+
+	return PARSE_ERROR_NONE;
+}
 struct parser *init_parse_constants(void) {
 	struct angband_constants *z = mem_zalloc(sizeof *z);
 	struct parser *p = parser_new();
@@ -597,6 +618,7 @@ struct parser *init_parse_constants(void) {
 	parser_reg(p, "mon-play sym label int value", parse_constants_mon_play);
 	parser_reg(p, "dun-gen sym label int value", parse_constants_dun_gen);
 	parser_reg(p, "dun-dim sym label int value", parse_constants_dun_dim);
+	parser_reg(p, "carry-cap sym label int value", parse_constants_carry_cap);
 	return p;
 }
 
@@ -622,6 +644,26 @@ static struct file_parser constants_parser = {
 	finish_parse_constants,
 	cleanup_constants
 };
+
+/**
+ * Initialise game constants.
+ *
+ * Assumption: Paths are set up correctly before calling this function.
+ */
+void init_game_constants(void)
+{
+	event_signal_string(EVENT_INITSTATUS, "Initializing constants");
+	if (run_parser(&constants_parser))
+		quit_fmt("Cannot initialise constants.");
+}
+
+/**
+ * Free the game constants
+ */
+static void cleanup_game_constants(void)
+{
+	cleanup_parser(&constants_parser);
+}
 
 /**
  * Parsing functions for object_base.txt
@@ -4023,7 +4065,6 @@ static struct {
 	const char *name;
 	struct file_parser *parser;
 } pl[] = {
-	{ "game constants", &constants_parser },
 	{ "traps", &trap_parser },
 	{ "features", &feat_parser },
 	{ "object bases", &object_base_parser },
@@ -4133,6 +4174,8 @@ bool init_angband(void)
 
 	event_signal(EVENT_ENTER_INIT);
 
+	init_game_constants();
+
 	/* Initialise modules */
 	for (i = 0; modules[i]; i++)
 		if (modules[i]->init)
@@ -4173,6 +4216,11 @@ void cleanup_angband(void)
 
 	event_remove_all_handlers();
 
+	/* Free the chunk list */
+	for (i = 0; i < chunk_list_max; i++)
+		cave_free(chunk_list[i]);
+	mem_free(chunk_list);
+
 	/* Free the main cave */
 	cave_free(cave);
 	cave_free(cave_k);
@@ -4182,6 +4230,8 @@ void cleanup_angband(void)
 
 	monster_list_finalize();
 	object_list_finalize();
+
+	cleanup_game_constants();
 
 	/* Free the format() buffer */
 	vformat_kill();

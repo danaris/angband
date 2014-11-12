@@ -918,7 +918,7 @@ bool effect_handler_MAP_AREA(effect_handler_context_t *context)
 				/* Memorize normal features */
 				if (square_isinteresting(cave, y, x)) {
 					/* Memorize the object */
-					sqinfo_on(cave->info[y][x], SQUARE_MARK);
+					sqinfo_on(cave->squares[y][x].info, SQUARE_MARK);
 					square_light_spot(cave, y, x);
 				}
 
@@ -930,8 +930,8 @@ bool effect_handler_MAP_AREA(effect_handler_context_t *context)
 					/* Memorize walls (etc) */
 					if (square_seemslikewall(cave, yy, xx)) {
 						/* Memorize the walls */
-						sqinfo_on(cave->info[yy][xx], SQUARE_MARK);
-						cave_k->feat[yy][xx] = cave->feat[yy][xx];
+						sqinfo_on(cave->squares[yy][xx].info, SQUARE_MARK);
+						cave_k->squares[yy][xx].feat = cave->squares[yy][xx].feat;
 						square_light_spot(cave, yy, xx);
 					}
 				}
@@ -1002,7 +1002,7 @@ bool effect_handler_DETECT_TRAPS(effect_handler_context_t *context)
 			}
 
 			/* Mark as trap-detected */
-			sqinfo_on(cave->info[y][x], SQUARE_DTRAP);
+			sqinfo_on(cave->squares[y][x].info, SQUARE_DTRAP);
 		}
 	}
 
@@ -1013,9 +1013,9 @@ bool effect_handler_DETECT_TRAPS(effect_handler_context_t *context)
 
 			/* See if this grid is on the edge */
 			if (square_dtrap_edge(cave, y, x)) {
-				sqinfo_on(cave->info[y][x], SQUARE_DEDGE);
+				sqinfo_on(cave->squares[y][x].info, SQUARE_DEDGE);
 			} else {
-				sqinfo_off(cave->info[y][x], SQUARE_DEDGE);
+				sqinfo_off(cave->squares[y][x].info, SQUARE_DEDGE);
 			}
 
 			/* Redraw */
@@ -1076,8 +1076,8 @@ bool effect_handler_DETECT_DOORS(effect_handler_context_t *context)
 			/* Detect doors */
 			if (square_isdoor(cave, y, x)) {
 				/* Hack -- Memorize */
-				sqinfo_on(cave->info[y][x], SQUARE_MARK);
-				cave_k->feat[y][x] = cave->feat[y][x];
+				sqinfo_on(cave->squares[y][x].info, SQUARE_MARK);
+				cave_k->squares[y][x].feat = cave->squares[y][x].feat;
 				/* Redraw */
 				square_light_spot(cave, y, x);
 
@@ -1129,8 +1129,8 @@ bool effect_handler_DETECT_STAIRS(effect_handler_context_t *context)
 			/* Detect stairs */
 			if (square_isstairs(cave, y, x)) {
 				/* Hack -- Memorize */
-				sqinfo_on(cave->info[y][x], SQUARE_MARK);
-				cave_k->feat[y][x] = cave->feat[y][x];
+				sqinfo_on(cave->squares[y][x].info, SQUARE_MARK);
+				cave_k->squares[y][x].feat = cave->squares[y][x].feat;
 				/* Redraw */
 				square_light_spot(cave, y, x);
 
@@ -1184,7 +1184,7 @@ bool effect_handler_DETECT_GOLD(effect_handler_context_t *context)
 			/* Magma/Quartz + Known Gold */
 			if (square_hasgoldvein(cave, y, x)) {
 				/* Hack -- Memorize */
-				sqinfo_on(cave->info[y][x], SQUARE_MARK);
+				sqinfo_on(cave->squares[y][x].info, SQUARE_MARK);
 
 				/* Redraw */
 				square_light_spot(cave, y, x);
@@ -2514,13 +2514,13 @@ bool effect_handler_THRUST_AWAY(effect_handler_context_t *context)
 			xx = x + ddx_ddd[d % 8];
 
 			/* Cannot switch places with stronger monsters. */
-			if (cave->m_idx[yy][xx] != 0) {
+			if (cave->squares[yy][xx].mon != 0) {
 				/* A monster is trying to pass. */
-				if (cave->m_idx[y][x] > 0) {
+				if (cave->squares[y][x].mon > 0) {
 
 					monster_type *m_ptr = square_monster(cave, y, x);
 
-					if (cave->m_idx[yy][xx] > 0) {
+					if (cave->squares[yy][xx].mon > 0) {
 						monster_type *n_ptr = square_monster(cave, yy, xx);
 
 						/* Monsters cannot pass by stronger monsters. */
@@ -2534,8 +2534,8 @@ bool effect_handler_THRUST_AWAY(effect_handler_context_t *context)
 				}
 
 				/* The player is trying to pass. */
-				if (cave->m_idx[y][x] < 0) {
-					if (cave->m_idx[yy][xx] > 0) {
+				if (cave->squares[y][x].mon < 0) {
+					if (cave->squares[yy][xx].mon > 0) {
 						monster_type *n_ptr = square_monster(cave, yy, xx);
 
 						/* Players cannot pass by stronger monsters. */
@@ -2566,7 +2566,7 @@ bool effect_handler_THRUST_AWAY(effect_handler_context_t *context)
 				/* If there are walls everywhere, stop here. */
 				else if (d == (8 + first_d - 1)) {
 					/* Message for player. */
-					if (cave->m_idx[y][x] < 0)
+					if (cave->squares[y][x].mon < 0)
 						msg("You come to rest next to a wall.");
 					i = grids_away;
 				}
@@ -2585,7 +2585,7 @@ bool effect_handler_THRUST_AWAY(effect_handler_context_t *context)
 	}
 
 	/* Clear the projection mark. */
-	sqinfo_off(cave->info[y][x], SQUARE_PROJECT);
+	sqinfo_off(cave->squares[y][x].info, SQUARE_PROJECT);
 
 	return TRUE;
 }
@@ -2686,7 +2686,7 @@ bool effect_handler_TELEPORT(effect_handler_context_t *context)
 	monster_swap(y_start, x_start, y, x);
 
 	/* Clear any projection marker to prevent double processing */
-	sqinfo_off(cave->info[y][x], SQUARE_PROJECT);
+	sqinfo_off(cave->squares[y][x].info, SQUARE_PROJECT);
 
 	/* Lots of updates after monster_swap */
 	handle_stuff(player->upkeep);
@@ -2757,7 +2757,7 @@ bool effect_handler_TELEPORT_TO(effect_handler_context_t *context)
 	monster_swap(py, px, y, x);
 
 	/* Clear any projection marker to prevent double processing */
-	sqinfo_off(cave->info[y][x], SQUARE_PROJECT);
+	sqinfo_off(cave->squares[y][x].info, SQUARE_PROJECT);
 
 	/* Lots of updates after monster_swap */
 	handle_stuff(player->upkeep);
@@ -2851,11 +2851,11 @@ bool effect_handler_DESTRUCTION(effect_handler_context_t *context)
 			if (k > r) continue;
 
 			/* Lose room and vault */
-			sqinfo_off(cave->info[y][x], SQUARE_ROOM);
-			sqinfo_off(cave->info[y][x], SQUARE_VAULT);
+			sqinfo_off(cave->squares[y][x].info, SQUARE_ROOM);
+			sqinfo_off(cave->squares[y][x].info, SQUARE_VAULT);
 
 			/* Lose light */
-			sqinfo_off(cave->info[y][x], SQUARE_GLOW);
+			sqinfo_off(cave->squares[y][x].info, SQUARE_GLOW);
 			square_light_spot(cave, y, x);
 
 			/* Deal with player later */
@@ -2868,7 +2868,7 @@ bool effect_handler_DESTRUCTION(effect_handler_context_t *context)
 			if (square_isstairs(cave, y, x)) continue;
 
 			/* Lose knowledge (keeping knowledge of stairs) */
-			sqinfo_off(cave->info[y][x], SQUARE_MARK);
+			sqinfo_off(cave->squares[y][x].info, SQUARE_MARK);
 
 			/* Destroy any grid that isn't a permament wall */
 			if (!square_isperm(cave, y, x)) {
@@ -2965,12 +2965,12 @@ bool effect_handler_EARTHQUAKE(effect_handler_context_t *context)
 			if (distance(cy, cx, yy, xx) > r) continue;
 
 			/* Lose room and vault */
-			sqinfo_off(cave->info[yy][xx], SQUARE_ROOM);
-			sqinfo_off(cave->info[yy][xx], SQUARE_VAULT);
+			sqinfo_off(cave->squares[yy][xx].info, SQUARE_ROOM);
+			sqinfo_off(cave->squares[yy][xx].info, SQUARE_VAULT);
 
 			/* Lose light and knowledge */
-			sqinfo_off(cave->info[yy][xx], SQUARE_GLOW);
-			sqinfo_off(cave->info[yy][xx], SQUARE_MARK);
+			sqinfo_off(cave->squares[yy][xx].info, SQUARE_GLOW);
+			sqinfo_off(cave->squares[yy][xx].info, SQUARE_MARK);
 
 			/* Skip the epicenter */
 			if (!dx && !dy) continue;
@@ -3075,7 +3075,7 @@ bool effect_handler_EARTHQUAKE(effect_handler_context_t *context)
 			if (!map[16 + yy - cy][16 + xx - cx]) continue;
 
 			/* Process monsters */
-			if (cave->m_idx[yy][xx] > 0) {
+			if (cave->squares[yy][xx].mon > 0) {
 				monster_type *m_ptr = square_monster(cave, yy, xx);
 
 				/* Most monsters cannot co-exist with rock */
@@ -4066,7 +4066,7 @@ bool effect_handler_TRAP_RUNE_SUMMON(effect_handler_context_t *context)
 	msgt(MSG_SUM_MONSTER, "You are enveloped in a cloud of smoke!");
 
 	/* Remove trap */
-	sqinfo_off(cave->info[player->py][player->px], SQUARE_MARK);
+	sqinfo_off(cave->squares[player->py][player->px].info, SQUARE_MARK);
 	square_destroy_trap(cave, player->py, player->px);
 
 	for (i = 0; i < num; i++)

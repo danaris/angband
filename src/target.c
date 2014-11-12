@@ -19,6 +19,7 @@
 #include "angband.h"
 #include "cave.h"
 #include "cmd-core.h"
+#include "init.h"
 #include "keymap.h"
 #include "mon-desc.h"
 #include "mon-lore.h"
@@ -381,7 +382,7 @@ static bool target_set_interactive_accept(int y, int x)
 
 
 	/* Player grids are always interesting */
-	if (cave->m_idx[y][x] < 0) return (TRUE);
+	if (cave->squares[y][x].mon < 0) return (TRUE);
 
 
 	/* Handle hallucination */
@@ -389,7 +390,7 @@ static bool target_set_interactive_accept(int y, int x)
 
 
 	/* Visible monsters */
-	if (cave->m_idx[y][x] > 0) {
+	if (cave->squares[y][x].mon > 0) {
 		monster_type *m_ptr = square_monster(cave, y, x);
 
 		/* Visible monsters */
@@ -440,7 +441,7 @@ static struct point_set *target_set_interactive_prepare(int mode)
 			if (mode & (TARGET_KILL))
 			{
 				/* Must contain a monster */
-				if (!(cave->m_idx[y][x] > 0)) continue;
+				if (!(cave->squares[y][x].mon > 0)) continue;
 
 				/* Must be a targettable monster */
 			 	if (!target_able(square_monster(cave, y, x))) continue;
@@ -636,7 +637,7 @@ static ui_event target_recall_loop_object(object_type *o_ptr, int y, int x, char
 			{
 				strnfmt(out_val, TARGET_OUT_VAL_SIZE,
 						"%s%s%s%s, %s (%d:%d, cost=%d, when=%d).",
-						s1, s2, s3, o_name, coords, y, x, (int)cave->cost[y][x], (int)cave->when[y][x]);
+						s1, s2, s3, o_name, coords, y, x, (int)cave->squares[y][x].cost, (int)cave->squares[y][x].when);
 			}
 			else
 			{
@@ -690,7 +691,8 @@ static ui_event target_set_interactive_aux(int y, int x, int mode)
 
 	bool boring;
 
-	int floor_list[MAX_FLOOR_STACK];
+	int floor_max = z_info->floor_size;
+	int *floor_list = mem_zalloc(floor_max * sizeof(int));
 	int floor_num;
 
 	//struct keypress query;
@@ -723,7 +725,7 @@ static ui_event target_set_interactive_aux(int y, int x, int mode)
 
 
 		/* The player */
-		if (cave->m_idx[y][x] < 0)
+		if (cave->squares[y][x].mon < 0)
 		{
 			/* Description */
 			s1 = "You are ";
@@ -740,7 +742,7 @@ static ui_event target_set_interactive_aux(int y, int x, int mode)
 			/* Display a message */
 			if (player->wizard)
 				strnfmt(out_val, sizeof(out_val), "%s%s%s%s, %s (%d:%d, cost=%d, when=%d).",
-						s1, s2, s3, name, coords, y, x, (int)cave->cost[y][x], (int)cave->when[y][x]);
+						s1, s2, s3, name, coords, y, x, (int)cave->squares[y][x].cost, (int)cave->squares[y][x].when);
 			else
 				strnfmt(out_val, sizeof(out_val), "%s%s%s%s, %s.",
 						s1, s2, s3, name, coords);
@@ -755,11 +757,12 @@ static ui_event target_set_interactive_aux(int y, int x, int mode)
 			if (press.key.code == KC_ENTER)
 				continue;
 
+			mem_free(floor_list);
 			return press;
 		}
 
 		/* Actual monsters */
-		if (cave->m_idx[y][x] > 0)
+		if (cave->squares[y][x].mon > 0)
 		{
 			monster_type *m_ptr = square_monster(cave, y, x);
 			const monster_lore *l_ptr = get_lore(m_ptr->race);
@@ -802,14 +805,14 @@ static ui_event target_set_interactive_aux(int y, int x, int mode)
 						char buf[80];
 
 						/* Describe the monster */
-						look_mon_desc(buf, sizeof(buf), cave->m_idx[y][x]);
+						look_mon_desc(buf, sizeof(buf), cave->squares[y][x].mon);
 
 						/* Describe, and prompt for recall */
 						if (player->wizard)
 						{
 							strnfmt(out_val, sizeof(out_val),
 									"%s%s%s%s (%s), %s (%d:%d, cost=%d, when=%d).",
-									s1, s2, s3, m_name, buf, coords, y, x, (int)cave->cost[y][x], (int)cave->when[y][x]);
+									s1, s2, s3, m_name, buf, coords, y, x, (int)cave->squares[y][x].cost, (int)cave->squares[y][x].when);
 						}
 						else
 						{
@@ -883,7 +886,7 @@ static ui_event target_set_interactive_aux(int y, int x, int mode)
 					{
 						strnfmt(out_val, sizeof(out_val),
 								"%s%s%s%s, %s (%d:%d, cost=%d, when=%d).",
-								s1, s2, s3, o_name, coords, y, x, (int)cave->cost[y][x], (int)cave->when[y][x]);
+								s1, s2, s3, o_name, coords, y, x, (int)cave->squares[y][x].cost, (int)cave->squares[y][x].when);
 					}
 					/* Disabled since monsters now carry their drops
 					else
@@ -926,7 +929,7 @@ static ui_event target_set_interactive_aux(int y, int x, int mode)
 		/* A trap */
 		if (square_isvisibletrap(cave, y, x)) 
 		{
-			struct trap *trap = cave_trap(cave, square_trap_idx(cave, y, x));
+			struct trap *trap = cave->squares[y][x].trap;
 
 			/* Not boring */
 			boring = FALSE;
@@ -935,7 +938,7 @@ static ui_event target_set_interactive_aux(int y, int x, int mode)
 			while (1) 
 			{
 				/* Change the intro */
-				if (cave->m_idx[y][x] < 0) 
+				if (cave->squares[y][x].mon < 0) 
 				{
 					s1 = "You are ";
 					s2 = "on ";
@@ -954,7 +957,7 @@ static ui_event target_set_interactive_aux(int y, int x, int mode)
 				{
 					strnfmt(out_val, sizeof(out_val),
 							"%s%s%s%s, %s (%d:%d, cost=%d, when=%d).", s1, s2, s3,
-							trap->kind->name, coords, y, x, (int)cave->cost[y][x], (int)cave->when[y][x]);
+							trap->kind->name, coords, y, x, (int)cave->squares[y][x].cost, (int)cave->squares[y][x].when);
 				} 
 				else 
 				{
@@ -1005,7 +1008,7 @@ static ui_event target_set_interactive_aux(int y, int x, int mode)
 				{
 					strnfmt(out_val, sizeof(out_val),
 							"%s%s%sa pile of %d objects, %s (%d:%d, cost=%d, when=%d).",
-							s1, s2, s3, floor_num, coords, y, x, (int)cave->cost[y][x], (int)cave->when[y][x]);
+							s1, s2, s3, floor_num, coords, y, x, (int)cave->squares[y][x].cost, (int)cave->squares[y][x].when);
 				}
 				else
 				{
@@ -1111,7 +1114,7 @@ static ui_event target_set_interactive_aux(int y, int x, int mode)
 			if (player->wizard)
 			{
 				strnfmt(out_val, sizeof(out_val),
-						"%s%s%s%s, %s (%d:%d, cost=%d, when=%d).", s1, s2, s3, name, coords, y, x, (int)cave->cost[y][x], (int)cave->when[y][x]);
+						"%s%s%s%s, %s (%d:%d, cost=%d, when=%d).", s1, s2, s3, name, coords, y, x, (int)cave->squares[y][x].cost, (int)cave->squares[y][x].when);
 			}
 			else
 			{
@@ -1142,6 +1145,8 @@ static ui_event target_set_interactive_aux(int y, int x, int mode)
     			if (press.key.code != KC_ENTER) break;
 		}
 	}
+
+	mem_free(floor_list);
 
 	/* Keep going */
 	return (press);
@@ -1265,7 +1270,7 @@ static int draw_path(u16b path_n, struct loc *path_g, wchar_t *c, int *a, int y1
 		Term_what(Term->scr->cx, Term->scr->cy, a+i, c+i);
 
 		/* Choose a colour. */
-		if (cave->m_idx[y][x] &&
+		if (cave->squares[y][x].mon &&
 			mflag_has(square_monster(cave, y, x)->mflag, MFLAG_VISIBLE)) {
 			/* Visible monsters are red. */
 			monster_type *m_ptr = square_monster(cave, y, x);
@@ -1496,7 +1501,7 @@ bool target_set_interactive(int mode, int x, int y)
 				{
 					y = KEY_GRID_Y(press);//.mouse.y;
 					x = KEY_GRID_X(press);//.mouse.x;
-					if (cave->m_idx[y][x] || cave->o_idx[y][x]){// || cave->feat[y][x]&) {
+					if (cave->squares[y][x].mon || cave->o_idx[y][x]){// || cave->squares[y][x].feat&) {
 						/* reset the flag, to make sure we stay in this mode if
 						 * something is actually there */
 						flag = FALSE;
@@ -1764,7 +1769,7 @@ bool target_set_interactive(int mode, int x, int y)
 						targets = target_set_interactive_prepare(mode);
 					}
 
-					if (cave->m_idx[y][x] || cave->o_idx[y][x]) {
+					if (cave->squares[y][x].mon || cave->o_idx[y][x]) {
 						/* scan the interesting list and see if there in anything here */
 						for (i = 0; i < point_set_size(targets); i++) {
 							if ((y == targets->pts[i].y) && (x == targets->pts[i].x)) {

@@ -291,7 +291,7 @@ static void rd_trap(struct trap *trap)
     rd_byte(&trap->xtra);
 
     for (i = 0; i < trf_size; i++)
-	rd_byte(&trap->flags[i]);
+		rd_byte(&trap->flags[i]);
 }
 
 /**
@@ -1151,7 +1151,7 @@ static int rd_dungeon_aux(struct chunk ** c)
 
 	/*** Run length decoding ***/
 
-    /* Loop across bytes of cave->info */
+    /* Loop across bytes of cave->squares[y][x].info */
 	for (n = 0; n < square_size; n++)
 	{
 		/* Load the dungeon data */
@@ -1165,7 +1165,7 @@ static int rd_dungeon_aux(struct chunk ** c)
 			for (i = count; i > 0; i--)
 			{
 				/* Extract "info" */
-				cave->info[y][x][n] = tmp8u;
+				cave->squares[y][x].info[n] = tmp8u;
 
 				/* Advance/Wrap */
 				if (++x >= cave->width)
@@ -1297,6 +1297,7 @@ int rd_chunks(void)
 	rd_u16b(&chunk_max);
 	for (j = 0; j < chunk_max; j++) {
 		struct chunk *c;
+		struct trap *trap = mem_zalloc(sizeof(*trap));
 		char name[100];
 		u16b height, width;
 
@@ -1307,7 +1308,7 @@ int rd_chunks(void)
 		c = cave_new(height, width);
 		c->name = string_make(name);
 
-		/* Loop across bytes of c->info */
+		/* Loop across bytes of c->squares[y][x].info */
 		for (k = 0; k < SQUARE_SIZE; k++)
 		{
 			/* Load the chunk data */
@@ -1321,7 +1322,7 @@ int rd_chunks(void)
                 for (i = count; i > 0; i--)
                 {
 					/* Extract "info" */
-					c->info[y][x][k] = tmp8u;
+					c->squares[y][x].info[k] = tmp8u;
 
 					/* Advance/Wrap */
 					if (++x >= width)
@@ -1384,14 +1385,32 @@ int rd_chunks(void)
 			rd_monster(m_ptr);
 		}
 
-		/* Total traps */
-		rd_u16b(&c->trap_max);
-
-		for (i = 0; i < c->trap_max; i++) {
-			struct trap *trap = &c->traps[i];
-
+		/* Read traps until one has no location */
+		while (TRUE) {
 			rd_trap(trap);
+			y = trap->fy;
+			x = trap->fx;
+			if ((y == 0) && (x == 0))
+				break;
+			else {
+				/* Put a blank trap at the front of the grid trap list */
+				struct trap *new_trap = mem_zalloc(sizeof(*new_trap));
+				new_trap->next = c->squares[y][y].trap;
+				c->squares[y][x].trap = new_trap;
+
+				/* Copy over the data */
+				new_trap->t_idx = trap->t_idx;
+				new_trap->kind = &trap_info[trap->t_idx];
+				new_trap->fy = y;
+				new_trap->fx = x;
+				trf_copy(new_trap->flags, trap->flags);
+
+				/* Toggle on the trap marker */
+				sqinfo_on(c->squares[y][x].info, SQUARE_TRAP);
+			}
 		}
+
+		mem_free(trap);
 		chunk_list_add(c);
 	}
 
@@ -1622,8 +1641,8 @@ int rd_history(void)
 
 static int rd_traps_aux(struct chunk * cave)
 {
-    int i;
-    u32b tmp32u;
+	int y, x;
+	struct trap *trap = mem_zalloc(sizeof(*trap));
 
     /* Only if the player's alive */
     if (player->is_dead)
@@ -1631,18 +1650,33 @@ static int rd_traps_aux(struct chunk * cave)
 
 
     rd_byte(&trf_size);
-    rd_u16b(&cave->trap_max);
 
-    for (i = 0; i < cave_trap_max(cave); i++)
-    {
-		struct trap *trap = cave_trap(cave, i);
-
+	/* Read traps until one has no location */
+	while (TRUE) {
 		rd_trap(trap);
-    }
+		y = trap->fy;
+		x = trap->fx;
+		if ((y == 0) && (x == 0))
+			break;
+		else {
+			/* Put a blank trap at the front of the grid trap list */
+			struct trap *new_trap = mem_zalloc(sizeof(*new_trap));
+			new_trap->next = cave->squares[y][y].trap;
+			cave->squares[y][x].trap = new_trap;
 
-    /* Expansion */
-    rd_u32b(&tmp32u);
+			/* Copy over the data */
+			new_trap->t_idx = trap->t_idx;
+			new_trap->kind = &trap_info[trap->t_idx];
+			new_trap->fy = y;
+			new_trap->fx = x;
+			trf_copy(new_trap->flags, trap->flags);
 
+			/* Toggle on the trap marker */
+			sqinfo_on(cave->squares[y][x].info, SQUARE_TRAP);
+		}
+	}
+
+	mem_free(trap);
     return 0;
 }
 

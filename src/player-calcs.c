@@ -22,6 +22,7 @@
 #include "cave.h"
 #include "dungeon.h"
 #include "game-event.h"
+#include "init.h"
 #include "mon-msg.h"
 #include "mon-util.h"
 #include "obj-gear.h"
@@ -1008,7 +1009,7 @@ void calc_inventory(struct player_upkeep *upkeep, object_type gear[],
 
 	/* Fill the quiver */
 	upkeep->quiver_cnt = 0;
-	while (quiver_slots < QUIVER_SIZE) {
+	while (quiver_slots < z_info->quiver_size) {
 		struct object *first = NULL;
 
 		/* Find the first quiver object not yet allocated */
@@ -1021,10 +1022,15 @@ void calc_inventory(struct player_upkeep *upkeep, object_type gear[],
 			/* Allocate inscribed objects if it's the right slot */
 			if (current->note) {
 				s = strchr(quark_str(current->note), '@');
-				if ((s[1] == 'f') && (s[2] - '0' == quiver_slots)) {
-					first = current;
-					gear_index = i;
-					break;
+				if (s[1] == 'f') {
+					/* Correct slot, fill it straight away */
+					if (s[2] - '0' == quiver_slots) {
+						first = current;
+						gear_index = i;
+						break;
+					} else if (s[2] - '0' > quiver_slots)
+						/* Not up to the correct slot yet, so wait */
+						continue;
 				}
 			}
 
@@ -1048,7 +1054,7 @@ void calc_inventory(struct player_upkeep *upkeep, object_type gear[],
 
 	/* Fill the inventory */
 	upkeep->inven_cnt = 0;
-	while ((num_left > 0) || (index <= INVEN_PACK)) {
+	while ((num_left > 0) || (index <= z_info->pack_size)) {
 		struct object *first = NULL;
 
 		/* Set to default for empty slots */
@@ -1070,7 +1076,7 @@ void calc_inventory(struct player_upkeep *upkeep, object_type gear[],
 		possible[gear_index] = FALSE;
 
 		/* Ensure legality */
-		assert((index <= INVEN_PACK) || (num_left <= 0));
+		assert((index <= z_info->pack_size) || (num_left <= 0));
 	}
 	mem_free(possible);
 }
