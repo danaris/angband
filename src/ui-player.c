@@ -701,7 +701,7 @@ static struct panel *get_panel_topleft(void) {
 }
 
 static struct panel *get_panel_midleft(void) {
-	struct panel *p = panel_allocate(9);
+	struct panel *p = panel_allocate(10);
 
 	panel_line(p, max_color(player->lev, player->max_lev),
 			"Level", "%d", player->lev);
