@@ -324,6 +324,7 @@ typedef struct monster
 	s16b maxhp;			/* Max Hit points */
 
 	s16b m_timed[MON_TMD_MAX]; /* Timed monster status effects */
+	s16b m_timed_val[MON_TMD_MAX]; /* Timed monster status effect power values */
 
 	byte mspeed;		/* Monster "speed" */
 	byte energy;		/* Monster "energy" */

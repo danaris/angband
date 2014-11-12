@@ -189,8 +189,10 @@ static void wr_monster(const monster_type *m_ptr)
 	wr_byte(m_ptr->energy);
 	wr_byte(MON_TMD_MAX);
 
-	for (j = 0; j < MON_TMD_MAX; j++)
+	for (j = 0; j < MON_TMD_MAX; j++) {
 		wr_s16b(m_ptr->m_timed[j]);
+		wr_s16b(m_ptr->m_timed_val[j]);
+	}
 
 	for (j = 0; j < MFLAG_SIZE; j++)
 		wr_byte(m_ptr->mflag[j]);

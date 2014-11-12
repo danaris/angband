@@ -92,6 +92,7 @@ typedef struct project_monster_handler_context_s {
 	enum mon_messages hurt_msg;
 	enum mon_messages die_msg;
 	int mon_timed[MON_TMD_MAX];
+	int mon_timed_val[MON_TMD_MAX];
 } project_monster_handler_context_t;
 typedef void (*project_monster_handler_f)(project_monster_handler_context_t *);
 
@@ -253,6 +254,27 @@ static void project_monster_timed_no_damage(project_monster_handler_context_t *c
 {
 	project_monster_timed_damage(context, type, context->dam, 0);
 	context->dam = 0;
+}
+
+/**
+ * Add a timed status effect to a monster with a separate duration and power value.
+ *
+ * \param context is the project_m context.
+ * \param type is the MON_TMD timer to increment.
+ */
+static void project_monster_timed_power(project_monster_handler_context_t *context, int type)
+{
+	if (type < 0 || type >= MON_TMD_MAX)
+		return;
+	
+	if (context->who > 0) {
+		context->flag |= MON_TMD_MON_SOURCE;
+	}
+	
+	/* This is something of a kludge. Eventually, I'd like to expand the capabilities of the parser and the systems between here and there to take more parameters. */
+	
+	context->mon_timed[type] = 10;
+	context->mon_timed_val[type] = context->dam;
 }
 
 /**
@@ -970,8 +992,13 @@ static void project_m_apply_side_effects(project_monster_handler_context_t *cont
 		}
 
 		for (i = 0; i < MON_TMD_MAX; i++) {
-			if (context->mon_timed[i] > 0)
-				context->obvious = mon_inc_timed(m_ptr, i, context->mon_timed[i], context->flag | MON_TMD_FLG_NOTIFY, context->id);
+			if (context->mon_timed[i] > 0) {
+				if (context->mon_timed_val[i] != 0) {
+					context->obvious = mon_inc_timed_val(m_ptr, i, context->mon_timed[i], context->mon_timed_val[i], context->flag | MON_TMD_FLG_NOTIFY, context->id);
+				} else {
+					context->obvious = mon_inc_timed(m_ptr, i, context->mon_timed[i], context->flag | MON_TMD_FLG_NOTIFY, context->id);
+				}
+			}
 		}
 	}
 }
@@ -1074,8 +1101,15 @@ bool project_m(int who, int r, int y, int x, int dam, int typ, int flg)
 		0, /* teleport_distance */
 		MON_MSG_NONE, /* hurt_msg */
 		MON_MSG_DIE, /* die_msg */
-		{0, 0, 0, 0, 0, 0},
+		{0, 0, 0, 0, 0, 0, 0, 0},
+		{0, 0, 0, 0, 0, 0, 0, 0},
 	};
+	
+	int i;
+	for (i=0; i<MON_TMD_MAX; i++) {
+		context.mon_timed[i] = 0;
+		context.mon_timed_val[i] = 0;
+	}
 
 	/* Walls protect monsters */
 	if (!square_isprojectable(cave, y,x)) return (FALSE);

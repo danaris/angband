@@ -165,7 +165,7 @@ static bool mon_resist_effect(const struct monster *mon, int ef_idx, int timer, 
  * Returns TRUE if the monster was affected.
  * Return FALSE if the monster was unaffected.
  */
-static bool mon_set_timed(monster_type *m_ptr, int ef_idx, int timer,
+static bool mon_set_timed(monster_type *m_ptr, int ef_idx, int timer, int val,
 						  u16b flag, bool id)
 {
 	bool check_resist = FALSE;
@@ -174,7 +174,7 @@ static bool mon_set_timed(monster_type *m_ptr, int ef_idx, int timer,
 	struct mon_timed_effect *effect;
 
 	int m_note = 0;
-	int old_timer;
+	int old_timer, old_val;
 
 	assert(ef_idx >= 0 && ef_idx < MON_TMD_MAX);
 	effect = &effects[ef_idx];
@@ -183,21 +183,22 @@ static bool mon_set_timed(monster_type *m_ptr, int ef_idx, int timer,
 	assert(m_ptr->race);
 
 	old_timer = m_ptr->m_timed[ef_idx];
+	old_val =m_ptr->m_timed_val[ef_idx];
 
 	/* No change */
-	if (old_timer == timer)
+	if (old_timer == timer && old_val == val)
 		return FALSE;
 
-	if (timer == 0) {
+	if (timer == 0 || (old_val != 0 && val == 0)) {
 		/* Turning off, usually mention */
 		m_note = effect->message_end;
 		flag |= MON_TMD_FLG_NOTIFY;
-	} else if (old_timer == 0) {
+	} else if (old_timer == 0 || (old_val == 0 && val != 0)) {
 		/* Turning on, usually mention */
 		flag |= MON_TMD_FLG_NOTIFY;
 		m_note = effect->message_begin;
 		check_resist = TRUE;
-	} else if (timer > old_timer) {
+	} else if (timer > old_timer || val > old_val) {
 		/* Different message for increases, but don't automatically mention. */
 		m_note = effect->message_increase;
 		check_resist = TRUE;
@@ -207,10 +208,12 @@ static bool mon_set_timed(monster_type *m_ptr, int ef_idx, int timer,
 	if (check_resist)
 		resisted = mon_resist_effect(m_ptr, ef_idx, timer, flag);
 
-	if (resisted)
+	if (resisted) {
 		m_note = MON_MSG_UNAFFECTED;
-	else
+	} else {
 		m_ptr->m_timed[ef_idx] = timer;
+		m_ptr->m_timed_val[ef_idx] = val;
+	}
 
 	if (player->upkeep->health_who == m_ptr)
 		player->upkeep->redraw |= (PR_HEALTH);
@@ -231,6 +234,10 @@ static bool mon_set_timed(monster_type *m_ptr, int ef_idx, int timer,
 	return !resisted;
 }
 
+bool mon_inc_timed(struct monster *m_ptr, int ef_idx, int timer, u16b flag, bool id) {
+	return mon_inc_timed_val(m_ptr, ef_idx, timer, 0, flag, id);
+}
+
 
 /**
  * Increases the timed effect `ef_idx` by `timer`.
@@ -242,7 +249,7 @@ static bool mon_set_timed(monster_type *m_ptr, int ef_idx, int timer,
  *
  * Returns TRUE if the monster's timer changed.
  */
-bool mon_inc_timed(struct monster *m_ptr, int ef_idx, int timer, u16b flag,
+bool mon_inc_timed_val(struct monster *m_ptr, int ef_idx, int timer, int val, u16b flag,
 				   bool id)
 {
 	struct mon_timed_effect *effect;
@@ -266,7 +273,7 @@ bool mon_inc_timed(struct monster *m_ptr, int ef_idx, int timer, u16b flag,
 	if (timer > effect->max_timer)
 		timer = effect->max_timer;
 
-	return mon_set_timed(m_ptr, ef_idx, timer, flag, id);
+	return mon_set_timed(m_ptr, ef_idx, timer, val, flag, id);
 }
 
 /**
@@ -292,7 +299,7 @@ bool mon_dec_timed(struct monster *m_ptr, int ef_idx, int timer, u16b flag,
 	if (timer < 0)
 		timer = 0;
 
-	return mon_set_timed(m_ptr, ef_idx, timer, flag, id);
+	return mon_set_timed(m_ptr, ef_idx, timer, m_ptr->m_timed_val[ef_idx], flag, id);
 }
 
 /**
@@ -309,6 +316,6 @@ bool mon_clear_timed(struct monster *m_ptr, int ef_idx, u16b flag, bool id)
 	/* Clearing never fails */
 	flag |= MON_TMD_FLG_NOFAIL;
 
-	return mon_set_timed(m_ptr, ef_idx, 0, flag, id);
+	return mon_set_timed(m_ptr, ef_idx, 0, 0, flag, id);
 }
 

@@ -257,8 +257,10 @@ static void rd_monster(monster_type *m_ptr)
 	rd_byte(&m_ptr->energy);
 	rd_byte(&tmp8u);
 
-	for (j = 0; j < tmp8u; j++)
+	for (j = 0; j < tmp8u; j++) {
 		rd_s16b(&m_ptr->m_timed[j]);
+		rd_s16b(&m_ptr->m_timed_val[j]);
+	}
 
 	/* Read and extract the flag */
 	for (j = 0; j < mflag_size; j++)
