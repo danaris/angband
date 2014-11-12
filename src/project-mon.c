@@ -748,6 +748,18 @@ static void project_monster_handler_BLIND(project_monster_handler_context_t *con
 	project_monster_timed_no_damage(context, MON_TMD_BLIND);
 }
 
+/* Hit adjust (Use "dam" as "power") */
+static void project_monster_handler_HITADJUST(project_monster_handler_context_t *context)
+{
+	project_monster_timed_power(context, MON_TMD_HITADJUST);
+}
+
+/* Damage adjust (Use "dam" as "power") */
+static void project_monster_handler_DAMADJUST(project_monster_handler_context_t *context)
+{
+	project_monster_timed_power(context, MON_TMD_DAMADJUST);
+}
+
 /* Sleep (Use "dam" as "power") */
 static void project_monster_handler_OLD_SLEEP(project_monster_handler_context_t *context)
 {

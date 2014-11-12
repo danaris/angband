@@ -437,7 +437,7 @@ static int monster_critical(random_value dice, int rlev, int dam)
 /*
  * Determine if a monster attack against the player succeeds.
  */
-bool check_hit(struct player *p, int power, int level, bool blinded)
+bool check_hit(struct player *p, int power, int level, bool blinded, int adjust)
 {
 	int chance, ac;
 
@@ -448,6 +448,8 @@ bool check_hit(struct player *p, int power, int level, bool blinded)
 	if (blinded) {
 		chance = chance * 4 / 5;
 	}
+	
+	chance = chance + adjust;
 
 	/* Total armor */
 	ac = p->state.ac + p->state.to_a;
@@ -480,6 +482,7 @@ bool make_attack_normal(struct monster *m_ptr, struct player *p)
 	char m_name[80];
 	char ddesc[80];
 	bool blinked;
+	int hit_adjust, dam_adjust;
 
 	/* Not allowed to attack */
 	if (rf_has(m_ptr->race->flags, RF_NEVER_BLOW)) return (FALSE);
@@ -499,6 +502,19 @@ bool make_attack_normal(struct monster *m_ptr, struct player *p)
 
 	/* Assume no blink */
 	blinked = FALSE;
+	
+	/* Grab to-hit and to-damage adjustments */
+	if (m_ptr->m_timed[MON_TMD_HITADJUST]) {
+		hit_adjust = m_ptr->m_timed_val[MON_TMD_HITADJUST];
+	} else {
+		hit_adjust = 0;
+	}
+	
+	if (m_ptr->m_timed[MON_TMD_DAMADJUST]) {
+		dam_adjust = m_ptr->m_timed_val[MON_TMD_DAMADJUST];
+	} else {
+		dam_adjust = 0;
+	}
 
 	/* Scan through all blows */
 	for (ap_cnt = 0; ap_cnt < z_info->mon_blows_max; ap_cnt++)
@@ -509,6 +525,7 @@ bool make_attack_normal(struct monster *m_ptr, struct player *p)
 
 		int power = 0;
 		int damage = 0;
+		int old_damage = 0;
 		int do_cut = 0;
 		int do_stun = 0;
 		int sound_msg = MSG_GENERIC;
@@ -536,7 +553,7 @@ bool make_attack_normal(struct monster *m_ptr, struct player *p)
 		power = monster_blow_effect_power(effect);
 
 		/* Monster hits player */
-		if (!effect || check_hit(p, power, rlev, m_ptr->m_timed[MON_TMD_BLIND])) {
+		if (!effect || check_hit(p, power, rlev, m_ptr->m_timed[MON_TMD_BLIND], hit_adjust)) {
 			melee_effect_handler_f effect_handler;
 
 			/* Always disturbing */
@@ -573,6 +590,20 @@ bool make_attack_normal(struct monster *m_ptr, struct player *p)
 
 			/* Roll dice */
 			damage = randcalc(dice, rlev, RANDOMISE);
+			
+			/* Apply damage adjustment */
+			if (dam_adjust) {
+				old_damage = damage;
+				damage = (damage * (100+dam_adjust))/100;
+				if (old_damage > 0 && damage < 0) {
+					damage = 0;
+				}
+				/* If the damage adjustment reduces damage to zero, it's an ineffectual blow */
+				if (old_damage != 0 && damage == 0) {
+					effect = 0;
+					msg("It is a glancing blow.");
+				}
+			}
 
 			/* Perform the actual effect. */
 			effect_handler = melee_handler_for_blow_effect(effect);

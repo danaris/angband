@@ -994,6 +994,12 @@ static bool process_monster_timed(struct chunk *c, struct monster *m_ptr)
 
 	if (m_ptr->m_timed[MON_TMD_SLOW])
 		mon_dec_timed(m_ptr, MON_TMD_SLOW, 1, 0, FALSE);
+	
+	if (m_ptr->m_timed[MON_TMD_HITADJUST])
+		mon_dec_timed(m_ptr, MON_TMD_HITADJUST, 1, 0, FALSE);
+	
+	if (m_ptr->m_timed[MON_TMD_DAMADJUST])
+		mon_dec_timed(m_ptr, MON_TMD_DAMADJUST, 1, 0, FALSE);
 
 	if (m_ptr->m_timed[MON_TMD_STUN]) {
 		int d = 1;

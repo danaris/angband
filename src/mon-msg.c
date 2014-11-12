@@ -93,7 +93,11 @@ static const char *msg_repository[MAX_MON_MSG + 1] =
 	"[is|are] more entangled.", /* MON_MSG_MORE_ENTANGLED */
 	"stumble[s] blindly.", /* MON_MSG_BLIND */
 	"blink[s] [its|their] eyes and focus[es] on you.", /* MON_MSG_NOT_BLIND */
-	"stumble[s] more blindly.", /* MON_MSG_BLIND */
+	"stumble[s] more blindly.", /* MON_MSG_MORE_BLIND */
+	"look[s] clumsier.", /* MON_MSG_HITADJUST */
+	"look[s] less clumsy.", /* MON_MSG_NOT_HITADJUST */
+	"look[s] weaker.", /* MON_MSG_DAMADJUST */
+	"look[s] less weak.", /* MON_MSG_NOT_DAMADJUST */
 
 	/* From message_pain */
 	"[is|are] unharmed.",		/* MON_MSG_UNHARMED  */

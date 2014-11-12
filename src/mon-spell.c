@@ -78,6 +78,7 @@ void do_mon_spell(int index, struct monster *m_ptr, bool seen)
 {
 	char m_name[80];
 	bool ident, hits = FALSE;
+	int hit_adjust = 0;
 
 	/* Extract the monster level */
 	int rlev = ((m_ptr->race->level >= 1) ? m_ptr->race->level : 1);
@@ -87,6 +88,10 @@ void do_mon_spell(int index, struct monster *m_ptr, bool seen)
 
 	/* Get the monster name (or "it") */
 	monster_desc(m_name, sizeof(m_name), m_ptr, MDESC_STANDARD);
+	
+	if (m_ptr->m_timed[MON_TMD_HITADJUST] != 0) {
+		hit_adjust = m_ptr->m_timed_val[MON_TMD_HITADJUST];
+	}
 
 	/* See if it hits */
 	if (spell->hit == 100)
@@ -94,7 +99,7 @@ void do_mon_spell(int index, struct monster *m_ptr, bool seen)
 	else if (spell->hit == 0)
 		hits = FALSE;
 	else
-		hits = check_hit(player, spell->hit, rlev, m_ptr->m_timed[MON_TMD_BLIND]);
+		hits = check_hit(player, spell->hit, rlev, m_ptr->m_timed[MON_TMD_BLIND], hit_adjust);
 
 	/* Tell the player what's going on */
 	disturb(player, 1);

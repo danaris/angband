@@ -19,7 +19,7 @@
 #define MONSTER_ATTACK_H
 
 bool make_attack_spell(struct monster *m);
-bool check_hit(struct player *p, int power, int level, bool blinded);
+bool check_hit(struct player *p, int power, int level, bool blinded, int adjust);
 int adjust_dam_armor(int damage, int ac);
 bool make_attack_normal(struct monster *m_ptr, struct player *p);
 
