@@ -936,7 +936,7 @@ static void process_player(void)
 			player->total_energy += player->upkeep->energy_use;
 
 			/* Hack -- constant hallucination */
-			if (player->timed[TMD_IMAGE])
+			if (player->timed[TMD_IMAGE]) {
 				player->upkeep->redraw |= (PR_MAP);
 			}
 			
