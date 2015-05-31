@@ -29,10 +29,11 @@
 #include "mon-make.h"
 #include "mon-spell.h"
 #include "obj-make.h"
+#include "obj-pile.h"
 #include "obj-tval.h"
 #include "obj-util.h"
 #include "parser.h"
-#include "tables.h"
+#include "player-util.h"
 #include "trap.h"
 #include "z-queue.h"
 #include "z-type.h"
@@ -343,14 +344,12 @@ void new_player_spot(struct chunk *c, struct player *p)
     cave_find_in_range(c, &y, 0, c->height, &x, 0, c->width, square_isstart);
 
     /* Create stairs the player came down if allowed and necessary */
-    if (OPT(birth_no_stairs)) {
-    } else if (p->upkeep->create_down_stair) {
+	if (OPT(birth_no_stairs))
+		;
+	else if (p->upkeep->create_down_stair)
 		square_set_feat(c, y, x, FEAT_MORE);
-		p->upkeep->create_down_stair = FALSE;
-    } else if (p->upkeep->create_up_stair) {
+	else if (p->upkeep->create_up_stair)
 		square_set_feat(c, y, x, FEAT_LESS);
-		p->upkeep->create_up_stair = FALSE;
-    }
 
     player_place(c, p, y, x);
 }
@@ -400,9 +399,12 @@ static void place_rubble(struct chunk *c, int y, int x)
  */
 static void place_stairs(struct chunk *c, int y, int x, int feat)
 {
+	/* Remove any traps */
+	square_destroy_trap(c, y, x);
+
     if (!c->depth)
 		square_set_feat(c, y, x, FEAT_MORE);
-    else if (is_quest(c->depth) || c->depth >= MAX_DEPTH - 1)
+    else if (is_quest(c->depth) || c->depth >= z_info->max_depth - 1)
 		square_set_feat(c, y, x, FEAT_LESS);
     else
 		square_set_feat(c, y, x, feat);
@@ -431,35 +433,35 @@ void place_random_stairs(struct chunk *c, int y, int x)
  * \param good is it a good object?
  * \param great is it a great object?
  * \param origin item origin
- * \param specified tval, if any
+ * \param tval specified tval, if any
  */
 void place_object(struct chunk *c, int y, int x, int level, bool good, bool great, byte origin, int tval)
 {
     s32b rating = 0;
-    object_type otype;
+    struct object *new_obj;
 
     assert(square_in_bounds(c, y, x));
 
     if (!square_canputitem(c, y, x)) return;
 
-    object_wipe(&otype);
-    if (!make_object(c, &otype, level, good, great, FALSE, &rating, tval)) return;
+    new_obj = make_object(c, level, good, great, FALSE, &rating, tval);
+	if (!new_obj) return;
 
-    otype.origin = origin;
-    otype.origin_depth = c->depth;
+    new_obj->origin = origin;
+    new_obj->origin_depth = c->depth;
 
     /* Give it to the floor */
     /* XXX Should this be done in floor_carry? */
-    if (!floor_carry(c, y, x, &otype)) {
-		if (otype.artifact)
-			otype.artifact->created = FALSE;
+    if (!floor_carry(c, y, x, new_obj, FALSE)) {
+		if (new_obj->artifact)
+			new_obj->artifact->created = FALSE;
 		return;
     } else {
-		if (otype.artifact)
+		if (new_obj->artifact)
 			c->good_item = TRUE;
-		if (rating > 250000)
-			rating = 250000; /* avoid overflows */
-		c->obj_rating += (rating / 10) * (rating / 10);
+		if (rating > 2500000)
+			rating = 2500000; /* avoid overflows */
+		c->obj_rating += (rating / 100) * (rating / 100);
     }
 }
 
@@ -474,21 +476,18 @@ void place_object(struct chunk *c, int y, int x, int level, bool good, bool grea
  */
 void place_gold(struct chunk *c, int y, int x, int level, byte origin)
 {
-    object_type *i_ptr;
-    object_type object_type_body;
+    struct object *money = NULL;
 
     assert(square_in_bounds(c, y, x));
 
     if (!square_canputitem(c, y, x)) return;
 
-    i_ptr = &object_type_body;
-    object_wipe(i_ptr);
-    make_gold(i_ptr, level, "any");
+    money = make_gold(level, "any");
 
-    i_ptr->origin = origin;
-    i_ptr->origin_depth = level;
+    money->origin = origin;
+    money->origin_depth = level;
 
-    floor_carry(c, y, x, i_ptr);
+    floor_carry(c, y, x, money, FALSE);
 }
 
 
@@ -687,7 +686,7 @@ static void vault_trap_aux(struct chunk *c, int y, int x, int yd, int xd)
 		find_nearby_grid(c, &y1, y, yd, &x1, x, xd);
 		if (!square_isempty(c, y1, x1)) continue;
 
-		place_trap(c, y1, x1, -1, c->depth);
+		square_add_trap(c, y1, x1);
 		break;
     }
 }
@@ -713,8 +712,8 @@ void vault_traps(struct chunk *c, int y, int x, int yd, int xd, int num)
 /**
  * Place 'num' sleeping monsters near (x, y).
  * \param c the current chunk
- * \param y
- * \param x co-ordinates to place the monsters near
+ * \param y1
+ * \param x1 co-ordinates to place the monsters near
  * \param depth generation depth
  * \param num number of monsters to place
  */

@@ -19,12 +19,13 @@
 #include "angband.h"
 #include "cave.h"
 #include "game-event.h"
+#include "game-input.h"
 #include "generate.h"
+#include "init.h"
 #include "mon-util.h"
+#include "player-calcs.h"
 #include "player-timed.h"
 #include "project.h"
-#include "tables.h"
-#include "ui-map.h"
 
 /*
  * Specify attr/char pairs for visual special effects for project()
@@ -288,7 +289,7 @@ bool projectable(struct chunk *c, int y1, int x1, int y2, int x2, int flg)
 	struct loc grid_g[512];
 
 	/* Check the projection path */
-	grid_n = project_path(grid_g, MAX_RANGE, y1, x1, y2, x2, flg);
+	grid_n = project_path(grid_g, z_info->max_range, y1, x1, y2, x2, flg);
 
 	/* No grid is ever projectable from itself */
 	if (!grid_n) return (FALSE);
@@ -317,37 +318,39 @@ bool projectable(struct chunk *c, int y1, int x1, int y2, int x2, int flg)
  * Note that elements come first, so GF_ACID == ELEM_ACID, etc
  * ------------------------------------------------------------------------ */
 static const struct gf_type {
-	const char *desc;	/* text description (if blind) */
+	const char *desc;	/* text description */
+	const char *blind_desc;	/* text description (if blind) */
 	int num;			/* numerator for resistance */
 	random_value denom;	/* denominator for resistance */
 	bool force_obvious; /* */
  	byte color;			/* */
 } gf_table[] = {
-	#define ELEM(a, b, c, d, e, f, g, col) { c, d, e, FALSE, col },
+	#define ELEM(a, b, c, d, e, f, g, h, i, col) { c, d, e, f, TRUE, col },
 	#define RV(b, x, y, m) {b, x, y, m}
 	#include "list-elements.h"
 	#undef ELEM
 	#undef RV
 
-	#define PROJ_ENV(a, col) { NULL, 0, {0, 0, 0, 0}, FALSE, col },
+	#define PROJ_ENV(a, col, desc) { desc, NULL, 0, {0, 0, 0, 0}, FALSE, col },
 	#include "list-project-environs.h"
 	#undef PROJ_ENV
 
-	#define PROJ_MON(a, obv) { NULL, 0, {0, 0, 0, 0}, obv, TERM_WHITE }, 
+	#define PROJ_MON(a, obv, desc) \
+		{ desc, NULL, 0, {0, 0, 0, 0}, obv, COLOUR_WHITE }, 
 	#include "list-project-monsters.h"
 	#undef PROJ_MON
-	{ NULL, 0, {0, 0, 0, 0}, FALSE, TERM_WHITE }
+	{ NULL, NULL, 0, {0, 0, 0, 0}, FALSE, COLOUR_WHITE }
 };
 
 static const char *gf_name_list[] =
 {
-	#define ELEM(a, b, c, d, e, f, g, col) #a,
+	#define ELEM(a, b, c, d, e, f, g, h, i, col) #a,
 	#include "list-elements.h"
 	#undef ELEM
-	#define PROJ_ENV(a, col) #a,
+	#define PROJ_ENV(a, col, desc) #a,
 	#include "list-project-environs.h"
 	#undef PROJ_ENV
-	#define PROJ_MON(a, obv) #a,
+	#define PROJ_MON(a, obv, desc) #a,
 	#include "list-project-monsters.h"
 	#undef PROJ_MON
 	"MAX",
@@ -365,7 +368,7 @@ bool gf_force_obvious(int type)
 int gf_color(int type)
 {
 	if (type < 0 || type >= GF_MAX)
-		return TERM_WHITE;
+		return COLOUR_WHITE;
 
 	return gf_table[type].color;
 }
@@ -393,6 +396,14 @@ const char *gf_desc(int type)
 		return 0;
 
 	return gf_table[type].desc;
+}
+
+const char *gf_blind_desc(int type)
+{
+	if (type < 0 || type >= GF_MAX)
+		return 0;
+
+	return gf_table[type].blind_desc;
 }
 
 int gf_name_to_idx(const char *name)
@@ -463,7 +474,7 @@ const char *gf_idx_to_name(int type)
  * If used with a direction, a ball will explode on the first occupied grid in 
  *   its path.  If given a target, it will explode on that target.  If a 
  *   wall is in the way, it will explode against the wall.  If a ball reaches 
- *   MAX_RANGE without hitting anything or reaching its target, it will 
+ *   z_info->max_range without hitting anything or reaching its target, it will 
  *   explode at that point.
  *
  * Arc:  (positive radius, with the PROJECT_ARC flag set)
@@ -605,10 +616,10 @@ bool project(int who, int rad, int y, int x, int dam, int typ, int flg,
 	bool player_sees_grid[256];
 
 	/* Precalculated damage values for each distance. */
-	int *dam_at_dist = malloc((MAX_RANGE + 1) * sizeof(*dam_at_dist));
+	int *dam_at_dist = malloc((z_info->max_range + 1) * sizeof(*dam_at_dist));
 
 	/* Flush any pending output */
-	handle_stuff(player->upkeep);
+	handle_stuff(player);
 
 	/* No projection path - jump to target */
 	if (flg & (PROJECT_JUMP)) {
@@ -658,13 +669,14 @@ bool project(int who, int rad, int y, int x, int dam, int typ, int flg,
 		distance_to_grid[num_grids] = 0;
 		sqinfo_on(cave->squares[y][x].info, SQUARE_PROJECT);
 		num_grids++;
-		}
+	}
 
 	/* Otherwise, travel along the projection path. */
 	else {
 		/* Calculate the projection path */
-		num_path_grids = project_path(path_grid, MAX_RANGE, source.y, source.x,
-									  destination.y, destination.x, flg);
+		num_path_grids = project_path(path_grid, z_info->max_range, source.y,
+									  source.x, destination.y, destination.x,
+									  flg);
 
 		/* Start from caster */
 		y = source.y;
@@ -715,7 +727,7 @@ bool project(int who, int rad, int y, int x, int dam, int typ, int flg,
 
 				/* Only do visuals if requested and within range limit. */
 				if (!blind && !(flg & (PROJECT_HIDE))) {
-					bool seen = player_has_los_bold(y, x);
+					bool seen = square_isview(cave, y, x);
 					bool beam = flg & (PROJECT_BEAM);
 
 					/* Tell the UI to display the bolt */
@@ -866,7 +878,7 @@ bool project(int who, int rad, int y, int x, int dam, int typ, int flg,
 	}
 
 	/* Calculate and store the actual damage at each distance. */
-	for (i = 0; i <= MAX_RANGE; i++) {
+	for (i = 0; i <= z_info->max_range; i++) {
 		/* No damage outside the radius. */
 		if (i > rad)
 			dam_temp = 0;
@@ -916,9 +928,9 @@ bool project(int who, int rad, int y, int x, int dam, int typ, int flg,
 
 	/* Establish which grids are visible - no blast visuals with PROJECT_HIDE */
 	if (!blind && !(flg & (PROJECT_HIDE))) {
-		for (i = 0; i <= num_grids; i++) {
+		for (i = 0; i < num_grids; i++) {
 			if (panel_contains(blast_grid[i].y, blast_grid[i].x) &&
-				player_has_los_bold(blast_grid[i].y, blast_grid[i].x))
+				square_isview(cave, blast_grid[i].y, blast_grid[i].x))
 				player_sees_grid[i] = TRUE;
 			else
 				player_sees_grid[i] = FALSE;
@@ -1029,7 +1041,7 @@ bool project(int who, int rad, int y, int x, int dam, int typ, int flg,
 
 	/* Update stuff if needed */
 	if (player->upkeep->update)
-		update_stuff(player->upkeep);
+		update_stuff(player);
 
 	free(dam_at_dist);
 

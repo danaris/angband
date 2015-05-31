@@ -236,8 +236,6 @@ struct monster_mimic {
  *
  * Note that "d_attr" and "d_char" are used for MORE than "visual" stuff.
  *
- * Note that "x_attr" and "x_char" are used ONLY for "visual" stuff.
- *
  * Note that "cur_num" (and "max_num") represent the number of monsters
  * of the given race currently on (and allowed on) the current level.
  * This information yields the "dead" flag for Unique monsters.
@@ -245,9 +243,8 @@ struct monster_mimic {
  * Note that "max_num" is reset when a new player is created.
  * Note that "cur_num" is reset when a new level is created.
  *
- * Maybe "x_attr", "x_char", "cur_num", and "max_num" should
- * be moved out of this array since they are not read from
- * "monster.txt".
+ * Maybe "cur_num", and "max_num" should be moved out of this array since
+ * they are not read from "monster.txt".
  */
 typedef struct monster_race
 {
@@ -288,9 +285,6 @@ typedef struct monster_race
 	byte d_attr;			/* Default monster attribute */
 	wchar_t d_char;			/* Default monster character */
 
-	byte x_attr;			/* Desired monster attribute */
-	wchar_t x_char;			/* Desired monster character */
-
 	byte max_num;			/* Maximum population allowed per level */
 	int cur_num;			/* Monster population on current level */
 
@@ -309,7 +303,7 @@ typedef struct monster_race
  *
  * Note: fy, fx constrain dungeon size to 256x256
  *
- * The "hold_o_idx" field points to the first object of a stack
+ * The "held_obj" field points to the first object of a stack
  * of objects (if any) being carried by the monster (see above).
  */
 typedef struct monster
@@ -333,9 +327,8 @@ typedef struct monster
 
 	bitflag mflag[MFLAG_SIZE];	/* Temporary monster flags */
 
-	s16b mimicked_o_idx; /* Object this monster is mimicking */
-
-	s16b hold_o_idx;	/* Object being held (if any) */
+	struct object *mimicked_obj; /* Object this monster is mimicking */
+	struct object *held_obj;	/* Object being held (if any) */
 
 	byte attr;  		/* attr last used for drawing monster */
 

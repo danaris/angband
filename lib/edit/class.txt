@@ -11,8 +11,16 @@
 # Format:
 # name:class number:class name
 # stats:str:int:wis:dex:con
-# skill-base:dis:dev:sav:stl:srh:fos:thn:thb:throw:dig
-# skill-incr:dis:dev:sav:stl:srh:fos:thn:thb:throw:dig
+# skill-disarm:base:increment
+# skill-device:base:increment
+# skill-save:base:increment
+# skill-stealth:base:increment
+# skill-search:base:increment
+# skill-search-freq:base:increment
+# skill-melee:base:increment
+# skill-shoot:base:increment
+# skill-throw:base:increment
+# skill-dig:base:increment
 # info:mhp:exp:sense_base:sense_div
 # attack:max_attacks:min_weight:att_multiply
 # title:title
@@ -34,12 +42,11 @@
 # 'stats' is for the stat modifiers - strength, intelligence, wisdom,
 # dexterity, constitution.
 
-# 'skill-base' is for the base skills - disarming, magic devices, saving throws,
+# 'skill-<skill name>' is for skills - disarming, magic devices, saving throws,
 # stealth, searching ability, searching frequency, to hit (normal),
-# to hit (bows), to hit (throwing), digging.
-
-# 'skill-incr' is for skill increments for the above skills.  The increments
-# are added to the base skill every ten levels.
+# to hit (bows), to hit (throwing), digging.  The base entry is what the 
+# gets added to the character's skills at birth, the increments are added to
+# the base skill every ten levels.
 
 # 'info' is for extra info - max. hitpoints gained per level, experience
 # factor in percent, base chance for pseudo-id (smaller is better),
@@ -91,8 +98,16 @@
 ############### WARRIOR ###############
 name:0:Warrior
 stats:3:-2:-2:2:2
-skill-base:25:18:18:0:14:2:70:55:55:0
-skill-incr:10:7:10:0:0:0:45:45:45:0
+skill-disarm:25:10
+skill-device:18:7
+skill-save:18:10
+skill-stealth:0:0
+skill-search:14:0
+skill-search-freq:2:0
+skill-melee:70:45
+skill-shoot:55:45
+skill-throw:55:45
+skill-dig:0:0
 info:9:0:7000:40
 attack:6:30:5
 equip:food:Ration of Food:1:3
@@ -119,8 +134,16 @@ magic:0:0:0:0
 ############### MAGE ###############
 name:1:Mage
 stats:-3:3:0:0:-2
-skill-base:30:36:30:2:16:20:34:20:20:0
-skill-incr:7:13:9:0:0:0:15:15:15:0
+skill-disarm:30:7
+skill-device:36:13
+skill-save:30:9
+skill-stealth:2:0
+skill-search:16:0
+skill-search-freq:20:0
+skill-melee:34:15
+skill-shoot:20:15
+skill-throw:20:15
+skill-dig:0:0
 info:0:30:170000:5
 attack:4:40:2
 equip:food:Ration of Food:1:3
@@ -289,7 +312,7 @@ desc: in its path.
 desc:  The chance to get a beam goes up with your character level.
 
 spell:Polymorph Other:11:7:45:9
-effect:BOLT:OLD_POLY
+effect:BOLT_STATUS:OLD_POLY
 dice:$B
 expr:B:PLAYER_LEVEL:+ 0
 desc:Attempts to polymorph a single monster.
@@ -316,7 +339,7 @@ desc: in its path.
 desc:  The chance to get a beam goes up with your character level.
 
 spell:Slow Monster:17:9:50:7
-effect:BOLT:OLD_SLOW
+effect:BOLT_STATUS:OLD_SLOW
 dice:20
 desc:Attempts to slow a single monster.
 desc:  Uniques are not affected.
@@ -330,7 +353,7 @@ expr:B:PLAYER_LEVEL:+ 30
 desc:Shoots a radius-2 frost ball.
 
 spell:Teleport Other:23:12:60:8
-effect:BOLT:AWAY_ALL
+effect:BOLT_STATUS:AWAY_ALL
 dice:$B
 expr:B:MAX_SIGHT:* 5
 desc:Produces a bolt that teleports the first monster in its path
@@ -456,6 +479,8 @@ book:magic book:[Mordenkainen's Escapes]:5:1
 
 spell:Door Creation:13:9:40:12
 effect:TOUCH:MAKE_DOOR
+desc:A door is created on each empty floor space that is directly
+desc: adjacent to you.  These doors are closed, but not locked
 
 spell:Stair Creation:24:20:50:20
 effect:CREATE_STAIRS
@@ -582,8 +607,16 @@ desc: damage to each monster in its area of effect.
 ############### PRIEST ###############
 name:2:Priest
 stats:-1:-3:3:-1:1
-skill-base:25:30:32:2:16:8:48:35:35:0
-skill-incr:7:10:12:0:0:0:20:20:20:0
+skill-disarm:25:7
+skill-device:30:10
+skill-save:32:12
+skill-stealth:2:0
+skill-search:16:0
+skill-search-freq:8:0
+skill-melee:48:20
+skill-shoot:35:20
+skill-throw:35:20
+skill-dig:0:0
 info:2:20:15000:40
 attack:4:35:3
 equip:food:Ration of Food:1:3
@@ -853,7 +886,7 @@ expr:B:PLAYER_LEVEL:* 8
 desc:Teleports you randomly within the current level.
 
 spell:Teleport Other:20:20:80:16
-effect:BOLT:AWAY_ALL
+effect:BOLT_STATUS:AWAY_ALL
 dice:$B
 expr:B:MAX_SIGHT:* 5
 desc:Produces a bolt that teleports the first monster in its path
@@ -985,9 +1018,7 @@ desc:  A failed attempt to recharge destroys one wand or staff from the stack.
 #D:  Permanent curses are not affected.
 
 spell:Enchant Weapon:35:50:80:230
-effect:ENCHANT:TOHIT
-dice:1d4
-effect:ENCHANT:TODAM
+effect:ENCHANT:TOBOTH
 dice:1d4
 desc:Attempts to improve the to-hit bonus and the to-dam bonus of a weapon.
 desc: Also gives a chance to break a curse.
@@ -1045,8 +1076,16 @@ desc: undead, a demon, an elemental, a golem, or a vortex.
 ############### ROGUE ###############
 name:3:Rogue
 stats:0:1:-3:3:-1
-skill-base:45:32:28:3:32:24:60:66:66:0
-skill-incr:15:10:10:1:0:0:40:30:30:0
+skill-disarm:45:15
+skill-device:32:10
+skill-save:28:10
+skill-stealth:3:1
+skill-search:32:0
+skill-search-freq:24:0
+skill-melee:60:40
+skill-shoot:66:30
+skill-throw:66:30
+skill-dig:0:0
 info:6:25:10000:40
 attack:5:30:4
 equip:food:Ration of Food:1:3
@@ -1067,7 +1106,7 @@ title:Rogue
 title:Thief
 title:Master Thief
 
-magic:1:350:1:9
+magic:5:350:1:9
 
 book:magic book:[Magic for Beginners]:6:1
 
@@ -1189,7 +1228,7 @@ dice:22d40
 desc:Detects all monsters in the immediate area, for one turn only.
 
 spell:Slow Monster:28:20:70:2
-effect:BOLT:OLD_SLOW
+effect:BOLT_STATUS:OLD_SLOW
 dice:20
 desc:Attempts to slow a single monster.
 desc:  Uniques are not affected.
@@ -1197,7 +1236,7 @@ desc:  Uniques are not affected.
 book:magic book:[Sorcery and Evocations]:3:1
 
 spell:Teleport Other:31:25:70:3
-effect:BOLT:AWAY_ALL
+effect:BOLT_STATUS:AWAY_ALL
 dice:$B
 expr:B:MAX_SIGHT:* 5
 desc:Produces a bolt that teleports the first monster in its path
@@ -1272,6 +1311,8 @@ book:magic book:[Mordenkainen's Escapes]:4:1
 
 spell:Door Creation:17:7:30:15
 effect:TOUCH:MAKE_DOOR
+desc:A door is created on each empty floor space that is directly
+desc: adjacent to you.  These doors are closed, but not locked
 
 spell:Stair Creation:25:12:40:25
 effect:CREATE_STAIRS
@@ -1307,7 +1348,7 @@ dice:25+d25
 desc:Cures 10 points of damage, removes fear and grants you heroism
 desc: (resistance to fear, and a bonus of +12 to-hit) for 25+1d25 turns.
 
-spell:Bereserker:28:20:60:60
+spell:Berserker:28:20:60:60
 effect:HEAL_HP
 dice:30
 effect:CURE:AFRAID
@@ -1324,10 +1365,7 @@ expr:B:PLAYER_LEVEL:/ 20 - 1
 desc:Attempts to improve the armour class bonus of a piece of armour.
 
 spell:Enchant Weapon:33:55:90:90
-effect:ENCHANT:TOHIT
-dice:$B+1d4
-expr:B:PLAYER_LEVEL:/ 20 - 1
-effect:ENCHANT:TODAM
+effect:ENCHANT:TOBOTH
 dice:$B+1d4
 expr:B:PLAYER_LEVEL:/ 20 - 1
 desc:Attempts to improve the to-hit bonus and the to-dam bonus of a weapon.
@@ -1364,8 +1402,16 @@ desc:  Uniques or monsters that resist confusion are not affected.
 ############### RANGER ###############
 name:4:Ranger
 stats:0:2:-2:1:-1
-skill-base:30:32:28:3:24:16:56:72:72:0
-skill-incr:8:10:10:0:0:0:30:45:45:0
+skill-disarm:30:8
+skill-device:32:10
+skill-save:28:10
+skill-stealth:3:0
+skill-search:24:0
+skill-search-freq:16:0
+skill-melee:56:30
+skill-shoot:72:45
+skill-throw:72:45
+skill-dig:0:0
 info:4:30:20000:40
 attack:5:35:4
 equip:food:Ration of Food:1:3
@@ -1387,7 +1433,7 @@ title:Pathfinder
 title:Ranger
 title:Ranger Lord
 
-magic:1:400:1:9
+magic:3:400:1:9
 
 book:magic book:[Magic for Beginners]:7:1
 
@@ -1535,7 +1581,7 @@ desc: in its path.
 desc:  The chance to get a beam goes up with your character level.
 
 spell:Polymorph Other:21:19:60:3
-effect:BOLT:OLD_POLY
+effect:BOLT_STATUS:OLD_POLY
 dice:$B
 expr:B:PLAYER_LEVEL:+ 0
 desc:Attempts to polymorph a single monster.
@@ -1562,7 +1608,7 @@ desc: in its path.
 desc:  The chance to get a beam goes up with your character level.
 
 spell:Slow Monster:25:21:65:3
-effect:BOLT:OLD_SLOW
+effect:BOLT_STATUS:OLD_SLOW
 dice:20
 desc:Attempts to slow a single monster.
 desc:  Uniques are not affected.
@@ -1576,7 +1622,7 @@ expr:B:PLAYER_LEVEL:+ 30
 desc:Shoots a radius-2 frost ball.
 
 spell:Teleport Other:31:25:70:3
-effect:BOLT:AWAY_ALL
+effect:BOLT_STATUS:AWAY_ALL
 dice:$B
 expr:B:MAX_SIGHT:* 5
 desc:Produces a bolt that teleports the first monster in its path
@@ -1683,6 +1729,8 @@ book:magic book:[Mordenkainen's Escapes]:5:1
 
 spell:Door Creation:20:17:20:25
 effect:TOUCH:MAKE_DOOR
+desc:A door is created on each empty floor space that is directly
+desc: adjacent to you.  These doors are closed, but not locked
 
 spell:Stair Creation:32:32:50:40
 effect:CREATE_STAIRS
@@ -1745,10 +1793,7 @@ expr:B:PLAYER_LEVEL:/ 20 - 1
 desc:Attempts to improve the armour class bonus of a piece of armour.
 
 spell:Enchant Weapon:34:50:90:60
-effect:ENCHANT:TOHIT
-dice:$B+1d4
-expr:B:PLAYER_LEVEL:/ 20 - 1
-effect:ENCHANT:TODAM
+effect:ENCHANT:TOBOTH
 dice:$B+1d4
 expr:B:PLAYER_LEVEL:/ 20 - 1
 desc:Attempts to improve the to-hit bonus and the to-dam bonus of a weapon.
@@ -1804,8 +1849,16 @@ desc:  This spell has no effect when used in the town.
 ############### PALADIN ###############
 name:5:Paladin
 stats:1:-3:1:-1:2
-skill-base:20:24:25:0:12:2:68:40:40:0
-skill-incr:7:10:11:0:0:0:35:30:30:0
+skill-disarm:20:7
+skill-device:24:10
+skill-save:25:11
+skill-stealth:0:0
+skill-search:12:0
+skill-search-freq:2:0
+skill-melee:68:35
+skill-shoot:40:30
+skill-throw:40:30
+skill-dig:0:0
 info:6:35:60000:40
 attack:5:30:5
 equip:food:Ration of Food:1:3
@@ -2053,7 +2106,7 @@ expr:B:PLAYER_LEVEL:* 8
 desc:Teleports you randomly within the current level.
 
 spell:Teleport Other:25:25:80:12
-effect:BOLT:AWAY_ALL
+effect:BOLT_STATUS:AWAY_ALL
 dice:$B
 expr:B:MAX_SIGHT:* 5
 desc:Produces a bolt that teleports the first monster in its path
@@ -2157,9 +2210,7 @@ desc: level and decrease with level of wand or staff and number of charges.
 desc:  A failed attempt to recharge destroys one wand or staff from the stack.
 
 spell:Enchant Weapon:40:70:80:200
-effect:ENCHANT:TOHIT
-dice:1d4
-effect:ENCHANT:TODAM
+effect:ENCHANT:TOBOTH
 dice:1d4
 desc:Attempts to improve the to-hit bonus and the to-dam bonus of a weapon.
 desc: Also gives a chance to break a curse.

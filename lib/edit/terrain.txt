@@ -73,7 +73,7 @@ name:2:closed door
 graphics:+:U
 priority:17
 flags:DOOR_ANY | DOOR_CLOSED | INTERESTING
-info:0:0
+info:0:5
 
 name:3:open door
 graphics:':U
@@ -152,7 +152,7 @@ flags:WALL | ROCK | DOOR_ANY | GRANITE
 name:16:pile of rubble
 graphics:::w
 priority:13
-flags:ROCK | NO_SCENT | NO_FLOW
+flags:ROCK | NO_SCENT | NO_FLOW | INTERESTING
 info:0:1
 
 name:17:magma vein
@@ -205,4 +205,16 @@ priority:10
 flags:WALL | ROCK | GRANITE | NO_SCENT | NO_FLOW
 info:0:4
 
+## New terrain
+
+name:25:lava flow
+graphics:#:r
+priority:10
+flags:PROJECT | WALL | ROCK | PERMANENT | NO_SCENT | NO_FLOW | BRIGHT
+
+name:26:pile of passable rubble
+graphics:::u
+priority:13
+flags:ROCK | PASSABLE | NO_SCENT | NO_FLOW
+info:0:1
 

@@ -1,6 +1,6 @@
-/**  \file gen-monster.c 
-	 \brief Dungeon monster generation
-
+/**
+ * \file gen-monster.c
+ * \brief Dungeon monster generation
  *
  * Copyright (c) 2013
  * Nick McConnell, Leon Marrick, Ben Harrison, James E. Wilson, 
@@ -152,7 +152,8 @@ bool mon_restrict(const char *monster_type, int depth, bool unique_ok)
 		/* We've found a monster. */
 		if (i < 2499) {
 			/* Use that monster's base type for all monsters. */
-			snprintf(base_d_char, 2, "%c", r_info[j].base->d_char);
+			my_strcpy(base_d_char, format("%c", r_info[j].base->d_char),
+					  sizeof(r_info[j].base->d_char));
 
 			/* Prepare allocation table */
 			get_mon_num_prep(mon_select);
@@ -267,7 +268,8 @@ void spread_monsters(struct chunk *c, const char *type, int depth, int num,
  * \param x1
  * \param x2 the limits of the vault
  */
-void get_vault_monsters(struct chunk *c, char racial_symbol[], byte vault_type, const char *data, int y1, int y2, int x1, int x2)
+void get_vault_monsters(struct chunk *c, char racial_symbol[], char *vault_type,
+						const char *data, int y1, int y2, int x1, int x2)
 {
     int i, y, x, depth;
     const char *t;
@@ -275,14 +277,15 @@ void get_vault_monsters(struct chunk *c, char racial_symbol[], byte vault_type, 
     for (i = 0; racial_symbol[i] != '\0'; i++) {
 		/* Require correct race, allow uniques. */
 		allow_unique = TRUE;
-		snprintf(base_d_char, 2, "%c", racial_symbol[i]);
+		my_strcpy(base_d_char, format("%c", racial_symbol[i]),
+				  sizeof(racial_symbol[i]));
 
 		/* Determine level of monster */
-		if (vault_type == 6)
+		if (strstr(vault_type, "Lesser vault"))
 			depth = player->depth + 2;
-		else if (vault_type == 7)
+		else if (strstr(vault_type, "Medium vault"))
 			depth = player->depth + 4;
-		else if (vault_type == 8)
+		else if (strstr(vault_type, "Greater vault"))
 			depth = player->depth + 6;
 		else
 			depth = player->depth;

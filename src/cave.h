@@ -1,44 +1,37 @@
-/* cave.h - cave interface */
+/**
+ * \file cave.h
+ * \brief Matters relating to the current dungeon level
+ *
+ * Copyright (c) 1997 Ben Harrison, James E. Wilson, Robert A. Koeneke
+ *
+ * This work is free software; you can redistribute it and/or modify it
+ * under the terms of either:
+ *
+ * a) the GNU General Public License as published by the Free Software
+ *    Foundation, version 2, or
+ *
+ * b) the "Angband licence":
+ *    This software may be copied and distributed for educational, research,
+ *    and not for profit purposes provided that this copyright and statement
+ *    are included in all such copies.  Other copyrights may also apply.
+ */
 
 #ifndef CAVE_H
 #define CAVE_H
 
 #include "z-type.h"
+#include "z-bitflag.h"
 
 struct player;
 struct monster;
 
-/*** Constants ***/
+const s16b ddd[9];
+const s16b ddx[10];
+const s16b ddy[10];
+const s16b ddx_ddd[9];
+const s16b ddy_ddd[9];
 
-/*
- * Maximum dungeon level.  The player can never reach this level
- * in the dungeon, and this value is used for various calculations
- * involving object and monster creation.  It must be at least 100.
- * Setting it below 128 may prevent the creation of some objects.
- */
-#define MAX_DEPTH	128
-
-
-/*
- * Maximum sight and projection values
- */
-#define MAX_SIGHT_LGE   20      /* Maximum view distance */
-#define MAX_RANGE_LGE   20      /* Maximum projection range */
-#define MAX_SIGHT_SML   10      /* Maximum view distance (small devices) */
-#define MAX_RANGE_SML   10      /* Maximum projection range (small devices) */
-#define MAX_SIGHT (OPT(birth_small_range) ? MAX_SIGHT_SML : MAX_SIGHT_LGE)  
-#define MAX_RANGE (OPT(birth_small_range) ? MAX_RANGE_SML : MAX_RANGE_LGE)
-
-
-/* 
- * Information for Feelings 
- */
-#define FEELING_TOTAL	100		/* total number of feeling squares per level */ 
-#define FEELING1		10		/* Squares needed to see to get first feeling */
-
-
-
-/*
+/**
  * Square flags
  */
 
@@ -71,7 +64,7 @@ enum
 #define sqinfo_diff(f1, f2)        flag_diff(f1, f2, SQUARE_SIZE)
 
 
-/*
+/**
  * Terrain flags
  */
 enum
@@ -108,10 +101,7 @@ typedef struct feature
 	bitflag flags[TF_SIZE];    /**< Terrain flags */
 
 	byte d_attr;   /**< Default feature attribute */
-	wchar_t d_char;   /**< Default feature character */
-
-	byte x_attr[4];   /**< Desired feature attribute (set by user/pref file) */
-	wchar_t x_char[4]; /**< Desired feature character (set by user/pref file) */
+	wchar_t d_char;/**< Default feature character */
 } feature_type;
 
 extern feature_type *f_info;
@@ -170,7 +160,6 @@ struct chunk {
 
 	byte **feat;
 	s16b **m_idx;
-	s16b **o_idx;
 
 	struct square **squares;
 
@@ -178,10 +167,6 @@ struct chunk {
 	u16b mon_max;
 	u16b mon_cnt;
 	int mon_current;
-
-	struct object *objects;
-	u16b obj_max;
-	u16b obj_cnt;
 };
 
 /*** Feature Indexes (see "lib/edit/terrain.txt") ***/
@@ -202,6 +187,7 @@ int FEAT_SECRET;
 
 /* Rubble */
 int FEAT_RUBBLE;
+int FEAT_PASS_RUBBLE;
 
 /* Mineral seams */
 int FEAT_MAGMA;
@@ -212,6 +198,7 @@ int FEAT_QUARTZ_K;
 /* Walls */
 int FEAT_GRANITE;
 int FEAT_PERM;
+int FEAT_LAVA;
 
 /* Special trap detect features  - should be replaced with square flags */
 int FEAT_DTRAP_FLOOR;
@@ -230,8 +217,6 @@ int distance(int y1, int x1, int y2, int x2);
 bool los(struct chunk *c, int y1, int x1, int y2, int x2);
 void forget_view(struct chunk *c);
 void update_view(struct chunk *c, struct player *p);
-bool player_has_los_bold(int y, int x);
-bool player_can_see_bold(int y, int x);
 bool no_light(void);
 
 /* cave-map.c */
@@ -261,7 +246,7 @@ bool feat_is_monster_walkable(int feat);
 bool feat_is_shop(int feat);
 bool feat_is_passable(int feat);
 bool feat_is_projectable(int feat);
-bool feat_isboring(feature_type *f_ptr);
+bool feat_isbright(feature_type *f_ptr);
 
 /* SQUARE FEATURE PREDICATES */
 bool square_isfloor(struct chunk *c, int y, int x);
@@ -282,7 +267,6 @@ bool square_isstairs(struct chunk *c, int y, int x);
 bool square_isupstairs(struct chunk *c, int y, int x);
 bool square_isdownstairs(struct chunk *c, int y, int x);
 bool square_isshop(struct chunk *c, int y, int x);
-bool square_noticeable(struct chunk *c, int y, int x);
 bool square_isplayer(struct chunk *c, int y, int x);
 
 /* SQUARE INFO PREDICATES */
@@ -317,7 +301,7 @@ bool square_ispassable(struct chunk *c, int y, int x);
 bool square_isprojectable(struct chunk *c, int y, int x);
 bool square_iswall(struct chunk *c, int y, int x);
 bool square_isstrongwall(struct chunk *c, int y, int x);
-bool square_isboring(struct chunk *c, int y, int x);
+bool square_isbright(struct chunk *c, int y, int x);
 bool square_iswarded(struct chunk *c, int y, int x);
 bool square_canward(struct chunk *c, int y, int x);
 bool square_seemslikewall(struct chunk *c, int y, int x);
@@ -334,6 +318,9 @@ bool square_in_bounds_fully(struct chunk *c, int y, int x);
 struct feature *square_feat(struct chunk *c, int y, int x);
 struct monster *square_monster(struct chunk *c, int y, int x);
 struct object *square_object(struct chunk *c, int y, int x);
+bool square_holds_object(struct chunk *c, int y, int x, struct object *obj);
+void square_excise_object(struct chunk *c, int y, int x, struct object *obj);
+void square_excise_pile(struct chunk *c, int y, int x);
 
 void square_set_feat(struct chunk *c, int y, int x, int feat);
 
@@ -375,10 +362,6 @@ void scatter(struct chunk *c, int *yp, int *xp, int y, int x, int d, bool need_l
 struct monster *cave_monster(struct chunk *c, int idx);
 int cave_monster_max(struct chunk *c);
 int cave_monster_count(struct chunk *c);
-
-struct object *cave_object(struct chunk *c, int idx); 
-int cave_object_max(struct chunk *c);
-int cave_object_count(struct chunk *c);
 
 int count_feats(int *y, int *x, bool (*test)(struct chunk *cave, int y, int x), bool under);
 

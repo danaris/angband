@@ -10,8 +10,10 @@
 #include "obj-properties.h"
 #include "object.h"
 #include "cmds.h"
-#include "keymap.h"
+#include "ui-keymap.h"
 #include "ui-event.h"
+#include "ui-game.h"
+#include "ui-input.h"
 #include "z-virt.h"
 
 int setup_tests(void **state) {
@@ -33,7 +35,6 @@ int test_cmd_lookup_orig(void *state) {
 	require(cmd_lookup('T', KEYMAP_MODE_ORIG) == CMD_TUNNEL);
 	require(cmd_lookup('g', KEYMAP_MODE_ORIG) == CMD_PICKUP);
 	require(cmd_lookup('G', KEYMAP_MODE_ORIG) == CMD_STUDY);
-	require(cmd_lookup(KTRL('S'), KEYMAP_MODE_ORIG) == CMD_SAVE);
 	require(cmd_lookup('+', KEYMAP_MODE_ORIG) == CMD_ALTER);
 	
 	ok;
@@ -46,7 +47,6 @@ int test_cmd_lookup_rogue(void *state) {
 	require(cmd_lookup(KTRL('T'), KEYMAP_MODE_ROGUE) == CMD_TUNNEL);
 	require(cmd_lookup('g', KEYMAP_MODE_ROGUE) == CMD_PICKUP);
 	require(cmd_lookup('G', KEYMAP_MODE_ROGUE) == CMD_STUDY);
-	require(cmd_lookup(KTRL('S'), KEYMAP_MODE_ROGUE) == CMD_SAVE);
 	require(cmd_lookup('+', KEYMAP_MODE_ROGUE) == CMD_ALTER);
 	
 	ok;

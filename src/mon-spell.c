@@ -1,6 +1,6 @@
 /**
-   \file mon-spell.c
-   \brief functions to deal with spell attacks and effects
+ * \file mon-spell.c
+ * \brief functions to deal with spell attacks and effects
  *
  * Copyright (c) 2010-14 Chris Carr and Nick McConnell
  *
@@ -51,7 +51,7 @@ static const struct breath_damage {
 	int divisor;
 	int cap;
 } breath[] = {
-    #define ELEM(a, b, c, d, e, f, g, col) { f, g },
+    #define ELEM(a, b, c, d, e, f, g, h, i, col) { g, h },
     #include "list-elements.h"
     #undef ELEM
 };
@@ -70,27 +70,27 @@ static const struct monster_spell *monster_spell_by_index(int index)
 /**
  * Process a monster spell 
  *
- * \param spell is the monster spell flag (RSF_FOO)
- * \param m_ptr is the attacking monster
+ * \param index is the monster spell flag (RSF_FOO)
+ * \param mon is the attacking monster
  * \param seen is whether the player can see the monster at this moment
  */
-void do_mon_spell(int index, struct monster *m_ptr, bool seen)
+void do_mon_spell(int index, struct monster *mon, bool seen)
 {
 	char m_name[80];
 	bool ident, hits = FALSE;
 	int hit_adjust = 0;
 
 	/* Extract the monster level */
-	int rlev = ((m_ptr->race->level >= 1) ? m_ptr->race->level : 1);
+	int rlev = ((mon->race->level >= 1) ? mon->race->level : 1);
 
 	const struct monster_spell *spell = monster_spell_by_index(index);
 	const struct mon_spell_info *info = &mon_spell_info_table[index];
 
 	/* Get the monster name (or "it") */
-	monster_desc(m_name, sizeof(m_name), m_ptr, MDESC_STANDARD);
+	monster_desc(m_name, sizeof(m_name), mon, MDESC_STANDARD);
 	
-	if (m_ptr->m_timed[MON_TMD_HITADJUST] != 0) {
-		hit_adjust = m_ptr->m_timed_val[MON_TMD_HITADJUST];
+	if (mon->m_timed[MON_TMD_HITADJUST] != 0) {
+		hit_adjust = mon->m_timed_val[MON_TMD_HITADJUST];
 	}
 
 	/* See if it hits */
@@ -166,7 +166,9 @@ void set_spells(bitflag *f, int types)
  * something in flags, subject to intelligence and chance.
  *
  * \param spells is the set of spells we're pruning
- * \param flags is the set of flags we're testing
+ * \param flags is the set of object flags we're testing
+ * \param pflags is the set of player flags we're testing
+ * \param el is what we know about the monster's elemental resists
  * \param r_ptr is the monster type we're operating on
  */
 void unset_spells(bitflag *spells, bitflag *flags, bitflag *pflags,
@@ -219,12 +221,18 @@ static bool monster_spell_is_projectable(int index)
 	return (info->type & (RST_BOLT | RST_BALL | RST_BREATH)) ? TRUE : FALSE;
 }
 
+static bool monster_spell_is_breath(int index)
+{
+	const struct mon_spell_info *info = &mon_spell_info_table[index];
+	return (info->type & (RST_BREATH)) ? TRUE : FALSE;
+}
+
 /**
  * Determine the damage of a spell attack which ignores monster hp
  * (i.e. bolts and balls, including arrows/boulders/storms/etc.)
  *
  * \param spell is the attack type
- * \param rlev is the monster level of the attacker
+ * \param race is the monster race of the attacker
  * \param dam_aspect is the damage calc required (min, avg, max, random)
  */
 static int nonhp_dam(const struct monster_spell *spell, const monster_race *race, aspect dam_aspect)
@@ -273,16 +281,16 @@ int breath_dam(int element, int hp)
 /**
  * Calculate the damage of a monster spell.
  *
- * \param spell is the spell in question.
+ * \param index is the index of the spell in question.
  * \param hp is the hp of the casting monster.
- * \param rlev is the level of the casting monster.
+ * \param race is the race of the casting monster.
  * \param dam_aspect is the damage calc we want (min, max, avg, random).
  */
 static int mon_spell_dam(int index, int hp, const monster_race *race, aspect dam_aspect)
 {
 	const struct monster_spell *spell = monster_spell_by_index(index);
 
-	if (monster_spell_is_projectable(index))
+	if (monster_spell_is_breath(index))
 		return breath_dam(spell->effect->params[0], hp);
 	else
 		return nonhp_dam(spell, race, dam_aspect);

@@ -1,6 +1,7 @@
-/* File: angband.h */
-
-/*
+/**
+ * \file angband.h
+ * \brief Includes basic includes
+ *
  * Copyright (c) 1997 Ben Harrison, James E. Wilson, Robert A. Koeneke
  *
  * This software may be copied and distributed for educational, research,
@@ -25,7 +26,6 @@
 #include "z-util.h"
 #include "z-virt.h"
 #include "z-rand.h"
-#include "z-term.h"
 
 /*
  * Include the high-level includes.
@@ -35,8 +35,6 @@
 #include "message.h"
 #include "option.h"
 #include "player.h"
-#include "ui.h"
-#include "ui-input.h"
 
 
 /***** Some older copyright messages follow below *****/

@@ -446,7 +446,7 @@ info:30:3:2000:15
 alloc:10:30 to 127
 combat:0:0:d4
 type:cloak
-flags:SUST_INT | IGNORE_ACID | RAND_HI_RES
+flags:SUST_INT | IGNORE_ACID | RAND_POWER
 values:INT[d2] | STEALTH[d3]
 min-values:INT[1] | STEALTH[1]
 
@@ -766,7 +766,17 @@ info:0:6:3500:18
 alloc:100:1 to 30
 type:sword
 type:polearm
-type:hafted
+item:hafted:Whip
+item:hafted:Ball-and-Chain
+item:hafted:Morning Star
+item:hafted:Flail
+item:hafted:Two-Handed Great Flail
+item:hafted:Mace
+item:hafted:Lead-Filled Mace
+item:hafted:Quarterstaff
+item:hafted:War Hammer
+item:hafted:Maul
+item:hafted:Great Hammer
 values:SLAY_UNDEAD[3]
 
 name:83:of Slay Demon
@@ -836,7 +846,17 @@ info:0:20:8000:24
 alloc:30:10 to 60
 type:sword
 type:polearm
-type:hafted
+item:hafted:Whip
+item:hafted:Ball-and-Chain
+item:hafted:Morning Star
+item:hafted:Flail
+item:hafted:Two-Handed Great Flail
+item:hafted:Mace
+item:hafted:Lead-Filled Mace
+item:hafted:Quarterstaff
+item:hafted:War Hammer
+item:hafted:Maul
+item:hafted:Great Hammer
 flags:SEE_INVIS
 values:WIS[d2] | SLAY_UNDEAD[5]
 min-values:WIS[0]
@@ -1148,7 +1168,7 @@ desc:Ammunition of Wounding often has unusually high to-hit and to-dam values.
 name:125:of Backbiting
 info:0:0:0:0
 alloc:0:10 to 80
-combat:-d25:-d25:0
+combat:-26+d25:-26+d25:0
 type:shot
 type:arrow
 type:bolt
@@ -1200,7 +1220,6 @@ item:dragon armor:Law Dragon Scale Mail
 item:dragon armor:Gold Dragon Scale Mail
 item:dragon armor:Chaos Dragon Scale Mail
 item:dragon armor:Balance Dragon Scale Mail
-item:dragon armor:Power Dragon Scale Mail
 values:RES_ACID[1] | RES_ELEC[1] | RES_FIRE[1] | RES_COLD[1]
 
 name:131:of Elvenkind
@@ -1212,7 +1231,6 @@ item:dragon armor:Law Dragon Scale Mail
 item:dragon armor:Gold Dragon Scale Mail
 item:dragon armor:Chaos Dragon Scale Mail
 item:dragon armor:Balance Dragon Scale Mail
-item:dragon armor:Power Dragon Scale Mail
 values:STEALTH[d2] | RES_ACID[1] | RES_ELEC[1] | RES_FIRE[1] | RES_COLD[1]
 min-values:STEALTH[0]
 flags:RAND_HI_RES

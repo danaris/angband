@@ -11,16 +11,16 @@
 
 # === Understanding vault.txt ===
 
-# N:serial number:vault name
-# X:room type:rating:rows:columns
+# name:vault name
+# type:room type
+# rating:rating for level feeling calculation
+# rows:number of rows
+# columns:number of columns
+# min-depth:minimum depth this vault can appear (0 if no minimum)
+# max-depth:maximum depth this vault can appear (0 if no maximum)
 # D:lines giving full layout of vault using symbols below
 
-# 'N' indicates the beginning of an entry. The serial number must
-# increase for each new vault.
-
-# 'X' is for extra information - room type, rating, rows, and
-# columns. Lesser vaults are room type 6 and have a maximum x-y size
-# of 33x22; greater vaults are room type 7 and have a maximum size of 66x44.
+# Maximum sizes of vault types are given in list-rooms.h
 
 # 'D' lines describe the layout of the vault. Lines must be padded
 # with spaces to fill the dimensions specified. Vaults are described
@@ -58,17 +58,22 @@
 #    - - rod or wand up to 3 levels OOD
 #    , - food up to 3 levels OOD
 
-# Use this to measure columns                                                                        1
-#          1         2         3         4         5         6         7         8         9         0
-# 1234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890
+# Use this to measure columns
+#          1         2         3         4         5         6         7
+# 123456789012345678901234567890123456789012345678901234567890123456789012345
 
 
 
-### Simple Vaults (type 6) -- maximum size 44x22 ###
+### Lesser Vaults -- maximum size 22x22 ###
 
 
-N:1:Round
-X:6:5:12:20:0:0
+name:Round
+type:Lesser vault
+rating:5
+rows:12
+columns:20
+min-depth:0
+max-depth:0
 D:       %%%%%%       
 D:    %%%..##..%%%    
 D:  %%....####....%%  
@@ -83,8 +88,13 @@ D:    %%%..##..%%%
 D:       %%%%%%       
 
 
-N:2:Octagon1
-X:6:5:14:20:0:0
+name:Octagon1
+type:Lesser vault
+rating:5
+rows:14
+columns:20
+min-depth:0
+max-depth:0
 D:   %%%%%%%%%%%%%%   
 D:  %%.##########.%%  
 D: %%..#..4444..#..%% 
@@ -101,8 +111,13 @@ D:  %%.##########.%%
 D:   %%%%%%%%%%%%%%   
 
 
-N:3:Octagon2
-X:6:5:12:20:0:0
+name:Octagon2
+type:Lesser vault
+rating:5
+rows:12
+columns:20
+min-depth:0
+max-depth:0
 D:    %%%%%%%%%%%%    
 D: %%%%..........%%%% 
 D: %...###+##+###...% 
@@ -117,8 +132,13 @@ D: %%%%..........%%%%
 D:    %%%%%%%%%%%%    
 
 
-N:4:Square1
-X:6:5:12:20:0:0
+name:Square1
+type:Lesser vault
+rating:5
+rows:12
+columns:20
+min-depth:0
+max-depth:0
 D:%%%%%%%%%%%%%%%%%%%%
 D:%&.......2........&%
 D:%.################.%
@@ -133,8 +153,13 @@ D:%&........2.......&%
 D:%%%%%%%%%%%%%%%%%%%%
 
 
-N:5:Square2
-X:6:5:12:20:0:0
+name:Square2
+type:Lesser vault
+rating:5
+rows:12
+columns:20
+min-depth:0
+max-depth:0
 D:%%%%%%%%%%%%%%%%%%%%
 D:%4################4%
 D:%^#.&...2..4....4#^%
@@ -149,8 +174,13 @@ D:%4################4%
 D:%%%%%%%%%%%%%%%%%%%%
 
 
-N:6:Planet X
-X:6:10:13:15:0:0
+name:Planet X
+type:Lesser vault
+rating:10
+rows:13
+columns:15
+min-depth:0
+max-depth:0
 D:%%%%%%%%%%%%%%%
 D:%.............%
 D:%.@@@@@#@@@@@.%
@@ -166,8 +196,13 @@ D:%.............%
 D:%%%%%%%%%%%%%%%
 
 
-N:7:Turnabout
-X:6:10:12:15:0:0
+name:Turnabout
+type:Lesser vault
+rating:10
+rows:12
+columns:15
+min-depth:0
+max-depth:0
 D:###############
 D:#.............#
 D:#.###########.#
@@ -182,8 +217,13 @@ D:#.............#
 D:###############
 
 
-N:9:Cross
-X:6:10:13:20:0:0
+name:Cross
+type:Lesser vault
+rating:10
+rows:13
+columns:20
+min-depth:0
+max-depth:0
 D:%%%%%%%%%%%%%%%%%%%%
 D:%########++########%
 D:%#&....&#..#&....&#%
@@ -199,8 +239,13 @@ D:%########++########%
 D:%%%%%%%%%%%%%%%%%%%%
 
 
-N:10:Central
-X:6:12:10:12:0:0
+name:Central
+type:Lesser vault
+rating:12
+rows:10
+columns:12
+min-depth:0
+max-depth:0
 D:############
 D:#4#^^^^^^#4#
 D:##+######+##
@@ -213,8 +258,13 @@ D:#4#^^^^^^#4#
 D:############
 
 
-N:11:Camouflaged
-X:6:10:9:12:0:0
+name:Camouflaged
+type:Lesser vault
+rating:10
+rows:9
+columns:12
+min-depth:0
+max-depth:0
 D:%%%%%%%%%%%%
 D:%@@@@@@@@@@%
 D:%#44444449@%
@@ -225,8 +275,13 @@ D:%#44444449@%
 D:%@@@@@@@@@@%
 D:%%%%%%%%%%%%
 
-N:12:X^2
-X:6:8:13:15:0:0
+name:X^2
+type:Lesser vault
+rating:8
+rows:13
+columns:15
+min-depth:0
+max-depth:0
 D:%%%%%%%%%%%%%%%
 D:%.............%
 D:%.#####.#####.%
@@ -241,8 +296,13 @@ D:%.#####.#####.%
 D:%.............%
 D:%%%%%%%%%%%%%%%
 
-N:13:Rock-Hard
-X:6:10:11:20:0:0
+name:Rock-Hard
+type:Lesser vault
+rating:10
+rows:11
+columns:20
+min-depth:0
+max-depth:0
 D:%%%%%%%%%%%%%%%%%%%%
 D:%..................%
 D:%.#^############^#.%
@@ -256,8 +316,13 @@ D:%..................%
 D:%%%%%%%%%%%%%%%%%%%%
 
 
-N:14:Miniature Cell
-X:6:5:5:5:0:0
+name:Miniature Cell
+type:Lesser vault
+rating:5
+rows:5
+columns:5
+min-depth:0
+max-depth:0
 D:%%%%%
 D:%#9#%
 D:%999%
@@ -265,8 +330,13 @@ D:%#9#%
 D:%%%%%
 
 
-N:15:Interlock
-X:6:10:12:17:0:0
+name:Interlock
+type:Lesser vault
+rating:10
+rows:12
+columns:17
+min-depth:0
+max-depth:0
 D:%%%%%%%%%%%%%%%%%
 D:%......^^^......%
 D:%.######+######.%
@@ -280,10 +350,15 @@ D:%.#+#########+#.%
 D:%.^^^.......^^^.%
 D:%%%%%%%%%%%%%%%%%
 
-### Medium Vaults (type 7)###
+### Medium Vaults -- maximum size 22x33 ###
 
-N:20:Rooms
-X:7:12:13:19:0:0
+name:Rooms
+type:Medium vault
+rating:12
+rows:13
+columns:19
+min-depth:0
+max-depth:0
 D:%%%%%%%%%%%%%%%%%%%
 D:%.................%
 D:%.###############.%
@@ -299,8 +374,13 @@ D:%.................%
 D:%%%%%%%%%%%%%%%%%%%
 
 
-N:21:DiagonalLeft
-X:7:12:12:20:0:0
+name:DiagonalLeft
+type:Medium vault
+rating:12
+rows:12
+columns:20
+min-depth:0
+max-depth:0
 D:%%%%%%%%%%%%%%%%%   
 D:%944##9444##....%%  
 D:%4444##4444##....%% 
@@ -315,8 +395,13 @@ D:  %%...##4449##4449%
 D:   %%%%%%%%%%%%%%%%%
 
 
-N:22:DiagonalRight
-X:7:12:12:20:0:0
+name:DiagonalRight
+type:Medium vault
+rating:12
+rows:12
+columns:20
+min-depth:0
+max-depth:0
 D:   %%%%%%%%%%%%%%%%%
 D:  %%....##4449##449%
 D: %%....##4444##4444%
@@ -331,8 +416,13 @@ D:%9444##9444##...%%
 D:%%%%%%%%%%%%%%%%%   
 
 
-N:23:Workaround
-X:7:15:19:21:0:0
+name:Workaround
+type:Medium vault
+rating:15
+rows:19
+columns:21
+min-depth:0
+max-depth:0
 D:%%%%%%%%%%%%%%%%%%%%%
 D:%...................%
 D:%.@@..@@@@@@@@@..@@.%
@@ -353,8 +443,13 @@ D:%.@@..@@@@@@@@@..@@.%
 D:%...................%
 D:%%%%%%%%%%%%%%%%%%%%%
 
-N:24:Snake Maze
-X:7:15:21:23:0:0
+name:Snake Maze
+type:Medium vault
+rating:15
+rows:21
+columns:23
+min-depth:0
+max-depth:0
 D:%%%%%%%%%%%%%%%%%%%%%%%
 D:%.....................%
 D:%.@@@@@@@@@#@@@@@@@@@.%
@@ -378,8 +473,13 @@ D:%.....................%
 D:%%%%%%%%%%%%%%%%%%%%%%%
 
 
-N:25:Crown
-X:7:20:19:28:0:0
+name:Crown
+type:Medium vault
+rating:20
+rows:19
+columns:28
+min-depth:0
+max-depth:0
 D:%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 D:%..........................%
 D:%.....@@@@@@@@@@@@@@@@.....%
@@ -401,8 +501,13 @@ D:%..........................%
 D:%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-N:26:Funnel
-X:7:15:21:23:0:0
+name:Funnel
+type:Medium vault
+rating:15
+rows:21
+columns:23
+min-depth:0
+max-depth:0
 D:%%%%%%%%%%%%%%%%%%%%%%%
 D:%@@@@@@@@@@@@@@@@@@@@@%
 D:%@222...........&&&@.#%
@@ -426,8 +531,13 @@ D:%@@@@@@@@@@@@@@@@@@@@@%
 D:%%%%%%%%%%%%%%%%%%%%%%%
 
 
-N:27:Pigeonholed
-X:7:15:17:27:0:0
+name:Pigeonholed
+type:Medium vault
+rating:15
+rows:17
+columns:27
+min-depth:0
+max-depth:0
 D:%%%%%%%%%%%%%%%%%%%%%%%%%%%
 D:%.......4....4....4.......%
 D:%.#######################.%
@@ -446,8 +556,13 @@ D:%.#######################.%
 D:%.......4....4....4.......%
 D:%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-N:28:Skull
-X:7:12:17:19:0:0
+name:Skull
+type:Medium vault
+rating:12
+rows:17
+columns:19
+min-depth:0
+max-depth:0
 D:%%%%%%%%%%%%%%%%%%%
 D:%.................%
 D:%..4..@@@@@@@..4..%
@@ -466,8 +581,13 @@ D:%..@..4..4..4..@..%
 D:%.................%
 D:%%%%%%%%%%%%%%%%%%%
 
-N:29:Hallway
-X:7:15:11:31:0:0
+name:Hallway
+type:Medium vault
+rating:15
+rows:11
+columns:31
+min-depth:0
+max-depth:0
 D:%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 D:%.............................%
 D:%.@@@@@@@@@@@@@@@@@@@@@@@@@@@.%
@@ -480,8 +600,13 @@ D:%.@@@@@@@@@@@@@@@@@@@@@@@@@@@.%
 D:%.............................%
 D:%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-N:30:Lair
-X:7:15:15:23:0:0
+name:Lair
+type:Medium vault
+rating:15
+rows:15
+columns:23
+min-depth:0
+max-depth:0
 D:       %%%%%%%%%       
 D:    %%%.........%%%    
 D:  %%...@@@@@@@@@...%%  
@@ -498,8 +623,13 @@ D:  %%...@@@@@@@@@...%%
 D:    %%%.........%%%    
 D:       %%%%%%%%%       
 
-N:31:Disguised 2x2
-X:7:15:11:25:0:0
+name:Disguised 2x2
+type:Medium vault
+rating:15
+rows:11
+columns:25
+min-depth:0
+max-depth:0
 D:%%%%%%%%%%%%%%%%%%%%%%%%%
 D:%.......................%
 D:%.#+#################+#.%
@@ -512,8 +642,13 @@ D:%.#+#################+#.%
 D:%.......................%
 D:%%%%%%%%%%%%%%%%%%%%%%%%%
 
-N:32:Disguised Checkerboard
-X:7:15:11:25:0:0
+name:Disguised Checkerboard
+type:Medium vault
+rating:15
+rows:11
+columns:25
+min-depth:0
+max-depth:0
 D:%%%%%%%%%%%%%%%%%%%%%%%%%
 D:%.......................%
 D:%.#####################.%
@@ -526,8 +661,13 @@ D:%.#####################.%
 D:%.......................%
 D:%%%%%%%%%%%%%%%%%%%%%%%%%
 
-N:33:Infinity
-X:7:15:9:31:0:0
+name:Infinity
+type:Medium vault
+rating:15
+rows:9
+columns:31
+min-depth:0
+max-depth:0
 D:     %%%%%%%%%   %%%%%%%%%     
 D:  %%%.........%%%.........%%%  
 D: %...@@@@@@@@@...@@@@@@@@@...% 
@@ -538,8 +678,13 @@ D: %...@@@@@@@@@...@@@@@@@@@...%
 D:  %%%.........%%%.........%%%  
 D:     %%%%%%%%%   %%%%%%%%%     
 
-N:34:Pac-Man
-X:7:5:21:21:0:0
+name:Pac-Man
+type:Medium vault
+rating:5
+rows:21
+columns:21
+min-depth:0
+max-depth:0
 D:#@@@@@@@@@@@@@@@@@@@#
 D:#@..2224..@..4222..@#
 D:#@9@@^@@@^@^@@@^@@9@#
@@ -562,10 +707,15 @@ D:#@^@@@@@@^@^@@@@@@^@#
 D:#@.42424.&^&.42424.@#
 D:#@@@@@@@@@@@@@@@@@@@#
 
-### Greater vaults (type 8) -- maximum size 66x44 ###
+### Greater vaults -- maximum size 44x66 ###
 
-N:40:Huge
-X:8:45:17:39:0:0
+name:Huge
+type:Greater vault
+rating:45
+rows:17
+columns:39
+min-depth:0
+max-depth:0
 D:%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 D:%@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@%
 D:%+2#8#2#8#2#8#2#8#2#8#2#8#2#8#2#8#2#8@%
@@ -585,8 +735,13 @@ D:%@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@%
 D:%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-N:41:Large
-X:8:35:18:40:0:0
+name:Large
+type:Greater vault
+rating:35
+rows:18
+columns:40
+min-depth:0
+max-depth:0
 D:%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 D:%@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@%
 D:%@4#4#4#4#4#4#4#4#&99&#4#4#4#4#4#4#4#4@%
@@ -607,8 +762,13 @@ D:%@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@%
 D:%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-N:42:Butterfly
-X:8:25:18:40:0:0
+name:Butterfly
+type:Greater vault
+rating:25
+rows:18
+columns:40
+min-depth:0
+max-depth:0
 D:%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 D:%@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@%
 D:%@&9..2@@&&&++^^^^^^^^^^^^++&&&@@2..&9@%
@@ -629,8 +789,13 @@ D:%@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@%
 D:%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-N:43:Chambers
-X:8:25:15:40:0:0
+name:Chambers
+type:Greater vault
+rating:25
+rows:15
+columns:40
+min-depth:0
+max-depth:0
 D:%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 D:%2+.^..^..^..^..^..^..^..^..^..^..^..+2%
 D:%+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@+%
@@ -648,8 +813,13 @@ D:%2+..^..^..^..^..^..^..^..^..^..^..^.+2%
 D:%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-N:44:The I in the Storm
-X:8:40:25:41:0:0
+name:The I in the Storm
+type:Greater vault
+rating:40
+rows:25
+columns:41
+min-depth:0
+max-depth:0
 D:%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 D:%@@@@@@@@@@@@@@@@@@@#@@@@@@@@@@@@@@@@@@@%
 D:%@22..^..#9@..^^^^^^^^^^^^^..@9#..^..22@%
@@ -677,8 +847,13 @@ D:%@@@@@@@@@@@@@@@@@@@#@@@@@@@@@@@@@@@@@@@%
 D:%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-N:45:The Bank From Hell
-X:8:30:20:31:0:0
+name:The Bank From Hell
+type:Greater vault
+rating:30
+rows:20
+columns:31
+min-depth:0
+max-depth:0
 D:%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 D:%@@@@@@@@@@@@@@+@@@@@@@@@@@@@@%
 D:%@.2.2.2.2.2.#...#.2.2.2.2.2.@%
@@ -701,8 +876,13 @@ D:%@@@@@@@@@@@@@@@@@@@@@@@@@@@@@%
 D:%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-N:46:Roundabouts One
-X:8:15:21:43:0:0
+name:Roundabouts One
+type:Greater vault
+rating:15
+rows:21
+columns:43
+min-depth:0
+max-depth:0
 D:%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 D:%#@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@%
 D:%@^^^^^^^^^^^^^^^^#2^^^2^^^^^^^^^^^^^2^44@%
@@ -726,8 +906,13 @@ D:%@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@#%
 D:%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-N:47:Roundabout Two
-X:8:25:25:40:0:0
+name:Roundabout Two
+type:Greater vault
+rating:25
+rows:25
+columns:40
+min-depth:0
+max-depth:0
 D:%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 D:%@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@%
 D:%#^@.^^+@6@@.+@^^^^^+.@...@8#62&@&&&&&@%
@@ -755,8 +940,13 @@ D:%@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@%
 D:%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-N:48:Huge - Modified
-X:8:45:17:39:0:0
+name:Huge - Modified
+type:Greater vault
+rating:45
+rows:17
+columns:39
+min-depth:0
+max-depth:0
 D:%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 D:%@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@%
 D:%#2#8#2#8#2#8#2#8#2#8#2#8#2#8#2#8#2#8@%
@@ -776,8 +966,13 @@ D:%@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@%
 D:%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-N:49:Mirrored Quartet
-X:8:20:21:49:0:0
+name:Mirrored Quartet
+type:Greater vault
+rating:20
+rows:21
+columns:49
+min-depth:0
+max-depth:0
 D:%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 D:%@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@%
 D:%@89666@@@4444@@@....^^^^^^^....@@@4444@@@66698@%
@@ -801,8 +996,13 @@ D:%@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@%
 D:%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-N:50:False Wall
-X:8:20:15:64:0:0
+name:False Wall
+type:Greater vault
+rating:20
+rows:15
+columns:64
+min-depth:0
+max-depth:0
 D:%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 D:%@+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@+@%
 D:%@^+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^+^@%
@@ -820,8 +1020,13 @@ D:%@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@%
 D:%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-N:51:Divisi
-X:8:35:31:55:0:0
+name:Divisi
+type:Greater vault
+rating:35
+rows:31
+columns:55
+min-depth:0
+max-depth:0
 D:%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 D:%.....................................................%
 D:%.#@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@#.%
@@ -855,8 +1060,13 @@ D:%.....................................................%
 D:%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-N:52:Curlicues One
-X:8:15:23:44:0:0
+name:Curlicues One
+type:Greater vault
+rating:15
+rows:23
+columns:44
+min-depth:0
+max-depth:0
 D:%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 D:%@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@%
 D:%@^^^^^^^^^^^^^^^^^^^^^^^^^^^^^#8@^^^^^^^^@%
@@ -882,8 +1092,13 @@ D:%@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@%
 D:%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-N:53:Bubbles
-X:8:35:25:41:0:0
+name:Bubbles
+type:Greater vault
+rating:35
+rows:25
+columns:41
+min-depth:0
+max-depth:0
 D:%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 D:%@@@#@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@%
 D:%@8@#@8@@@8@@@8@@@8@@@8@@@8@@@8@@@8@@@8@%
@@ -911,8 +1126,13 @@ D:%@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@%
 D:%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-N:54:Symmet
-X:8:20:23:29:0:0
+name:Symmet
+type:Greater vault
+rating:20
+rows:23
+columns:29
+min-depth:0
+max-depth:0
 D:%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 D:%...........................%
 D:%....@@@@@@@@@+@@@@@@@@@....%
@@ -938,8 +1158,13 @@ D:%...........................%
 D:%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-N:55:V-vault
-X:8:25:23:48:0:0
+name:V-vault
+type:Greater vault
+rating:25
+rows:23
+columns:48
+min-depth:0
+max-depth:0
 D:%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 D:%@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@%
 D:%@9&&&@...........2...@@@@..4.......4....@&&&9@%
@@ -965,8 +1190,13 @@ D:%@@@@@@@@@@@@@@@@@@@@@@##@@@@@@@@@@@@@@@@@@@@@@%
 D:%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-N:56:Twisted Cube
-X:8:20:24:41:0:0
+name:Twisted Cube
+type:Greater vault
+rating:20
+rows:24
+columns:41
+min-depth:0
+max-depth:0
 D:%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 D:%.......................................%
 D:%.@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@.....%
@@ -993,8 +1223,13 @@ D:%.......................................%
 D:%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-N:57:Jigsaw
-X:8:25:16:49:0:0
+name:Jigsaw
+type:Greater vault
+rating:25
+rows:16
+columns:49
+min-depth:0
+max-depth:0
 D:%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 D:%...............................................%
 D:%.@@@@@@@@@@@@@@@@@@@@#@@@@@@@@@@@@@@@@@@@@@@@@.%
@@ -1013,8 +1248,13 @@ D:%...............................................%
 D:%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-N:58:Hourglass
-X:8:24:37:27:0:0
+name:Hourglass
+type:Greater vault
+rating:24
+rows:37
+columns:27
+min-depth:0
+max-depth:0
 D:%%%%%%%%%%%%%%%%%%%%%%%%%%%
 D:%.........................%
 D:%.......@@@@@+@@@@@.......%
@@ -1054,8 +1294,13 @@ D:%.........................%
 D:%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-N:59:Mazer
-X:8:26:35:31:0:0
+name:Mazer
+type:Greater vault
+rating:26
+rows:35
+columns:31
+min-depth:0
+max-depth:0
 D:%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 D:%.............................%
 D:%........@@@@@@+@@@@@@........%
@@ -1093,8 +1338,13 @@ D:%.............................%
 D:%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-N:60:Orb
-X:8:16:27:27:0:0
+name:Orb
+type:Greater vault
+rating:16
+rows:27
+columns:27
+min-depth:0
+max-depth:0
 D:%%%%%%%%%%%%%%%%%%%%%%%%%%%
 D:%.........................%
 D:%.........#@@@@@#.........%
@@ -1124,8 +1374,13 @@ D:%.........................%
 D:%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-N:61:Interstices
-X:8:22:19:45:0:0
+name:Interstices
+type:Greater vault
+rating:22
+rows:19
+columns:45
+min-depth:0
+max-depth:0
 D:%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 D:%...........................................%
 D:%.......@@@@@@@@@@@@^^^^^@@@@@@@@@@@@.......%
@@ -1147,8 +1402,13 @@ D:%...........................................%
 D:%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-N:62:Sphere
-X:8:25:25:47:0:0
+name:Sphere
+type:Greater vault
+rating:25
+rows:25
+columns:47
+min-depth:0
+max-depth:0
 D:%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 D:%.............................................%
 D:%......@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@......%
@@ -1176,8 +1436,13 @@ D:%.............................................%
 D:%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-N:63:Hellpit
-X:8:20:19:60:0:0
+name:Hellpit
+type:Greater vault
+rating:20
+rows:19
+columns:60
+min-depth:0
+max-depth:0
 D:%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 D:%..........................................................%
 D:%.@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@.%
@@ -1199,8 +1464,13 @@ D:%..........................................................%
 D:%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-N:64:Target Practice
-X:8:20:20:61:0:0
+name:Target Practice
+type:Greater vault
+rating:20
+rows:20
+columns:61
+min-depth:0
+max-depth:0
 D:%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 D:%@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@%
 D:%@6..&..&..&..&..&..&..&..&..&..&..&.......................#%
@@ -1223,8 +1493,13 @@ D:%@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@%
 D:%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-N:65:Castle Death
-X:8:35:20:60:0:0
+name:Castle Death
+type:Greater vault
+rating:35
+rows:20
+columns:60
+min-depth:0
+max-depth:0
 D:%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 D:%@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@%
 D:%@84444444444444444444444444444444444444+@@....+@@...@&88&@%
@@ -1247,8 +1522,13 @@ D:%@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@%
 D:%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-N:66:The Reward is Worth It
-X:8:20:16:63:0:0
+name:The Reward is Worth It
+type:Greater vault
+rating:20
+rows:16
+columns:63
+min-depth:0
+max-depth:0
 D:%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 D:%@@@@@@@@@@@@@@@##@@@@@@@@@@@@@#@@@@@@@@@@@@@##@@@@@@@@@@@@@@@%
 D:%@66666666666.@@99@@.......444@^@444.......@@99@@.66666666666@%
@@ -1266,10 +1546,15 @@ D:%@444444@#66666666666666@@@222222222@@@66666666666666#@444444@%
 D:%@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@%
 D:%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-### Interesting Rooms (type 5) ###
+### Interesting Rooms ###
 
-N:101:Round
-X:5:0:9:11:0:0
+name:Round
+type:Interesting room
+rating:0
+rows:9
+columns:11
+min-depth:0
+max-depth:0
 D:  %%%%%%%  
 D: %%.....%% 
 D:%%.......%%
@@ -1280,8 +1565,13 @@ D:%%.......%%
 D: %%...1.%% 
 D:  %%%%%%%  
 
-N:102:House 1
-X:5:0:9:12:0:0
+name:House 1
+type:Interesting room
+rating:0
+rows:9
+columns:12
+min-depth:0
+max-depth:0
 D:%%%%%%%%%%%%
 D:%.1.#......%
 D:%...#..1...%
@@ -1292,8 +1582,13 @@ D:%......#...%
 D:%......#...%
 D:%%%%%%%%%%%%
 
-N:103:House 2
-X:5:0:9:13:0:0
+name:House 2
+type:Interesting room
+rating:0
+rows:9
+columns:13
+min-depth:0
+max-depth:0
 D:%%%%%%%%%%%%%
 D:%..#######1.%
 D:%..+.....#+#%
@@ -1304,8 +1599,13 @@ D:%1.#.#.#.+..%
 D:%..#.....#..%
 D:%%%%%%%%%%%%%
 
-N:104:House 3
-X:5:0:8:10:0:0
+name:House 3
+type:Interesting room
+rating:0
+rows:8
+columns:10
+min-depth:0
+max-depth:0
 D:%%%%%%%%%%
 D:%1#.##.#.%
 D:%#+####+#%
@@ -1315,8 +1615,13 @@ D:%#+####+#%
 D:%.#....#.%
 D:%%%%%%%%%%
 
-N:105:House 4
-X:5:0:11:12:0:0
+name:House 4
+type:Interesting room
+rating:0
+rows:11
+columns:12
+min-depth:0
+max-depth:0
 D:%%%%%%%%%%%%
 D:%...#.#....%
 D:%.1.#.#....%
@@ -1329,8 +1634,13 @@ D:%...#.#+###%
 D:%.1........%
 D:%%%%%%%%%%%%
 
-N:106:Crescent
-X:5:0:10:12:0:0
+name:Crescent
+type:Interesting room
+rating:0
+rows:10
+columns:12
+min-depth:0
+max-depth:0
 D:     %%%%%% 
 D:  %%%%.1..%%
 D: %%....###.%
@@ -1342,8 +1652,13 @@ D: %%....###1%
 D:  %%%%....%%
 D:     %%%%%% 
 
-N:107:Moot hall
-X:5:0:11:12:0:0
+name:Moot hall
+type:Interesting room
+rating:0
+rows:11
+columns:12
+min-depth:0
+max-depth:0
 D:%%%%%%%%%%%%
 D:%1#......#1%
 D:%#+.####.+#%
@@ -1356,8 +1671,13 @@ D:%....##....%
 D:%#.#....#.#%
 D:%%%%%%%%%%%%
 
-N:108:Small atrium -ES-
-X:5:0:11:12:0:0
+name:Small atrium -ES-
+type:Interesting room
+rating:0
+rows:11
+columns:12
+min-depth:0
+max-depth:0
 D:%%%%%%%%%%% 
 D:%.........% 
 D:%.p.......% 
@@ -1370,8 +1690,13 @@ D:%...h......%
 D:%%%........%
 D:  %%%%%%%%%%
 
-N:109:Hourglass
-X:5:0:11:9:0:0
+name:Hourglass
+type:Interesting room
+rating:0
+rows:11
+columns:9
+min-depth:0
+max-depth:0
 D:%%%%%%%%%
 D:%.......%
 D:%..1....%
@@ -1384,16 +1709,26 @@ D:%....1..%
 D:%.......%
 D:%%%%%%%%%
 
-N:110:Birds of a feather
-X:5:0:5:5:0:0
+name:Birds of a feather
+type:Interesting room
+rating:0
+rows:5
+columns:5
+min-depth:0
+max-depth:0
 D:%%%%%
 D:%BBB%
 D:%BBB%
 D:%BBB%
 D:%%%%%
 
-N:111:Catacomb
-X:5:0:11:13:0:0
+name:Catacomb
+type:Interesting room
+rating:0
+rows:11
+columns:13
+min-depth:0
+max-depth:0
 D:%%%%%%%%%%%%%
 D:%#.........#%
 D:%#.###.###.#%
@@ -1406,8 +1741,13 @@ D:%#.###.###.#%
 D:%#.........#%
 D:%%%%%%%%%%%%%
 
-N:112:Pillars
-X:5:0:11:18:0:0
+name:Pillars
+type:Interesting room
+rating:0
+rows:11
+columns:18
+min-depth:0
+max-depth:0
 D:%%%%%%%%%%%%%%%%%%
 D:%................%
 D:%.#....#.......#.%
@@ -1420,8 +1760,13 @@ D:%.#.....#........%
 D:%..........#.....%
 D:%%%%%%%%%%%%%%%%%%
 
-N:113:Cross
-X:5:0:11:15:0:0
+name:Cross
+type:Interesting room
+rating:0
+rows:11
+columns:15
+min-depth:0
+max-depth:0
 D:   %%%%%%%%%   
 D:   %.......%   
 D:%%%%...#...%%%%
@@ -1434,8 +1779,13 @@ D:%%%%...#...%%%%
 D:   %.......%   
 D:   %%%%%%%%%   
 
-N:114:Cross/diamond
-X:5:0:11:17:0:0
+name:Cross/diamond
+type:Interesting room
+rating:0
+rows:11
+columns:17
+min-depth:0
+max-depth:0
 D:      %%%%       
 D:     %%..%%      
 D:   %%#....#%%    
@@ -1448,8 +1798,13 @@ D:   %%#....#%%
 D:     %%..%%      
 D:      %%%%       
 
-N:115:Rayed sun
-X:5:0:11:11:0:0
+name:Rayed sun
+type:Interesting room
+rating:0
+rows:11
+columns:11
+min-depth:0
+max-depth:0
 D:%%%%%%%%%%%
 D:%.........%
 D:%.#..#..#.%
@@ -1462,8 +1817,13 @@ D:%.#..#..#.%
 D:%...1.....%
 D:%%%%%%%%%%%
 
-N:116:Thrown-together squares
-X:5:0:11:18:0:0
+name:Thrown-together squares
+type:Interesting room
+rating:0
+rows:11
+columns:18
+min-depth:0
+max-depth:0
 D:        %%%%%%%   
 D:  %%%%%%%.....%   
 D:  %...........%   
@@ -1476,8 +1836,13 @@ D: %....######4#%
 D: %....%%%%%###%   
 D: %%%%%%   %%%%%   
 
-N:117:Diagonal 1
-X:5:0:11:12:0:0
+name:Diagonal 1
+type:Interesting room
+rating:0
+rows:11
+columns:12
+min-depth:0
+max-depth:0
 D:    %%%%%%%%
 D:    %......%
 D:    %......%
@@ -1490,8 +1855,13 @@ D: %......%
 D:%......%    
 D:%%%%%%%%    
 
-N:118:Diagonal 2
-X:5:0:11:12:0:0
+name:Diagonal 2
+type:Interesting room
+rating:0
+rows:11
+columns:12
+min-depth:0
+max-depth:0
 D:%%%%%%%%    
 D:%......%%   
 D:%%......%   
@@ -1504,8 +1874,13 @@ D:   %%....1.%
 D:    %......%
 D:    %%%%%%%%
 
-N:119:Triple diamond
-X:5:0:10:20:0:0
+name:Triple diamond
+type:Interesting room
+rating:0
+rows:10
+columns:20
+min-depth:0
+max-depth:0
 D:  %%%   %%%   %%%   
 D:  %.%% %%.%% %%.%%% 
 D: %...% %...% %....%%
@@ -1517,8 +1892,13 @@ D: %...% %...% %....%%
 D: %%.%% %%.%% %%.%%% 
 D:  %%%   %%%   %%%   
 
-N:120:Baby dragon hatchery -ES-
-X:5:0:11:12:8:16
+name:Baby dragon hatchery -ES-
+type:Interesting room
+rating:0
+rows:11
+columns:12
+min-depth:8
+max-depth:16
 D:%%%%%%%%%%%%
 D:%.........1%
 D:%..:.......%
@@ -1531,8 +1911,13 @@ D:%.....=....%
 D:%..........%
 D:%%%%%%%%%%%%
 
-N:121:Four pointed star
-X:5:0:11:17:0:0
+name:Four pointed star
+type:Interesting room
+rating:0
+rows:11
+columns:17
+min-depth:0
+max-depth:0
 D:%%%%         %%%%
 D:%..%%%     %%%..%
 D:%%...%%% %%%...%%
@@ -1545,8 +1930,13 @@ D:%%...%%% %%%.1.%%
 D:%..%%%     %%%..%
 D:%%%%         %%%%
 
-N:122:Oblong
-X:5:0:9:24:0:0
+name:Oblong
+type:Interesting room
+rating:0
+rows:9
+columns:24
+min-depth:0
+max-depth:0
 D:     %%%%%%%%%%%%%%     
 D:  %%%%............%%%%  
 D:%%%..................%%%
@@ -1557,8 +1947,13 @@ D:%%%..................%%%
 D:  %%%%............%%%%  
 D:     %%%%%%%%%%%%%%     
 
-N:123:Easy maze
-X:5:0:11:15:0:0
+name:Easy maze
+type:Interesting room
+rating:0
+rows:11
+columns:15
+min-depth:0
+max-depth:0
 D:%%%%%%%%%%%%%%%
 D:%.............%
 D:%...@@@@@@@@@.%
@@ -1571,8 +1966,13 @@ D:%.@@.@@@@@@@@.%
 D:%..@@@........%
 D:%%%%%%%%%%%%%%%
 
-N:124:Chambered diamond
-X:5:0:10:12:0:0
+name:Chambered diamond
+type:Interesting room
+rating:0
+rows:10
+columns:12
+min-depth:0
+max-depth:0
 D:   %%%%%%   
 D:  %%....%%  
 D: %%#.1..#%% 
@@ -1584,8 +1984,13 @@ D: %%#....#%%
 D:  %%....%%  
 D:   %%%%%%   
 
-N:125:Poor village
-X:5:0:11:26:0:0
+name:Poor village
+type:Interesting room
+rating:0
+rows:11
+columns:26
+min-depth:0
+max-depth:0
 D:%%%%%%%%%%%%%%%%%%%%%%%%%%
 D:%........................%
 D:%.###......#####..######.%
@@ -1598,8 +2003,13 @@ D:%.#####..#####...........%
 D:%........................%
 D:%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-N:126:Tree, crown, and seven stars
-X:5:0:11:26:0:0
+name:Tree, crown, and seven stars
+type:Interesting room
+rating:0
+rows:11
+columns:26
+min-depth:0
+max-depth:0
 D:%%%%%%%%%%%%%%%%%%%%%%%%%%
 D:%.........@1@1@...@......%
 D:%....@.....@@@...........%
@@ -1612,8 +2022,13 @@ D:%...@......@@@...........%
 D:%.........#####...@......%
 D:%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-N:127:Just plain big
-X:5:0:11:33:0:0
+name:Just plain big
+type:Interesting room
+rating:0
+rows:11
+columns:33
+min-depth:0
+max-depth:0
 D:%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 D:%...............................%
 D:%...........1...................%
@@ -1626,8 +2041,13 @@ D:%......1........................%
 D:%...............................%
 D:%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-N:128:Eye
-X:5:0:11:26:0:0
+name:Eye
+type:Interesting room
+rating:0
+rows:11
+columns:26
+min-depth:0
+max-depth:0
 D:%%%%%%%%%%%%%%%%%%%%%%%%%%
 D:%........................%
 D:%........@@@@@@@@........%
@@ -1640,8 +2060,13 @@ D:%........@@@@@@@@........%
 D:%........................%
 D:%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-N:129:Sectioned off
-X:5:0:11:20:0:0
+name:Sectioned off
+type:Interesting room
+rating:0
+rows:11
+columns:20
+min-depth:0
+max-depth:0
 D:%%%%%%%      %%%%%%%
 D:%.....%%%%%%%%.....%
 D:%.1...########..1..%
@@ -1654,8 +2079,13 @@ D:%.......####..+....%
 D:%.1.....%%%%%%%....%
 D:%%%%%%%%%     %%%%%%
 
-N:130:Twisted
-X:5:0:10:28:0:0
+name:Twisted
+type:Interesting room
+rating:0
+rows:10
+columns:28
+min-depth:0
+max-depth:0
 D: %%%%%%%   %%%%%%%%%%       
 D: %.....%%%%%........%%%%    
 D: %##.1..##.............%%   
@@ -1667,8 +2097,13 @@ D:%.........#########.@@@@..%%
 D:%.......###########......%% 
 D:%%%%%%%%%%%%%%%%%%%%%%%%%%  
 
-N:131:Little eruption
-X:5:0:10:18:6:35
+name:Little eruption
+type:Interesting room
+rating:0
+rows:10
+columns:18
+min-depth:6
+max-depth:35
 D:   %%%%%%%%%%%%%%%
 D:%%%%*.:..u:.#...:%
 D:%:##.u.:.#.uu```.%
@@ -1680,8 +2115,13 @@ D: %%#.`..#:uu`...#%
 D:  %:`:::.#:..:%%%%
 D:  %%%%%%%%%%%%%   
 
-N:132:Little eruption+
-X:5:0:10:18:45:0
+name:Little eruption+
+type:Interesting room
+rating:0
+rows:10
+columns:18
+min-depth:45
+max-depth:0
 D:   %%%%%%%%%%%%%%%
 D:%%%%*.:..U:.#...:%
 D:%:##...:.#..U```.%
@@ -1693,8 +2133,13 @@ D: %%#.`..#:U.`U..#%
 D:  %:`:::.#:..:%%%%
 D:  %%%%%%%%%%%%%   
 
-N:133:Flies around the honeypot
-X:5:0:7:10:10:25
+name:Flies around the honeypot
+type:Interesting room
+rating:0
+rows:7
+columns:10
+min-depth:10
+max-depth:25
 D:%%%%%%%%%%
 D:%...F..F.%
 D:%.F.,,F..%
@@ -1703,8 +2148,13 @@ D:%...F.F..%
 D:%.F......%
 D:%%%%%%%%%%
 
-N:134:Akela's Pack
-X:5:0:11:20:3:40
+name:Akela's Pack
+type:Interesting room
+rating:0
+rows:11
+columns:20
+min-depth:3
+max-depth:40
 D:%%%%%%%%%%%%%%%%%%%%
 D:%;;.;;;;.;.;;.;.;;;%
 D:%.;;;........;..;;.%
@@ -1717,8 +2167,13 @@ D:%;..CC.:#C#:..C.C.;%
 D:%;;;..:#####:...;.;%
 D:%%%%%%%%%%%%%%%%%%%%
 
-N:135:Pride Rock
-X:5:0:11:24:5:40
+name:Pride Rock
+type:Interesting room
+rating:0
+rows:11
+columns:24
+min-depth:5
+max-depth:40
 D:%%%%%%%%%%%%%%%%%%%%%%%%
 D:%..............f.......%
 D:%.f......f.............%
@@ -1731,8 +2186,13 @@ D:%.......f...........f..%
 D:%.f.........f..........%
 D:%%%%%%%%%%%%%%%%%%%%%%%%
 
-N:136:Party of adventurers
-X:5:0:6:16:3:0
+name:Party of adventurers
+type:Interesting room
+rating:0
+rows:6
+columns:16
+min-depth:3
+max-depth:0
 D:%%%%%%%%%%%%%%%%
 D:%....p.........%
 D:%..p..p.h...h..%
@@ -1740,8 +2200,13 @@ D:%.........p....%
 D:%......h....p..%
 D:%%%%%%%%%%%%%%%%
 
-N:137:Hermitage - DRL
-X:5:0:11:13:0:0
+name:Hermitage - DRL
+type:Interesting room
+rating:0
+rows:11
+columns:13
+min-depth:0
+max-depth:0
 D:  %%%%%%%%%  
 D:%%%.......%%%
 D:%...........%
@@ -1754,8 +2219,13 @@ D:%.......;...%
 D:%%%.......%%%
 D:  %%%%%%%%%  
 
-N:138:Interesting Roon (Lesser Forge) - DRL
-X:5:0:11:22:50:0
+name:Interesting Roon (Lesser Forge) - DRL
+type:Interesting room
+rating:0
+rows:11
+columns:22
+min-depth:50
+max-depth:0
 D:      %%%%%%%%%%      
 D:   %%%%........%%%%   
 D: %%%......``..1...%%% 
@@ -1768,8 +2238,13 @@ D: %%%......``......%%%
 D:   %%%%........%%%%   
 D:      %%%%%%%%%%      
 
-N:139:Ruined Lesser Forge - DRL
-X:5:0:11:22:50:0
+name:Ruined Lesser Forge - DRL
+type:Interesting room
+rating:0
+rows:11
+columns:22
+min-depth:50
+max-depth:0
 D:      %%%%%%%%%%      
 D:   %%%%........%%%%   
 D: %%%......:`.1....%%% 
@@ -1782,8 +2257,13 @@ D: %%%.:...#``....::%%%
 D:   %%%%.:......%%%%   
 D:      %%%%%%%%%%      
 
-N:140:Small Fountain - DRL
-X:5:0:9:16:0:0
+name:Small Fountain - DRL
+type:Interesting room
+rating:0
+rows:9
+columns:16
+min-depth:0
+max-depth:0
 D:   %%%%%%%%%%   
 D:  %%.;....;.%%  
 D: %%.;/1.../;.%% 
@@ -1794,8 +2274,13 @@ D: %%.;/..1./;.%%
 D:  %%.;....;.%%  
 D:   %%%%%%%%%%   
 
-N:141:Not-So-Small Fountain - DRL 
-X:5:0:11:33:0:0
+name:Not-So-Small Fountain - DRL 
+type:Interesting room
+rating:0
+rows:11
+columns:33
+min-depth:0
+max-depth:0
 D:   %%%%%%%%           %%%%%%%%   
 D:  %%....;.%%         %%.;....%%  
 D: %%./;.//;.%%%%%%%%%%%.;//.;/.%% 
@@ -1808,8 +2293,13 @@ D:   %%%%%%%%.;///////;.%%%%%%%%
 D:          %%.........%%          
 D:           %%%%%%%%%%%           
 
-N:142:E-W Library - DRL
-X:5:0:11:20:0:0
+name:E-W Library - DRL
+type:Interesting room
+rating:0
+rows:11
+columns:20
+min-depth:0
+max-depth:0
 D:%%%%%%%%%%%%%%%%%%%%
 D:%....1.............%
 D:%.################.%
@@ -1822,8 +2312,13 @@ D:%.################.%
 D:%..1...............%
 D:%%%%%%%%%%%%%%%%%%%%
 
-N:143:N-S Library - DRL
-X:5:0:10:17:0:0
+name:N-S Library - DRL
+type:Interesting room
+rating:0
+rows:10
+columns:17
+min-depth:0
+max-depth:0
 D:%%%%%%%%%%%%%%%%%
 D:%....1..........%
 D:%.#.#.#.#.#.#.#.%
@@ -1835,8 +2330,13 @@ D:%.#.#.#.#.#.#.#.%
 D:%.........1.....%
 D:%%%%%%%%%%%%%%%%%
 
-N:144:Mad Alchemist's Lab
-X:5:5:9:30:30:55
+name:Mad Alchemist's Lab
+type:Interesting room
+rating:5
+rows:9
+columns:30
+min-depth:30
+max-depth:55
 D:%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 D:%................:...#.....:.%
 D:%.##############...:.+...:.#.%
@@ -1847,8 +2347,13 @@ D:%.##############..+..#:...#.:%
 D:%..................::...+....%
 D:%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-N:145:Spider Wood
-X:5:0:11:31:5:40
+name:Spider Wood
+type:Interesting room
+rating:0
+rows:11
+columns:31
+min-depth:5
+max-depth:40
 D:            %%%%%%%%%%%%%%%%%%%
 D:          %%%;;;;;;;;;;;;;;;;;%
 D:         %%;;;SS;;;;;;;;;;;;;%%
@@ -1861,8 +2366,13 @@ D:%%;;;;;;;;;;;;;;;;;;%%
 D:%;;;;;;;;;;;;;;;;;%%%          
 D:%%%%%%%%%%%%%%%%%%%            
 
-N:146:Crevasse
-X:5:0:7:13:20:70
+name:Crevasse
+type:Interesting room
+rating:0
+rows:7
+columns:13
+min-depth:20
+max-depth:70
 D:        %%%%%
 D:    %%%%%u``%
 D:   %%uu````u%
@@ -1871,8 +2381,13 @@ D:%`````U%%%%
 D:%`%%%%%%     
 D:%%%          
 
-N:147:Ant nest
-X:5:0:11:15:3:50
+name:Ant nest
+type:Interesting room
+rating:0
+rows:11
+columns:15
+min-depth:3
+max-depth:50
 D:%%%%%%%%%%%%%%%
 D:%.............%
 D:%.....:::...a.%
@@ -1885,8 +2400,13 @@ D:%.....:::..a..%
 D:%.............%
 D:%%%%%%%%%%%%%%%
 
-N:148:Tavern - DRL
-X:5:0:11:13:0:0
+name:Tavern - DRL
+type:Interesting room
+rating:0
+rows:11
+columns:13
+min-depth:0
+max-depth:0
 D:  %%%%%%%%%  
 D: %%..,.,..%% 
 D:%%.#######.%%
@@ -1899,8 +2419,13 @@ D:%..::...::..%
 D:%%.........%%
 D: %%%%%%%%%%% 
 
-N:149:Reservoir - DRL
-X:5:0:11:25:0:0
+name:Reservoir - DRL
+type:Interesting room
+rating:0
+rows:11
+columns:25
+min-depth:0
+max-depth:0
 D:%%%%%%%%%%%%%%%%%%%%%%%%%
 D:%.......1...............%
 D:%./////////////////////.%
@@ -1913,8 +2438,13 @@ D:%./////////////////////.%
 D:%............1...1......%
 D:%%%%%%%%%%%%%%%%%%%%%%%%%
 
-N:150:Orchard - DRL
-X:5:0:11:33:0:0
+name:Orchard - DRL
+type:Interesting room
+rating:0
+rows:11
+columns:33
+min-depth:0
+max-depth:0
 D:%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 D:%...................1...........%
 D:%.;...;...;...;...;...;...;...;.%
@@ -1927,8 +2457,13 @@ D:%.;...;...;...;...;...;...;...;.%
 D:%...............................%
 D:%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-N:151:Spider Nest - DRL
-X:5:0:10:25:10:20
+name:Spider Nest - DRL
+type:Interesting room
+rating:0
+rows:10
+columns:25
+min-depth:10
+max-depth:20
 D:%%%%%%%%%%%%%%%%%%%%%%%%%
 D:%...;...:........;..S...%
 D:%.:.S...;..;.&:..:....;.%
@@ -1940,14 +2475,24 @@ D:%.;....;......&....S...:%
 D:%...:......S......;.....%
 D:%%%%%%%%%%%%%%%%%%%%%%%%%
 
-N:152:Gauntlet 1 - DRL
-X:5:3:3:33:20:40
+name:Gauntlet 1 - DRL
+type:Interesting room
+rating:3
+rows:3
+columns:33
+min-depth:20
+max-depth:40
 D:%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 D:%...+.1.+.1.+.1.+.1.+.1.+.1.+...%
 D:%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-N:153:Gauntlet 2 - DRL
-X:5:3:7:31:40:60
+name:Gauntlet 2 - DRL
+type:Interesting room
+rating:3
+rows:7
+columns:31
+min-depth:40
+max-depth:60
 D:%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 D:%.#.+.#.+.#.+.#.+.#.+.#.+.#.+.%
 D:%.#.#.#.#.#.#.#.#.#.#.#.#.#.#.%
@@ -1956,8 +2501,13 @@ D:%.#.#.#.#.#.#.#.#.#.#.#.#.#.#.%
 D:%.+.#.+.#.+.#.+.#.+.#.+.#.+.#.%
 D:%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-N:154:Semicircular 1 - DRL
-X:5:0:8:24:0:0
+name:Semicircular 1 - DRL
+type:Interesting room
+rating:0
+rows:8
+columns:24
+min-depth:0
+max-depth:0
 D:%%%%%%%%%%    %%%%%%%%%%
 D:%.../....%%%%%%.1../...%
 D:%%.../..1..##...../...%%
@@ -1967,8 +2517,13 @@ D:  %%%.....////.....%%%
 D:    %%%%........%%%%    
 D:       %%%%%%%%%%       
 
-N:155:Semicircular 2 - DRL
-X:5:0:8:24:0:0
+name:Semicircular 2 - DRL
+type:Interesting room
+rating:0
+rows:8
+columns:24
+min-depth:0
+max-depth:0
 D:       %%%%%%%%%%       
 D:    %%%%........%%%%    
 D:  %%%.....////..1..%%%  
@@ -1978,8 +2533,13 @@ D:%%.../.....##...../...%%
 D:%.../..&.%%%%%%.1../...%
 D:%%%%%%%%%%    %%%%%%%%%%
 
-N:156:Plague Pit - DRL
-X:5:0:8:23:3:50
+name:Plague Pit - DRL
+type:Interesting room
+rating:0
+rows:8
+columns:23
+min-depth:3
+max-depth:50
 D:  %%%%%%%%%%           
 D: %%...r..r.%%%         
 D:%%.r.z.#.&...%%%%%%%%  
@@ -1989,8 +2549,13 @@ D:  %%%%..s...r.&.#:....%
 D:     %%%%%%%.#.z...%%%%
 D:           %%%%%%%%%   
 
-N:157:Lesser Altar - DRL
-X:5:0:11:15:0:0
+name:Lesser Altar - DRL
+type:Interesting room
+rating:0
+rows:11
+columns:15
+min-depth:0
+max-depth:0
 D:    %%%%%%%    
 D:  %%%.....%%%  
 D: %%..#.#.#..%% 
@@ -2003,8 +2568,13 @@ D: %%..#.#.#..%%
 D:  %%%.....%%%  
 D:    %%%%%%%    
 
-N:158:Barracks - DRL
-X:5:0:10:15:0:0
+name:Barracks - DRL
+type:Interesting room
+rating:0
+rows:10
+columns:15
+min-depth:0
+max-depth:0
 D:%%%%       %%%%
 D:%p.%%%%%%%%%.p%
 D:%.&+.......+&.%
@@ -2016,8 +2586,13 @@ D:%.&+.......+&.%
 D:%p.%%%%%%%%%.p%
 D:%%%%       %%%%
 
-N:159:Deep Crypt
-X:5:0:11:15:60:0
+name:Deep Crypt
+type:Interesting room
+rating:0
+rows:11
+columns:15
+min-depth:60
+max-depth:0
 D:%%%%%%%%%%%%%%%
 D:%W#W#W#L#G#W#L%
 D:%#...........#%
@@ -2030,8 +2605,13 @@ D:%#...s.......#%
 D:%W#W#W#L#G#G#W%
 D:%%%%%%%%%%%%%%%
 
-N:160:Zoo
-X:5:0:11:18:15:40
+name:Zoo
+type:Interesting room
+rating:0
+rows:11
+columns:18
+min-depth:15
+max-depth:40
 D:%%%%%%%%%%%%%%%%%%
 D:%qq#qq#...#..;H.;%
 D:%#.##.#...#;q.;;.%
@@ -2045,8 +2625,13 @@ D:%S#.....#.C.#.;f.%
 D:%%%%%%%%%%%%%%%%%%
 
 # An example of an interesting room whose depth needs to be precisely controlled.
-N:161:Yeek Warren
-X:5:0:11:22:4:14
+name:Yeek Warren
+type:Interesting room
+rating:0
+rows:11
+columns:22
+min-depth:4
+max-depth:14
 D:%%%%%%%%%%%%%%%%%%%%%%
 D:%....y##.##y#........%
 D:%.#####y.#y#y.#y#y##.%
@@ -2059,8 +2644,13 @@ D:%//....y###y#..#.###.%
 D:%//;#y###.....##.....%
 D:%%%%%%%%%%%%%%%%%%%%%%
 
-N:162:Centipedes Galore
-X:5:0:11:29:2:10
+name:Centipedes Galore
+type:Interesting room
+rating:0
+rows:11
+columns:29
+min-depth:2
+max-depth:10
 D: %%%%%%%%        %%%%%%      
 D: %c....%%%%%%%%%%%....%%%    
 D:%....#############.c....%%   
@@ -2073,8 +2663,13 @@ D:     %....####...c.#######..%
 D:     %%%.%%%%%%...%%%%%%%%..%
 D:       %%%    %%%%%      %%%%
 
-N:163:Room of doors -ES-
-X:5:0:8:11:40:50
+name:Room of doors -ES-
+type:Interesting room
+rating:0
+rows:8
+columns:11
+min-depth:40
+max-depth:50
 D:%%%%%%%%%%%
 D:%+++++++++%
 D:%+1+++++1+%
@@ -2085,8 +2680,13 @@ D:%+++++++++%
 D:%%%%%%%%%%%
 
 ## This is really a lesser vault for young adventurers
-N:164:Kobold den
-X:5:5:18:39:4:14
+name:Kobold den
+type:Interesting room
+rating:5
+rows:18
+columns:39
+min-depth:4
+max-depth:14
 D:   %%%%%%%%%% %%%%%%%%%%%%%%%%%%%%     
 D:  %%........%%%..................%%%   
 D: %%...#####.....################...%%  
@@ -2106,8 +2706,13 @@ D: %%..######+#####.......##########..%%%
 D:   %..............%%%%.............%%  
 D:   %%%%%%%%%%%%%%%%  %%%%%%%%%%%%%%%   
 
-N:165:Giant's Armoury
-X:5:5:13:17:20:45
+name:Giant's Armoury
+type:Interesting room
+rating:5
+rows:13
+columns:17
+min-depth:20
+max-depth:45
 D:    %%%%%%%%%    
 D:   %%...#...%%   
 D:  %%....#....%%  
@@ -2126,8 +2731,13 @@ D:    %%%%%%%%%
 
 ### Here is a rather large interesting room.  As long as most ###
 ### interesting rooms are small, it should be OK.             ###
-N:171:A little on the wild side
-X:5:10:40:50:17:25
+name:A little on the wild side
+type:Interesting room
+rating:10
+rows:40
+columns:50
+min-depth:17
+max-depth:25
 D:%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 D:%...;;.//;.;.................::::::#::::#:#######%
 D:%;;J...//;;........;.............:::::#::#:###|T#%
@@ -2170,10 +2780,15 @@ D:%;;;;;;;;;;;...;;...;;;......;...................%
 D:%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-### Lesser Vaults (type 4) ###
+### New Lesser Vaults -- maximum size 22x22 ###
 
-N:175:Orc-hold
-X:4:10:15:20:10:30
+name:Orc-hold
+type:Lesser vault (new)
+rating:10
+rows:15
+columns:20
+min-depth:10
+max-depth:30
 D:%%%%%%%%%%%%%%%%%%%%
 D:%..........C.......%
 D:%C::::::::::::::::.%
@@ -2190,8 +2805,13 @@ D:%.::::::::::::::::.%
 D:%.C................%
 D:%%%%%%%%%%%%%%%%%%%%
 
-N:176:Dragon's Den
-X:4:5:11:15:30:50
+name:Dragon's Den
+type:Lesser vault (new)
+rating:5
+rows:11
+columns:15
+min-depth:30
+max-depth:50
 D:%%%%%%%%%%%%%%%
 D:%.@@@@@.@@@@@.%
 D:%@.@@@...@@@.@%
@@ -2205,8 +2825,13 @@ D:%.@@@@@.@@@@@.%
 D:%%%%%%%%%%%%%%%
 
 
-N:177:Castellated
-X:4:5:12:20:0:0
+name:Castellated
+type:Lesser vault (new)
+rating:5
+rows:12
+columns:20
+min-depth:0
+max-depth:0
 D:%%%%% %%%%%%%% %%%%%
 D:%...%%%..##^.%%%...%
 D:%%^.....##+#....^.%%
@@ -2221,8 +2846,13 @@ D:%...%%%..##..%%%...%
 D:%%%%% %%%%%%%% %%%%%
 
 
-N:178:Stars
-X:4:4:14:21:0:0
+name:Stars
+type:Lesser vault (new)
+rating:4
+rows:14
+columns:21
+min-depth:0
+max-depth:0
 D:%%%%%%%%%%%%%%%%%%%%%
 D:%.........#.........%
 D:%.......##9##.....4.%
@@ -2239,8 +2869,13 @@ D:%.......#...#.......%
 D:%%%%%%%%%%%%%%%%%%%%%
 
 
-N:179:Maze
-X:4:6:12:20:0:0
+name:Maze
+type:Lesser vault (new)
+rating:6
+rows:12
+columns:20
+min-depth:0
+max-depth:0
 D:    %%%%%%%%%%%%    
 D: %%%%@@@@@@@@@@%%%% 
 D: %@@@@.@@@@4..@@@@% 
@@ -2255,8 +2890,13 @@ D: %%%%@@@@@@@@@@%%%%
 D:    %%%%%%%%%%%%    
 
 
-N:180:Tower
-X:4:6:12:20:0:0
+name:Tower
+type:Lesser vault (new)
+rating:6
+rows:12
+columns:20
+min-depth:0
+max-depth:0
 D:%%%%%%%%%%%%%%%%%%%%
 D:%@@@@@@@@@@@@@@@@@@%
 D:%@4.....4.@9@4@4..@%
@@ -2272,8 +2912,13 @@ D:%%%%%%%%%%%%%%%%%%%%
 
 
 #### From Zangband ####
-N:181:Celtic
-X:4:6:17:21:0:0
+name:Celtic
+type:Lesser vault (new)
+rating:6
+rows:17
+columns:21
+min-depth:0
+max-depth:0
 D:%%%%%%%%%%%%%%%%%%%%%
 D:%...................%
 D:%.#####..#+#..#####.%
@@ -2293,8 +2938,13 @@ D:%...................%
 D:%%%%%%%%%%%%%%%%%%%%%
 
 
-N:182:Treasure trove
-X:4:8:9:9:0:0
+name:Treasure trove
+type:Lesser vault (new)
+rating:8
+rows:9
+columns:9
+min-depth:0
+max-depth:0
 D:%%%%%%%%%
 D:%#@@@@@#%
 D:%@#&#&#@%
@@ -2307,8 +2957,13 @@ D:%%%%%%%%%
 
 
 
-N:183:Script 'L'
-X:4:8:20:20:0:0
+name:Script 'L'
+type:Lesser vault (new)
+rating:8
+rows:20
+columns:20
+min-depth:0
+max-depth:0
 D:%%%%%%%%%%%%%%%%%%%%
 D:%............##....%
 D:%.#.....&...#00#...%
@@ -2331,8 +2986,13 @@ D:%......4...........%
 D:%%%%%%%%%%%%%%%%%%%%
 
 
-N:188:Diamond
-X:4:4:13:13:0:0
+name:Diamond
+type:Lesser vault (new)
+rating:4
+rows:13
+columns:13
+min-depth:0
+max-depth:0
 D:      %      
 D:     %.%     
 D:    %.4.%    
@@ -2348,8 +3008,13 @@ D:     %.%
 D:      %      
 
 
-N:190:Baba Yaga's Rookery -ES-
-X:4:0:16:13:25:40
+name:Baba Yaga's Rookery -ES-
+type:Lesser vault (new)
+rating:0
+rows:16
+columns:13
+min-depth:25
+max-depth:40
 D:%%%%%%%%%%%%%
 D:%######+####%
 D:%#BB###.+p?#%
@@ -2367,8 +3032,13 @@ D:%6#p7?=pp..#%
 D:%###########%
 D:%%%%%%%%%%%%%
 
-N:191:Maltese cross
-X:4:5:16:20:0:0
+name:Maltese cross
+type:Lesser vault (new)
+rating:5
+rows:16
+columns:20
+min-depth:0
+max-depth:0
 D:     %%%%%%%%%%     
 D:     %.######.%     
 D:     %6#....#.%     
@@ -2387,8 +3057,15 @@ D:     %.######.%
 D:     %%%%%%%%%%     
 
 
-N:192:Eagle
-X:4:5:12:27:0:0
+### New Medium Vaults -- maximum size 22x33 ###
+
+name:Eagle
+type:Medium vault (new)
+rating:5
+rows:12
+columns:27
+min-depth:0
+max-depth:0
 D:%%%%%%%%%%%%%%%%%%%%%%%%%%%
 D:%....4......4......4.....4%
 D:%........6.......#####....%
@@ -2402,10 +3079,13 @@ D:%.....4.#######....####...%
 D:%...4.....4.....6..4......%
 D:%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-### Medium Vaults (type 3) ###
-
-N:193:...and let slip the dogs of war
-X:3:5:20:29:20:0
+name:...and let slip the dogs of war
+type:Medium vault (new)
+rating:5
+rows:20
+columns:29
+min-depth:20
+max-depth:0
 D:%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 D:%...........................%
 D:%..///////////////////////..%
@@ -2428,8 +3108,13 @@ D:%...........................%
 D:%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-N:194:Graveyard - DRL
-X:3:15:22:33:20:60
+name:Graveyard - DRL
+type:Medium vault (new)
+rating:15
+rows:22
+columns:33
+min-depth:20
+max-depth:60
 D:  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
 D:  %%..............#.:.:.:.:.:.:% 
 D: %%....^..z:W......z.s.....Ws..% 
@@ -2453,8 +3138,13 @@ D:%.:.:.:s:.#......^......#+#..^.%%
 D:%%%%....................#W#..%%% 
 D:   %%%%%%%%%%%%%%%%%%%%%%%%%%%   
 
-N:195:Human Town - DRL
-X:3:10:22:33:0:0
+name:Human Town - DRL
+type:Medium vault (new)
+rating:10
+rows:22
+columns:33
+min-depth:0
+max-depth:0
 D:%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 D:%:::..............#p#.......;#$$%
 D:%....###..:::####.#p#.......;#p$%
@@ -2478,8 +3168,13 @@ D:%/..#####.###############.#$^+^,%
 D:%/........................#$^#,,%
 D:%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-N:196:Keep - DRL
-X:3:15:22:33:30:80
+name:Keep - DRL
+type:Medium vault (new)
+rating:15
+rows:22
+columns:33
+min-depth:30
+max-depth:80
 D:%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 D:%4.............................4%
 D:%./////////////////////////////.%
@@ -2503,8 +3198,13 @@ D:%./////////////////////////////.%
 D:%4.............................4%
 D:%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-N:197:Greater Forge - DRL
-X:3:18:22:20:40:0
+name:Greater Forge - DRL
+type:Medium vault (new)
+rating:18
+rows:22
+columns:20
+min-depth:40
+max-depth:0
 D:%%%%%%%%%%%%%%%%%%%%
 D:%.6................%
 D:%.``##.......6##``.%
@@ -2528,8 +3228,13 @@ D:%.``##..6.....##``.%
 D:%...........6......%
 D:%%%%%%%%%%%%%%%%%%%%
 
-N:198:Mage's Workshop - DRL
-X:3:15:15:22:20:40
+name:Mage's Workshop - DRL
+type:Medium vault (new)
+rating:15
+rows:15
+columns:22
+min-depth:20
+max-depth:40
 D:%%%%%%%%%%%%%%%%%%%%%%
 D:%?#?#?#...#-#-#-#....%
 D:%.^.^6+...+6^.^.#....%
@@ -2546,8 +3251,13 @@ D:%#^#.......+6^.^.#...%
 D:%!.#.......#=#=#=#...%
 D:%%%%%%%%%%%%%%%%%%%%%%
 
-N:199:Greater Altar - DRL
-X:3:15:19:31:0:0
+name:Greater Altar - DRL
+type:Medium vault (new)
+rating:15
+rows:19
+columns:31
+min-depth:0
+max-depth:0
 D:         %%%%%%%%%%%%%         
 D:      %%%%...........%%%%      
 D:    %%%...#....#....#...%%%    
@@ -2568,8 +3278,13 @@ D:    %%%...#....#....#...%%%
 D:      %%%%...........%%%%      
 D:         %%%%%%%%%%%%%         
 
-N:200:Wild Area - DRL
-X:3:15:13:25:0:0
+name:Wild Area - DRL
+type:Medium vault (new)
+rating:15
+rows:13
+columns:25
+min-depth:0
+max-depth:0
 D: %%%%%%%%%%%%%%%%%%%%%%% 
 D:%%/.;;...4#....:..##...%%
 D:%..//4.;.....:.4:.;.4.;.%
@@ -2584,8 +3299,13 @@ D:%....4:...;..4..4.;./4..%
 D:%%.;.#...4.....;..../.;%%
 D: %%%%%%%%%%%%%%%%%%%%%%% 
 
-N:201:Volcanic Area - DRL
-X:3:0:15:19:0:0
+name:Volcanic Area - DRL
+type:Medium vault (new)
+rating:0
+rows:15
+columns:19
+min-depth:0
+max-depth:0
 D:%%%%%%% %%%%%%%%%  
 D:%.4.:.%%%..4....%%%
 D:%..`.4##...`.:.##.%
@@ -2602,8 +3322,13 @@ D:%%##.4.`:....##...%
 D:%..:.:....:...%%%%%
 D:%%%%%%%%%%%%%%%    
 
-N:202:Orc Town -ES-
-X:3:10:22:21:10:40
+name:Orc Town -ES-
+type:Medium vault (new)
+rating:10
+rows:22
+columns:21
+min-depth:10
+max-depth:40
 D:%%%%%%%%%%%%%%%%%%%%%
 D:%oooo;;;;;o#...^.$.1%
 D:%o##oT;;;;o#######.#%
@@ -2627,8 +3352,13 @@ D:%w..#..#wI..w#I..#.o%
 D:%w.w#ww#I...w#I.I#..%
 D:%%%%%%%%%%%%%%%%%%%%%
 
-N:203:Water-Troll Swamp
-X:3:10:22:30:20:60
+name:Water-Troll Swamp
+type:Medium vault (new)
+rating:10
+rows:22
+columns:30
+min-depth:20
+max-depth:60
 D:%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 D:%@@@@@;//////////////////////%
 D:%@TTT#.//////////////////////%
@@ -2652,8 +3382,13 @@ D:%/T;.../..;//..T..T;//.;...//%
 D:%.....//..T..;.....T.//...T./%
 D:%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-N:204:Fire Festival
-X:3:15:22:33:60:0
+name:Fire Festival
+type:Medium vault (new)
+rating:15
+rows:22
+columns:33
+min-depth:60
+max-depth:0
 D:    %%%%%%           %%%%%%%     
 D:    %``..%%%%%%%%%%%%%....`%%%%  
 D:   %%...UU..##########`U..U```%%%
@@ -2677,8 +3412,13 @@ D:%%...######`....U%%%%%%%%%````%
 D:%..U.%%%%%`..U..%%       %%``%%  
 D:%%%%%%   %%%%%%%%         %%%%   
 
-N:205:Haunted Bat Cave -ES-
-X:3:5:22:22:0:45
+name:Haunted Bat Cave -ES-
+type:Medium vault (new)
+rating:5
+rows:22
+columns:22
+min-depth:0
+max-depth:45
 D:    %%% %%%           
 D:   %%b%%%.%%          
 D:  %%bb%%..b%%%        
@@ -2702,8 +3442,13 @@ D:%@@@*#b....####bb%%%%
 D:%%%#bb.%%%.%%%%%%%    
 D:  %%%%%% %%%          
 
-N:206:The Hall of Eyes -ES-
-X:3:8:16:9:55:75
+name:The Hall of Eyes -ES-
+type:Medium vault (new)
+rating:8
+rows:16
+columns:9
+min-depth:55
+max-depth:75
 D:  %%%%%  
 D:  %@+@%  
 D:%%@@.@@%%
@@ -2721,8 +3466,15 @@ D:%@@@~@@@%
 D:%%%@@@%%%
 D:  %%%%%  
 
-N:207:Mirrored script "B"s
-X:3:15:23:33:0:0
+### New Greater Vaults -- maximum size 44x66 ###
+
+name:Mirrored script "B"s
+type:Greater vault (new)
+rating:15
+rows:23
+columns:33
+min-depth:0
+max-depth:0
 D:%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 D:%...............................%
 D:%..........@@.....@@............%
@@ -2747,10 +3499,13 @@ D:%..........@@.....@@............%
 D:%...............................%
 D:%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-### Greater Vaults (type 2) ###
-
-N:221:Huge castle
-X:2:40:31:37:80:0
+name:Huge castle
+type:Greater vault (new)
+rating:40
+rows:31
+columns:37
+min-depth:80
+max-depth:0
 D:%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 D:%...................................%
 D:%.^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^.%
@@ -2787,8 +3542,13 @@ D:%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 # This vault has an entrance on only one side.  It is therefore careful 
 # to set the width to a figure that leaves room between the vault and 
 # the dungeon wall.
-N:222:Town
-X:2:25:17:50:30:0
+name:Town
+type:Greater vault (new)
+rating:25
+rows:17
+columns:50
+min-depth:30
+max-depth:0
 D:%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 D:%@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@%
 D:%@84#^..^.#.#44#.........#.9&...#.........#...#^@%
@@ -2810,8 +3570,13 @@ D:%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 #### From Zangband ####
 
-N:223:Mortuary temple of Set
-X:2:30:25:34:30:0
+name:Mortuary temple of Set
+type:Greater vault (new)
+rating:30
+rows:25
+columns:34
+min-depth:30
+max-depth:0
 D:%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 D:%................................%
 D:%.@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@.%
@@ -2838,8 +3603,13 @@ D:%.@@@@@@@@@@@@@@+@@@@@@@@@@@+@@@.%
 D:%................................%
 D:%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-N:225:Chest
-X:2:30:13:39:60:0
+name:Chest
+type:Greater vault (new)
+rating:30
+rows:13
+columns:39
+min-depth:60
+max-depth:0
 D:%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 D:%@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@%
 D:%+0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0#0@%
@@ -2855,8 +3625,13 @@ D:%@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@%
 D:%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-N:229:The Plains of Air
-X:2:10:42:64:35:50
+name:The Plains of Air
+type:Greater vault (new)
+rating:10
+rows:42
+columns:64
+min-depth:35
+max-depth:50
 D:    %%%%%%                                                      
 D:    %....%%%              %%%%%%%   %%%%%%%%%                   
 D:    %......%%%%%%         %.....%%%%%.......%%%                 
@@ -2901,8 +3676,13 @@ D:    %%%       %...%                   %%%%%%%%%
 D:              %%%%%                                             
 
 
-N:230:The Mirrormere
-X:2:35:33:33:45:70
+name:The Mirrormere
+type:Greater vault (new)
+rating:35
+rows:33
+columns:33
+min-depth:45
+max-depth:70
 D:%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 D:%@@@@@@@@@@@@@@@+@@@@@@@@@@@@@@@%
 D:%@###4#::#:.4@@@.@@@@@.#4##:9@#@%
@@ -2939,8 +3719,13 @@ D:%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
 
-N:231:Large Mine - DRL
-X:2:20:43:66:0:45
+name:Large Mine - DRL
+type:Greater vault (new)
+rating:20
+rows:43
+columns:66
+min-depth:0
+max-depth:45
 D:  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%   
 D: %%@@@@@@#####.....##@@@@@######.....**########@@@@#######@@@@%%  
 D:%%@@#########...#...###@@#######**...4.#####@@@@@####..######@@%%%
@@ -2985,8 +3770,13 @@ D:%###############.............##....22...############@@@@@@@@@@@@@%
 D:%@@@@@##############...##########################@@@@%%%%%%%%%%%%%
 D:%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%            
 
-N:232:Dungeon City - DRL
-X:2:30:44:66:0:0
+name:Dungeon City - DRL
+type:Greater vault (new)
+rating:30
+rows:44
+columns:66
+min-depth:0
+max-depth:0
 D:%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 D:%@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@%
 D:%@...........+6#.........#666#.#6^5#.#5+^44#.+^4#.#7+^66#.......@%
@@ -3032,8 +3822,13 @@ D:%@.....//#56#.......#111#...........//#4+4+.+4^+^+^6#...........@%
 D:%@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@%
 D:%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-N:233:The Cracks of Doom - DRL
-X:2:15:30:60:50:0
+name:The Cracks of Doom - DRL
+type:Greater vault (new)
+rating:15
+rows:30
+columns:60
+min-depth:50
+max-depth:0
 D:%%%%%%%%%%%%%%%%%%%%%%%                                     
 D:%``@@@@@@@@@@@@@@@@@@@%%%%%%%%%%%%%%                        
 D:%````.....#####.9....@@@@@@@@@@@@@@%%%%%%%%%%               
@@ -3066,8 +3861,13 @@ D:                    %%%%%@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@``%
 D:                        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-N:234:Small Labyrinth - DRL
-X:2:15:21:36:0:0
+name:Small Labyrinth - DRL
+type:Greater vault (new)
+rating:15
+rows:21
+columns:36
+min-depth:0
+max-depth:0
 D:             %%%%%%%%%%             
 D:         %%%%%...4....%%%%%         
 D:      %%%%....@@@+@@@@....%%%%      
@@ -3092,8 +3892,13 @@ D:             %%%%%%%%%%
 
 # This will probably be even tougher than fighting Morgoth.
 # On the other hand, the rewards are /immense/.
-N:235:High Temple of the Underworld
-X:2:45:40:54:90:0
+name:High Temple of the Underworld
+type:Greater vault (new)
+rating:45
+rows:40
+columns:54
+min-depth:90
+max-depth:0
 D:%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 D:%..................@@@@@@@@..................@@@@@@@@%
 D:%..@@@@@@@@@@@@@@@.@.W....@..................@LL....@%
@@ -3138,8 +3943,13 @@ D:%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
 ## FAangband Symbol - beautiful vault by HallucinationMushroom
-N:236:Golden Flower 
-X:2:15:23:38:30:0
+name:Golden Flower 
+type:Greater vault (new)
+rating:15
+rows:23
+columns:38
+min-depth:30
+max-depth:0
 D:             %%%%%%%%%%%%             
 D:         %%%%%@@@@@@@@@@%%%%%         
 D:      %%%%@@@@@9*;**;*9@@@@@%%%%      

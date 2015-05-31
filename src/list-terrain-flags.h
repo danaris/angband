@@ -1,7 +1,9 @@
-/* list-terrain-flags.h - monster race blow effects
+/**
+ * \file list-terrain-flags.h
+ * \brief monster race blow effects
  *
  * Adjusting these flags does not break savefiles. Flags below start from 1
- * on line 11, so a flag's sequence number is its line number minus 10.
+ * on line 13, so a flag's sequence number is its line number minus 12.
  *
  *
  */
@@ -38,3 +40,4 @@ TF(STAIR,      "Is a stair")
 TF(UPSTAIR,    "Is a down staircase")
 TF(DOWNSTAIR,  "Is an up staircase")
 TF(SMOOTH,     "Should have smooth boundaries")
+TF(BRIGHT,     "Is internally lit")

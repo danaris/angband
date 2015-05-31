@@ -1,5 +1,6 @@
-/** \file: player-timed.h
-	\brief Timed effects handling
+/**
+ * \file player-timed.c
+ * \brief Timed effects handling
  *
  * Copyright (c) 1997 Ben Harrison
  * Copyright (c) 2007 A Sidwell <andi@takkaria.org>
@@ -20,6 +21,7 @@
 #include "cave.h"
 #include "mon-util.h"
 #include "obj-identify.h"
+#include "player-calcs.h"
 #include "player-timed.h"
 #include "player-util.h"
 
@@ -35,13 +37,14 @@ static bool set_cut(struct player *p, int v);
 
 static timed_effect effects[] =
 {
-	#define TMD(a, b, c, d, e, f, g, h, i, j) { b, c, d, e, f, g, h, i, j },
+	#define TMD(a, b, c, d, e, f, g, h, i, j, k) \
+		{ b, c, d, e, f, g, h, i, j, k },
 	#include "list-player-timed.h"
 	#undef TMD
 };
 
 static const char *timed_name_list[] = {
-	#define TMD(a, b, c, d, e, f, g, h, i, j) #a,
+	#define TMD(a, b, c, d, e, f, g, h, i, j, k) #a,
 	#include "list-player-timed.h"
 	#undef TMD
 	"MAX",
@@ -67,12 +70,20 @@ const char *timed_idx_to_name(int type)
     return timed_name_list[type];
 }
 
+const char *timed_idx_to_desc(int type)
+{
+    assert(type >= 0);
+    assert(type < TMD_MAX);
+
+    return effects[type].description;
+}
+
 int timed_protect_flag(int type)
 {
 	return effects[type].fail;
 }
 
-/*
+/**
  * Set a timed event (except timed resists, cutting and stunning).
  */
 bool player_set_timed(struct player *p, int idx, int v, bool notify)
@@ -105,22 +116,14 @@ bool player_set_timed(struct player *p, int idx, int v, bool notify)
 	/* Find the effect */
 	effect = &effects[idx];
 
-	/* Turning off, always mention */
-	if (v == 0)
-	{
+	/* Always mention start or finish, otherwise on request */
+	if (v == 0) {
 		msgt(MSG_RECOVER, "%s", effect->on_end);
 		notify = TRUE;
-	}
-
-	/* Turning on, always mention */
-	else if (p->timed[idx] == 0)
-	{
+	} else if (p->timed[idx] == 0) {
 		msgt(effect->msg, "%s", effect->on_begin);
 		notify = TRUE;
-	}
-
-	else if (notify)
-	{
+	} else if (notify) {
 		/* Decrementing */
 		if (p->timed[idx] > v && effect->on_decrease)
 			msgt(effect->msg, "%s", effect->on_decrease);
@@ -148,7 +151,7 @@ bool player_set_timed(struct player *p, int idx, int v, bool notify)
 	p->upkeep->redraw |= (PR_STATUS | effect->flag_redraw);
 
 	/* Handle stuff */
-	handle_stuff(p->upkeep);
+	handle_stuff(p);
 
 	/* Result */
 	return TRUE;
@@ -169,15 +172,15 @@ bool player_inc_timed(struct player *p, int idx, int v, bool notify, bool check)
 	if ((idx < 0) || (idx > TMD_MAX)) return FALSE;
 
 	/* Check that @ can be affected by this effect */
-	if (check && effects->fail_code) {
+	if (check && effect->fail_code) {
 		/* If the effect is from a monster action, extra stuff happens */
 		struct monster *mon = cave->mon_current > 0 ?
 			cave_monster(cave, cave->mon_current) : NULL;
 
-		/* This is all a bit gross - NRM */
-		if (effects->fail_code == 1) {
-			/* Code 1 is an object flag */
-			wieldeds_notice_flag(p, effect->fail);
+		/* Determine whether an effect can be prevented by a flag */
+		if (effect->fail_code == TMD_FAIL_FLAG_OBJECT) {
+			/* Effect is inhibited by an object flag */
+			equip_notice_flag(p, effect->fail);
 			if (mon) 
 				update_smart_learn(mon, player, effect->fail, 0, -1);
 			if (player_of_has(p, effect->fail)) {
@@ -185,16 +188,18 @@ bool player_inc_timed(struct player *p, int idx, int v, bool notify, bool check)
 				msg("You resist the effect!");
 				return FALSE;
 			}
-		} else if (effects->fail_code == 2) {
-			/* Code 2 is a resist */
-			wieldeds_notice_element(p, effect->fail);
+		} else if (effect->fail_code == TMD_FAIL_FLAG_RESIST) {
+			/* Effect is inhibited by a resist */
+			equip_notice_element(p, effect->fail);
 			if (p->state.el_info[effect->fail].res_level > 0)
 				return FALSE;
-		} else if (effects->fail_code == 2) {
-			/* Code 3 is a vulnerability */
-			wieldeds_notice_element(p, effect->fail);
-			if (p->state.el_info[effect->fail].res_level < 0)
+		} else if (effect->fail_code == TMD_FAIL_FLAG_VULN) {
+			/* Effect is inhibited by a vulnerability 
+			 * the asymmetry with resists is OK for now - NRM */
+			if (p->state.el_info[effect->fail].res_level < 0) {
+				equip_notice_element(p, effect->fail);
 				return FALSE;
+			}
 		}
 
 		/* Special case */
@@ -236,7 +241,7 @@ bool player_clear_timed(struct player *p, int idx, bool notify)
 
 
 
-/*
+/**
  * Set "player->timed[TMD_STUN]", notice observable changes
  *
  * Note the special code to only notice "range" changes.
@@ -250,57 +255,36 @@ static bool set_stun(struct player *p, int v)
 	/* Hack -- Force good values */
 	v = (v > 10000) ? 10000 : (v < 0) ? 0 : v;
 
-	/* Knocked out */
+	/* Old state */
 	if (p->timed[TMD_STUN] > 100)
-	{
+		/* Knocked out */
 		old_aux = 3;
-	}
-
-	/* Heavy stun */
 	else if (p->timed[TMD_STUN] > 50)
-	{
+		/* Heavy stun */
 		old_aux = 2;
-	}
-
-	/* Stun */
 	else if (p->timed[TMD_STUN] > 0)
-	{
+		/* Stun */
 		old_aux = 1;
-	}
-
-	/* None */
 	else
-	{
+		/* None */
 		old_aux = 0;
-	}
 
-	/* Knocked out */
+	/* New state */
 	if (v > 100)
-	{
+		/* Knocked out */
 		new_aux = 3;
-	}
-
-	/* Heavy stun */
 	else if (v > 50)
-	{
+		/* Heavy stun */
 		new_aux = 2;
-	}
-
-	/* Stun */
 	else if (v > 0)
-	{
+		/* Stun */
 		new_aux = 1;
-	}
-
-	/* None */
 	else
-	{
+		/* None */
 		new_aux = 0;
-	}
 
-	/* Increase cut */
-	if (new_aux > old_aux)
-	{
+	/* Increase or decrease stun */
+	if (new_aux > old_aux) {
 		/* Describe the state */
 		switch (new_aux)
 		{
@@ -328,11 +312,7 @@ static bool set_stun(struct player *p, int v)
 
 		/* Notice */
 		notice = TRUE;
-	}
-
-	/* Decrease cut */
-	else if (new_aux < old_aux)
-	{
+	} else if (new_aux < old_aux) {
 		/* Describe the state */
 		switch (new_aux)
 		{
@@ -355,24 +335,18 @@ static bool set_stun(struct player *p, int v)
 	/* No change */
 	if (!notice) return (FALSE);
 
-	/* Disturb */
+	/* Disturb and update */
 	disturb(player, 0);
-
-	/* Recalculate bonuses */
 	p->upkeep->update |= (PU_BONUS);
-
-	/* Redraw the "stun" */
 	p->upkeep->redraw |= (PR_STATUS);
-
-	/* Handle stuff */
-	handle_stuff(player->upkeep);
+	handle_stuff(player);
 
 	/* Result */
 	return (TRUE);
 }
 
 
-/*
+/**
  * Set "player->timed[TMD_CUT]", notice observable changes
  *
  * Note the special code to only notice "range" changes.
@@ -386,105 +360,60 @@ static bool set_cut(struct player *p, int v)
 	/* Hack -- Force good values */
 	v = (v > 10000) ? 10000 : (v < 0) ? 0 : v;
 
-	/* Mortal wound */
+	/* Old state */
 	if (p->timed[TMD_CUT] > 1000)
-	{
+		/* Mortal wound */
 		old_aux = 7;
-	}
-
-	/* Deep gash */
 	else if (p->timed[TMD_CUT] > 200)
-	{
+		/* Deep gash */
 		old_aux = 6;
-	}
-
-	/* Severe cut */
 	else if (p->timed[TMD_CUT] > 100)
-	{
+		/* Severe cut */
 		old_aux = 5;
-	}
-
-	/* Nasty cut */
 	else if (p->timed[TMD_CUT] > 50)
-	{
+		/* Nasty cut */
 		old_aux = 4;
-	}
-
-	/* Bad cut */
 	else if (p->timed[TMD_CUT] > 25)
-	{
+		/* Bad cut */
 		old_aux = 3;
-	}
-
-	/* Light cut */
 	else if (p->timed[TMD_CUT] > 10)
-	{
+		/* Light cut */
 		old_aux = 2;
-	}
-
-	/* Graze */
 	else if (p->timed[TMD_CUT] > 0)
-	{
+		/* Graze */
 		old_aux = 1;
-	}
-
-	/* None */
 	else
-	{
+		/* None */
 		old_aux = 0;
-	}
 
-	/* Mortal wound */
+	/* New state */
 	if (v > 1000)
-	{
+		/* Mortal wound */
 		new_aux = 7;
-	}
-
-	/* Deep gash */
 	else if (v > 200)
-	{
+		/* Deep gash */
 		new_aux = 6;
-	}
-
-	/* Severe cut */
 	else if (v > 100)
-	{
+		/* Severe cut */
 		new_aux = 5;
-	}
-
-	/* Nasty cut */
 	else if (v > 50)
-	{
+		/* Nasty cut */
 		new_aux = 4;
-	}
-
-	/* Bad cut */
 	else if (v > 25)
-	{
+		/* Bad cut */
 		new_aux = 3;
-	}
-
-	/* Light cut */
 	else if (v > 10)
-	{
+		/* Light cut */
 		new_aux = 2;
-	}
-
-	/* Graze */
 	else if (v > 0)
-	{
+		/* Graze */
 		new_aux = 1;
-	}
-
-	/* None */
 	else
-	{
+		/* None */
 		new_aux = 0;
-	}
 
-	/* Increase cut */
-	if (new_aux > old_aux)
-	{
+	/* Increase or decrease cut */
+	if (new_aux > old_aux) {
 		/* Describe the state */
 		switch (new_aux)
 		{
@@ -540,11 +469,7 @@ static bool set_cut(struct player *p, int v)
 
 		/* Notice */
 		notice = TRUE;
-	}
-
-	/* Decrease cut */
-	else if (new_aux < old_aux)
-	{
+	} else if (new_aux < old_aux) {
 		/* Describe the state */
 		switch (new_aux)
 		{
@@ -567,24 +492,18 @@ static bool set_cut(struct player *p, int v)
 	/* No change */
 	if (!notice) return (FALSE);
 
-	/* Disturb */
+	/* Disturb and update */
 	disturb(player, 0);
-
-	/* Recalculate bonuses */
 	p->upkeep->update |= (PU_BONUS);
-
-	/* Redraw the "cut" */
 	p->upkeep->redraw |= (PR_STATUS);
-
-	/* Handle stuff */
-	handle_stuff(player->upkeep);
+	handle_stuff(player);
 
 	/* Result */
 	return (TRUE);
 }
 
 
-/*
+/**
  * Set "player->food", notice observable changes
  *
  * The "player->food" variable can get as large as 20000, allowing the
@@ -622,7 +541,7 @@ bool player_set_food(struct player *p, int v)
 	else if (v < PY_FOOD_FULL)  new_aux = 3;
 	else                        new_aux = 4;
 
-	/* Food increase */
+	/* Food increase or decrease */
 	if (new_aux > old_aux) {
 		switch (new_aux) {
 			case 1:
@@ -641,10 +560,7 @@ bool player_set_food(struct player *p, int v)
 
 		/* Change */
 		notice = TRUE;
-	}
-
-	/* Food decrease */
-	else if (new_aux < old_aux) {
+	} else if (new_aux < old_aux) {
 		switch (new_aux) {
 			case 0:
 				msgt(MSG_NOTICE, "You are getting faint from hunger!");
@@ -670,17 +586,11 @@ bool player_set_food(struct player *p, int v)
 	/* Nothing to notice */
 	if (!notice) return (FALSE);
 
-	/* Disturb */
+	/* Disturb and update */
 	disturb(player, 0);
-
-	/* Recalculate bonuses */
 	p->upkeep->update |= (PU_BONUS);
-
-	/* Redraw hunger */
 	p->upkeep->redraw |= (PR_STATUS);
-
-	/* Handle stuff */
-	handle_stuff(player->upkeep);
+	handle_stuff(player);
 
 	/* Result */
 	return (TRUE);

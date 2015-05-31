@@ -35,20 +35,20 @@ void copy_slay(struct slay **dest, struct slay *source);
 void copy_brand(struct brand **dest, struct brand *source);
 void free_slay(struct slay *source);
 void free_brand(struct brand *source);
-bool append_random_brand(struct brand *current, char **name);
-bool append_random_slay(struct slay *current, char **name);
+bool append_random_brand(struct brand **current, char **name);
+bool append_random_slay(struct slay **current, char **name);
 int brand_count(struct brand *brands);
 int slay_count(struct slay *slays);
-struct brand *brand_collect(const object_type *obj1, const object_type *obj2,
-							int *total,	bool known);
-struct slay *slay_collect(const object_type *obj1, const object_type *obj2,
-							  int *total, bool known);
+struct brand *brand_collect(struct brand *b, const object_type *obj2, 
+							bool known);
+struct slay *slay_collect(struct slay *s, const object_type *obj2,
+						  bool known);
 void object_notice_brands(object_type *o_ptr, const monster_type *m_ptr);
 void object_notice_slays(object_type *o_ptr, const monster_type *m_ptr);
 void improve_attack_modifier(object_type *o_ptr, const monster_type	*m_ptr, 
 							 const struct brand **brand_used, 
 							 const struct slay **slay_used, 
-							 char *verb, bool real, bool known_only);
+							 char *verb, bool range, bool real, bool known_only);
 bool react_to_slay(struct object *obj, const struct monster *mon);
 void wipe_brands(struct brand *brands);
 void wipe_slays(struct slay *slays);

@@ -60,16 +60,16 @@
 
 #include "angband.h"
 #include "cave.h"
-#include "dungeon.h"
 #include "game-event.h"
+#include "game-world.h"
 #include "generate.h"
 #include "init.h"
 #include "math.h"
 #include "mon-make.h"
 #include "mon-spell.h"
 #include "parser.h"
+#include "player-util.h"
 #include "store.h"
-#include "tables.h"
 #include "trap.h"
 #include "z-queue.h"
 #include "z-type.h"
@@ -942,7 +942,7 @@ static void mutate_cavern(struct chunk *c) {
     int h = c->height;
     int w = c->width;
 
-    int *temp = C_ZNEW(h * w, int);
+    int *temp = mem_zalloc(h * w * sizeof(int));
 
     for (y = 1; y < h - 1; y++) {
 		for (x = 1; x < w - 1; x++) {
@@ -958,11 +958,14 @@ static void mutate_cavern(struct chunk *c) {
 
     for (y = 1; y < h - 1; y++) {
 		for (x = 1; x < w - 1; x++) {
-			square_set_feat(c, y, x, temp[y * w + x]);
+			if (temp[y * w + x] == FEAT_GRANITE)
+				set_marked_granite(c, y, x, SQUARE_WALL_SOLID);
+			else
+				square_set_feat(c, y, x, temp[y * w + x]);
 		}
     }
 
-    FREE(temp);
+    mem_free(temp);
 }
 
 /**
@@ -1026,7 +1029,7 @@ static void build_color_point(struct chunk *c, int colors[], int counts[], int y
 
     int dslimit = diagonal ? 8 : 4;
 
-    int *added = C_ZNEW(size, int);
+    int *added = mem_zalloc(size * sizeof(int));
     array_filler(added, 0, size);
 
     q_push_int(queue, yx_to_i(y, x, w));
@@ -1058,7 +1061,7 @@ static void build_color_point(struct chunk *c, int colors[], int counts[], int y
 		}
     }
 
-    FREE(added);
+    mem_free(added);
     q_free(queue);
 }
 
@@ -1096,7 +1099,7 @@ static void clear_small_regions(struct chunk *c, int colors[], int counts[]) {
     int w = c->width;
     int size = h * w;
 
-    int *deleted = C_ZNEW(size, int);
+    int *deleted = mem_zalloc(size * sizeof(int));
     array_filler(deleted, 0, size);
 
     for (i = 0; i < size; i++) {
@@ -1116,7 +1119,7 @@ static void clear_small_regions(struct chunk *c, int colors[], int counts[]) {
 			set_marked_granite(c, y, x, SQUARE_WALL_SOLID);
 		}
     }
-    FREE(deleted);
+    mem_free(deleted);
 }
 
 /**
@@ -1180,7 +1183,7 @@ static void join_region(struct chunk *c, int colors[], int counts[], int color,
     /* Allocate an array to keep track of handled squares, and which square
      * we reached them from.
      */
-    int *previous = C_ZNEW(size, int);
+    int *previous = mem_zalloc(size * sizeof(int));
     array_filler(previous, -1, size);
 
     /* Push all squares of the given color onto the queue */
@@ -1246,7 +1249,7 @@ static void join_region(struct chunk *c, int colors[], int counts[], int color,
 
     /* Free the memory we've allocated */
     q_free(queue);
-    FREE(previous);
+    mem_free(previous);
 }
 
 
@@ -1282,14 +1285,14 @@ static void join_regions(struct chunk *c, int colors[], int counts[]) {
  */
 void ensure_connectedness(struct chunk *c) {
     int size = c->height * c->width;
-    int *colors = C_ZNEW(size, int);
-    int *counts = C_ZNEW(size, int);
+    int *colors = mem_zalloc(size * sizeof(int));
+    int *counts = mem_zalloc(size * sizeof(int));
 
     build_colors(c, colors, counts, TRUE);
     join_regions(c, colors, counts);
 
-    FREE(colors);
-    FREE(counts);
+    mem_free(colors);
+    mem_free(counts);
 }
 
 
@@ -1430,26 +1433,12 @@ static void build_store(struct chunk *c, int n, int yy, int xx)
 {
 	int feat;
 
-	/* Determine spacing based on town size */
-	int y_space = z_info->town_hgt / 7;
-	int x_space = z_info->town_wid / ((MAX_STORES / 2) + 1);
-
-	/* Find the "center" of the store */
-	int y0 = yy * 3 * y_space + 2 * y_space;
-	int x0 = (xx + 1) * (x_space);
-
-	/* Determine the store boundaries */
-	int y1 = y0 - randint1((yy == 0) ? y_space : y_space * 2 / 3);
-	int y2 = y0 + randint1((yy == 1) ? y_space : y_space * 2 / 3);
-	int x1 = x0 - randint1((x_space - 3) / 2);
-	int x2 = x0 + randint1((x_space - 3) / 2);
-
-	/* Determine door location, based on which side of the street we're on */
-	int dy = (yy == 0) ? y2 : y1;
-	int dx = rand_range(x1, x2);
+	/* Determine door location */
+	int dy = rand_range(yy - 1, yy + 1);
+	int dx = yy == dy ? xx - 1 + 2 * randint0(2) : rand_range(xx - 1, xx + 1);
 
 	/* Build an invulnerable rectangular building */
-	fill_rectangle(c, y1, x1, y2, x2, FEAT_PERM, SQUARE_NONE);
+	fill_rectangle(c, yy - 1, xx - 1, yy + 1, xx + 1, FEAT_PERM, SQUARE_NONE);
 
 	/* Clear previous contents, add a store door */
 	for (feat = 0; feat < z_info->f_max; feat++)
@@ -1465,42 +1454,80 @@ static void build_store(struct chunk *c, int n, int yy, int xx)
  */
 static void town_gen_layout(struct chunk *c, struct player *p)
 {
-	int y, x, n, k;
-	int rooms[MAX_STORES];
-
-	int n_rows = 2;
-	int n_cols = (MAX_STORES + 1) / n_rows;
+	int y, x, n, num = 3 + randint0(3);
 
 	/* Create walls */
 	draw_rectangle(c, 0, 0, c->height - 1, c->width - 1, FEAT_PERM,
 				   SQUARE_NONE);
 
-	/* Create some floor */
-	fill_rectangle(c, 1, 1, c->height - 2, c->width - 2, FEAT_FLOOR,
-				   SQUARE_NONE);
+	/* Make a town-sized starburst room. */
+	(void) generate_starburst_room(c, 1, 1, c->height - 1, c->width - 1, FALSE,
+								   FEAT_FLOOR, FALSE);
 
-	/* Prepare an Array of "remaining stores", and count them */
-	for (n = 0; n < MAX_STORES; n++) rooms[n] = n;
-
-	/* Place rows of stores */
-	for (y = 0; y < n_rows; y++) {
-		for (x = 0; x < n_cols; x++) {
-			if (n < 1) break;
-
-			/* Pick a remaining store */
-			k = randint0(n);
-
-			/* Build that store at the proper location */
-			build_store(c, rooms[k], y, x);
-
-			/* Shift the stores down, remove one store */
-			rooms[k] = rooms[--n];
+	/* Make everything else permanent wall or lava, and none of it a room */
+	for (y = 0; y < c->height; y++)
+		for (x = 0; x < c->width; x++) {
+			if (!square_isfloor(c, y, x)) {
+				if (one_in_(40))
+					square_set_feat(c, y, x, FEAT_LAVA);
+				else
+					square_set_feat(c, y, x, FEAT_PERM);
+			}
+			sqinfo_off(c->squares[y][x].info, SQUARE_ROOM);
 		}
+
+	/* Place stores */
+	for (n = 0; n < MAX_STORES; n++) {
+		bool enough_space = FALSE;
+		int xx, yy;
+
+		/* Find an empty place */
+		while (!enough_space) {
+			bool found_non_floor = FALSE;
+			find_empty_range(c, &y, 3, z_info->town_hgt - 3, &x, 3,
+							 z_info->town_wid - 3);
+			for (yy = y - 2; yy <= y + 2; yy++)
+				for (xx = x - 2; xx <= x + 2; xx++)
+					if (!square_isfloor(c, yy, xx))
+						found_non_floor = TRUE;
+
+			if (!found_non_floor) enough_space = TRUE;
+		}
+
+		/* Build a store */
+		build_store(c, n, y, x);
 	}
 
-	/* Place the stairs */
-	find_empty_range(c, &y, 3, z_info->town_hgt - 3, &x, 3,
-					 z_info->town_wid - 3);
+	/* Place a few piles of rubble */
+	for (n = 0; n < num; n++) {
+		bool enough_space = FALSE;
+		int xx, yy;
+
+		/* Find an empty place */
+		while (!enough_space) {
+			bool found_non_floor = FALSE;
+			find_empty_range(c, &y, 3, z_info->town_hgt - 3, &x, 3,
+							 z_info->town_wid - 3);
+			for (yy = y - 2; yy <= y + 2; yy++)
+				for (xx = x - 2; xx <= x + 2; xx++)
+					if (!square_isfloor(c, yy, xx))
+						found_non_floor = TRUE;
+
+			if (!found_non_floor) enough_space = TRUE;
+		}
+
+		/* Place rubble at random */
+		for (yy = y - 1; yy <= y + 1; yy++)
+			for (xx = x - 1; xx <= x + 1; xx++)
+				if (one_in_(1 + ABS(x - xx) + ABS(y - yy)))
+					square_set_feat(c, yy, xx, FEAT_PASS_RUBBLE);
+	}
+
+	/* Place the stairs in the north wall */
+	x = rand_spread(z_info->town_wid / 2, z_info->town_wid / 12);
+	y = 2;
+	while (square_isperm(c, y, x)) y++;
+	y--;
 
 	/* Clear previous contents, add down stairs */
 	square_set_feat(c, y, x, FEAT_MORE);
@@ -1521,8 +1548,7 @@ static void town_gen_layout(struct chunk *c, struct player *p)
 struct chunk *town_gen(struct player *p)
 {
 	int i, y, x = 0;
-	bool daytime = turn % (10 * TOWN_DAWN) < (10 * TOWN_DUSK);
-	int residents = daytime ? z_info->town_monsters_day :
+	int residents = is_daytime() ? z_info->town_monsters_day :
 		z_info->town_monsters_night;
 	struct chunk *c_new, *c_old = chunk_find_name("Town");
 
@@ -1557,7 +1583,7 @@ struct chunk *town_gen(struct player *p)
 	}
 
 	/* Apply illumination */
-	cave_illuminate(c_new, daytime);
+	cave_illuminate(c_new, is_daytime());
 
 	/* Make some residents */
 	for (i = 0; i < residents; i++)
@@ -2034,8 +2060,8 @@ struct chunk *vault_chunk(struct player *p)
 	struct vault *v;
 	struct chunk *c;
 
-	if (one_in_(2)) v = random_vault(p->depth, 2);
-	else v = random_vault(p->depth, 8);
+	if (one_in_(2)) v = random_vault(p->depth, "Greater vault (new)");
+	else v = random_vault(p->depth, "Greater vault");
 
 	/* Make the chunk */
 	c = cave_new(v->hgt, v->wid);

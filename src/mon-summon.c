@@ -1,7 +1,7 @@
 /**
  * \file mon-summon.c
  * \brief Monster summoning
-
+ *
  * Copyright (c) 1997-2007 Ben Harrison, James E. Wilson, Robert A. Koeneke
  *
  * This work is free software; you can redistribute it and/or modify it
@@ -39,8 +39,9 @@ static struct summon_details {
 	const char *base2;
 	const char *base3;
 	int race_flag;
+	const char *description;
 } summon_info[] = {
-	#define S(a, b, c, d, e, f, g) { #a, b, c, d, e, f, g },
+	#define S(a, b, c, d, e, f, g, h) { #a, b, c, d, e, f, g, h },
 	#include "list-summon-types.h"
 	#undef S
 };
@@ -54,6 +55,14 @@ int summon_name_to_idx(const char *name)
     }
 
     return -1;
+}
+
+const char *summon_desc(int type)
+{
+	if (type < 0 || type >= S_MAX)
+		return 0;
+
+	return summon_info[type].description;
 }
 
 /**

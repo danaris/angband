@@ -1,6 +1,6 @@
-/*
- * File: savefile.c
- * Purpose: Savefile loading and saving main routines
+/**
+ * \file savefile.c
+ * \brief Savefile loading and saving main routines
  *
  * Copyright (c) 2009 Andi Sidwell <andi@takkaria.org>
  *
@@ -17,7 +17,7 @@
  */
 #include <errno.h>
 #include "angband.h"
-#include "dungeon.h"
+#include "game-world.h"
 #include "init.h"
 #include "savefile.h"
 
@@ -69,15 +69,11 @@
  */
 
 
-/** Magic bits at beginning of savefile */
+/**
+ * Magic bits at beginning of savefile
+ */
 static const byte savefile_magic[4] = { 83, 97, 118, 101 };
 static const byte savefile_name[4] = "TGCA";
-
-/*
- * Buffer to hold the current savefile name
- */
-char savefile[1024];
-
 
 /* Some useful types */
 typedef int (*loader_t)(void);
@@ -94,7 +90,9 @@ struct blockinfo {
 	u32b version;
 };
 
-/** Savefile saving functions */
+/**
+ * Savefile saving functions
+ */
 static const struct {
 	char name[16];
 	void (*save)(void);
@@ -116,19 +114,18 @@ static const struct {
 	{ "gear", wr_gear, 1 },
 	{ "stores", wr_stores, 1 },
 	{ "dungeon", wr_dungeon, 1 },
-	{ "chunks", wr_chunks, 1 },
 	{ "objects", wr_objects, 1 },
 	{ "monsters", wr_monsters, 1 },
-	{ "ghost", wr_ghost, 1 },
-	{ "history", wr_history, 1 },
 	{ "traps", wr_traps, 1 },
+	{ "chunks", wr_chunks, 1 },
+	{ "history", wr_history, 1 },
 };
 
-/** Savefile loading functions */
+/**
+ * Savefile loading functions
+ */
 static const struct blockinfo loaders[] = {
 	{ "description", rd_null, 1 },
-	{ "ghost", rd_null, 1 },
-	{ "randarts", rd_null, 1 },
 	{ "rng", rd_randomizer, 1 },
 	{ "options", rd_options, 1 },
 	{ "messages", rd_messages, 1 },
@@ -144,11 +141,11 @@ static const struct blockinfo loaders[] = {
 	{ "gear", rd_gear, 1 },	
 	{ "stores", rd_stores, 1 },	
 	{ "dungeon", rd_dungeon, 1 },
-	{ "chunks", rd_chunks, 1 },
 	{ "objects", rd_objects, 1 },	
 	{ "monsters", rd_monsters, 1 },
-	{ "history", rd_history, 1 },
 	{ "traps", rd_traps, 1 },
+	{ "chunks", rd_chunks, 1 },
+	{ "history", rd_history, 1 },
 };
 
 
@@ -164,33 +161,25 @@ static u32b buffer_check;
 #define SAVEFILE_HEAD_SIZE		28
 
 
-/** Utility **/
+/**
+ * ------------------------------------------------------------------------
+ * Utility
+ * ------------------------------------------------------------------------ */
 
 
-/*
- * Hack -- Show information on the screen, one line at a time.
- *
- * Avoid the top two lines, to avoid interference with "note()".
+/**
+ * Tell the UI something about loading the game.
  */
 void note(const char *message)
 {
-	static int y = 2;
-
-	/* Draw the message */
-	prt(message, y, 0);
-	pause_line(Term);
-
-	/* Advance one line (wrap if needed) */
-	if (++y >= 24) y = 2;
-
-	/* Flush it */
-	Term_fresh();
+	event_signal_message(EVENT_INITSTATUS, MSG_BIRTH, message);
 }
 
 
-
-
-/** Base put/get **/
+/**
+ * ------------------------------------------------------------------------
+ * Base put/get
+ * ------------------------------------------------------------------------ */
 
 static void sf_put(byte v)
 {
@@ -221,7 +210,10 @@ static byte sf_get(void)
 }
 
 
-/* accessor */
+/**
+ * ------------------------------------------------------------------------
+ * Accessor functions
+ * ------------------------------------------------------------------------ */
 
 void wr_byte(byte v)
 {
@@ -297,8 +289,7 @@ void rd_string(char *str, int max)
 	byte tmp8u;
 	int i = 0;
 
-	do
-	{
+	do {
 		rd_byte(&tmp8u);
 
 		if (i < max) str[i] = tmp8u;
@@ -320,7 +311,11 @@ void pad_bytes(int n)
 }
 
 
-/*** Savefile saving functions ***/
+/**
+ * ------------------------------------------------------------------------
+ * Savefile saving functions
+ * ------------------------------------------------------------------------ */
+
 
 static bool try_save(ang_file *file)
 {
@@ -331,8 +326,7 @@ static bool try_save(ang_file *file)
 	buffer = mem_alloc(BUFFER_INITIAL_SIZE);
 	buffer_size = BUFFER_INITIAL_SIZE;
 
-	for (i = 0; i < N_ELEMENTS(savers); i++)
-	{
+	for (i = 0; i < N_ELEMENTS(savers); i++) {
 		buffer_pos = 0;
 		buffer_check = 0;
 
@@ -370,29 +364,7 @@ static bool try_save(ang_file *file)
 	return TRUE;
 }
 
-/*
- * Set the savefile name.
- */
-void savefile_set_name(const char *fname)
-{
-	char path[128];
-
-#if defined(SETGID)
-	/* Rename the savefile, using the player_uid and base_name */
-	strnfmt(path, sizeof(path), "%d.%s", player_uid, fname);
-#else
-	/* Rename the savefile, using the base name */
-	strnfmt(path, sizeof(path), "%s", fname);
-#endif
-
-	/* Save the path */
-	path_build(savefile, sizeof(savefile), ANGBAND_DIR_SAVE, path);
-}
-
-
-
-
-/*
+/**
  * Attempt to save the player in a savefile
  */
 bool savefile_save(const char *path)
@@ -403,29 +375,26 @@ bool savefile_save(const char *path)
 	char old_savefile[1024];
 
 	/* New savefile */
-	strnfmt(old_savefile, sizeof(old_savefile), "%s%u.old", path,Rand_simple(1000000));
-	while (file_exists(old_savefile) && (count++ < 100)) {
-		strnfmt(old_savefile, sizeof(old_savefile), "%s%u%u.old", path,Rand_simple(1000000),count);
-	}
-	count = 0;
+	strnfmt(old_savefile, sizeof(old_savefile), "%s%u.old", path,
+			Rand_simple(1000000));
+	while (file_exists(old_savefile) && (count++ < 100))
+		strnfmt(old_savefile, sizeof(old_savefile), "%s%u%u.old", path,
+				Rand_simple(1000000),count);
 
-	/* Make sure that the savefile doesn't already exist */
-	/*safe_setuid_grab();
-	file_delete(new_savefile);
-	file_delete(old_savefile);
-	safe_setuid_drop();*/
+	count = 0;
 
 	/* Open the savefile */
 	safe_setuid_grab();
-	strnfmt(new_savefile, sizeof(new_savefile), "%s%u.new", path,Rand_simple(1000000));
-	while (file_exists(new_savefile) && (count++ < 100)) {
-		strnfmt(new_savefile, sizeof(new_savefile), "%s%u%u.new", path,Rand_simple(1000000),count);
-	}
+	strnfmt(new_savefile, sizeof(new_savefile), "%s%u.new", path,
+			Rand_simple(1000000));
+	while (file_exists(new_savefile) && (count++ < 100))
+		strnfmt(new_savefile, sizeof(new_savefile), "%s%u%u.new", path,
+				Rand_simple(1000000),count);
+
 	file = file_open(new_savefile, MODE_WRITE, FTYPE_SAVE);
 	safe_setuid_drop();
 
-	if (file)
-	{
+	if (file) {
 		file_write(file, (char *) &savefile_magic, 4);
 		file_write(file, (char *) &savefile_name, 4);
 
@@ -433,22 +402,20 @@ bool savefile_save(const char *path)
 		file_close(file);
 	}
 
-	if (character_saved)
-	{
+	if (character_saved) {
 		bool err = FALSE;
 
 		safe_setuid_grab();
 
-		if (file_exists(savefile) && !file_move(savefile, old_savefile))
+		if (file_exists(path) && !file_move(path, old_savefile))
 			err = TRUE;
 
-		if (!err)
-		{
-			if (!file_move(new_savefile, savefile))
+		if (!err) {
+			if (!file_move(new_savefile, path))
 				err = TRUE;
 
 			if (err)
-				file_move(old_savefile, savefile);
+				file_move(old_savefile, path);
 			else
 				file_delete(old_savefile);
 		} 
@@ -459,9 +426,8 @@ bool savefile_save(const char *path)
 	}
 
 	/* Delete temp file if the save failed */
-	if (file)
-	{
-		/* file is no longer valid, but it still points to a non zero
+	if (file) {
+		/* File is no longer valid, but it still points to a non zero
 		 * value if the file was created above */
 		safe_setuid_grab();
 		file_delete(new_savefile);
@@ -472,9 +438,14 @@ bool savefile_save(const char *path)
 
 
 
-/*** Savefile loading functions ***/
+/**
+ * ------------------------------------------------------------------------
+ * Savefile loading functions
+ * ------------------------------------------------------------------------ */
 
-/* Check the savefile header file clearly inicates that it's a savefile */
+/**
+ * Check the savefile header file clearly inicates that it's a savefile
+ */
 static bool check_header(ang_file *f) {
 	byte head[8];
 
@@ -486,7 +457,9 @@ static bool check_header(ang_file *f) {
 	return FALSE;
 }
 
-/* Get the next block header from the savefile */
+/**
+ * Get the next block header from the savefile
+ */
 static errr next_blockheader(ang_file *f, struct blockheader *b) {
 	byte savefile_head[SAVEFILE_HEAD_SIZE];
 	size_t len;
@@ -509,15 +482,19 @@ static errr next_blockheader(ang_file *f, struct blockheader *b) {
 	b->version = RECONSTRUCT_U32B(16);
 	b->size = RECONSTRUCT_U32B(20);
 
-	/* pad to 4 bytes */
+	/* Pad to 4 bytes */
 	if (b->size % 4)
 		b->size += 4 - (b->size % 4);
 
 	return 0;
 }
 
-/* Find the right loader for this block, return it */
-static loader_t find_loader(struct blockheader *b, const struct blockinfo *loaders) {
+/**
+ * Find the right loader for this block, return it
+ */
+static loader_t find_loader(struct blockheader *b,
+							const struct blockinfo *loaders)
+{
 	size_t i = 0;
 
 	/* Find the right loader */
@@ -531,8 +508,11 @@ static loader_t find_loader(struct blockheader *b, const struct blockinfo *loade
 	return NULL;
 }
 
-/* Load a given block with the given loader */
-static bool load_block(ang_file *f, struct blockheader *b, loader_t loader) {
+/**
+ * Load a given block with the given loader
+ */
+static bool load_block(ang_file *f, struct blockheader *b, loader_t loader)
+{
 	/* Allocate space for the buffer */
 	buffer = mem_alloc(b->size);
 	buffer_pos = 0;
@@ -549,13 +529,19 @@ static bool load_block(ang_file *f, struct blockheader *b, loader_t loader) {
 	return TRUE;
 }
 
-/* Skip a block */
-static void skip_block(ang_file *f, struct blockheader *b) {
+/**
+ * Skip a block
+ */
+static void skip_block(ang_file *f, struct blockheader *b)
+{
 	file_skip(f, b->size);
 }
 
-/* Try to load a savefile */
-static bool try_load(ang_file *f, const struct blockinfo *loaders) {
+/**
+ * Try to load a savefile
+ */
+static bool try_load(ang_file *f, const struct blockinfo *loaders)
+{
 	struct blockheader b;
 	errr err;
 
@@ -583,10 +569,6 @@ static bool try_load(ang_file *f, const struct blockinfo *loaders) {
 		note("Savefile is corrupted -- block header mangled.");
 		return FALSE;
 	}
-
-	/* XXX Reset cause of death */
-	if (player->chp >= 0)
-		my_strcpy(player->died_from, "(alive and well)", sizeof(player->died_from));
 
 	return TRUE;
 }
@@ -632,7 +614,7 @@ const char *savefile_get_description(const char *path) {
 /**
  * Load a savefile.
  */
-bool savefile_load(const char *path)
+bool savefile_load(const char *path, bool cheat_death)
 {
 	bool ok;
 	ang_file *f = file_open(path, MODE_READ, FTYPE_TEXT);
@@ -643,6 +625,20 @@ bool savefile_load(const char *path)
 
 	ok = try_load(f, loaders);
 	file_close(f);
+
+	if (player->chp < 0) {
+		player->is_dead = TRUE;
+	}
+
+	if (player->is_dead && cheat_death) {
+			player->is_dead = FALSE;
+			player->chp = player->mhp;
+			player->noscore |= NOSCORE_WIZARD;
+	}
+
+	/* Character is now "complete" */
+	character_generated = TRUE;
+	player->upkeep->playing = TRUE;
 
 	return ok;
 }

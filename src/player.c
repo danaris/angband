@@ -1,14 +1,28 @@
-/* player/player.c - player implementation
+/**
+ * \file player.c
+ * \brief Player implementation
+ *
  * Copyright (c) 2011 elly+angband@leptoquark.net. See COPYING.
+ *
+ * This work is free software; you can redistribute it and/or modify it
+ * under the terms of either:
+ *
+ * a) the GNU General Public License as published by the Free Software
+ *    Foundation, version 2, or
+ *
+ * b) the "Angband licence":
+ *    This software may be copied and distributed for educational, research,
+ *    and not for profit purposes provided that this copyright and statement
+ *    are included in all such copies.  Other copyrights may also apply.
  */
 
-#include "z-color.h" /* TERM_* */
-#include "z-util.h" /* my_strcpy */
 #include "init.h"
-#include "history.h" /* history_add */
-#include "player.h"
+#include "obj-pile.h"
+#include "obj-util.h"
 #include "player-birth.h"
-#include "player-timed.h"
+#include "player-calcs.h"
+#include "player-history.h"
+#include "player-quest.h"
 #include "player-spell.h"
 #include "player-util.h"
 #include "obj-util.h"
@@ -21,7 +35,7 @@
 #include "mon-desc.h"
 
 
-/*
+/**
  * The player other record (static)
  */
 static player_other player_other_body;
@@ -148,42 +162,20 @@ void monmem_rotate(struct player_upkeep *upkeep) {
 }
 	
 /*
+
+/**
  * Pointer to the player other record
  */
 player_other *op_ptr = &player_other_body;
 
-/*
- * Pointer to the player info record
+/**
+ * Pointer to the player struct
  */
 player_type *player;
 
 struct player_body *bodies;
 struct player_race *races;
 struct player_class *classes;
-
-/*
- * Player Sexes
- *
- *	Title,
- *	Winner
- */
-const player_sex sex_info[MAX_SEXES] =
-{
-	{
-		"Female",
-		"Queen"
-	},
-
-	{
-		"Male",
-		"King"
-	},
-
-	{
-		"Neuter",
-		"Regent"
-	}
-};
 
 /**
  * Magic realms:
@@ -197,7 +189,7 @@ struct magic_realm realms[REALM_MAX] =
 };
 
 
-/*
+/**
  * Base experience levels, may be adjusted up for race and/or class
  */
 const s32b player_exp[PY_MAX_LEVEL] =
@@ -364,18 +356,15 @@ static void adjust_level(struct player *p, bool verbose)
 
 	p->upkeep->redraw |= PR_EXP;
 
-	handle_stuff(p->upkeep);
+	handle_stuff(p);
 
 	while ((p->lev > 1) &&
-	       (p->exp < (player_exp[p->lev-2] *
-	                      p->expfact / 100L)))
+	       (p->exp < (player_exp[p->lev-2] * p->expfact / 100L)))
 		p->lev--;
 
 
 	while ((p->lev < PY_MAX_LEVEL) &&
-	       (p->exp >= (player_exp[p->lev-1] *
-	                       p->expfact / 100L)))
-	{
+	       (p->exp >= (player_exp[p->lev-1] * p->expfact / 100L))) {
 		char buf[80];
 
 		p->lev++;
@@ -384,11 +373,10 @@ static void adjust_level(struct player *p, bool verbose)
 		if (p->lev > p->max_lev)
 			p->max_lev = p->lev;
 
-		if (verbose)
-		{
+		if (verbose) {
 			/* Log level updates */
 			strnfmt(buf, sizeof(buf), "Reached level %d", p->lev);
-			history_add(buf, HISTORY_GAIN_LEVEL, 0);
+			history_add(buf, HIST_GAIN_LEVEL, 0);
 
 			/* Message */
 			msgt(MSG_LEVEL, "Welcome to level %d.",	p->lev);
@@ -402,13 +390,12 @@ static void adjust_level(struct player *p, bool verbose)
 	}
 
 	while ((p->max_lev < PY_MAX_LEVEL) &&
-	       (p->max_exp >= (player_exp[p->max_lev-1] *
-	                           p->expfact / 100L)))
+	       (p->max_exp >= (player_exp[p->max_lev-1] * p->expfact / 100L)))
 		p->max_lev++;
 
-	p->upkeep->update |= (PU_BONUS | PU_HP | PU_MANA | PU_SPELLS);
+	p->upkeep->update |= (PU_BONUS | PU_HP | PU_SPELLS);
 	p->upkeep->redraw |= (PR_LEV | PR_TITLE | PR_EXP | PR_STATS);
-	handle_stuff(p->upkeep);
+	handle_stuff(p);
 }
 
 void player_exp_gain(struct player *p, s32b amount)
@@ -438,7 +425,7 @@ void player_flags(struct player *p, bitflag f[OF_SIZE])
 	memcpy(f, p->race->flags, sizeof(p->race->flags));
 
 	/* Some classes become immune to fear at a certain plevel */
-	if (player_has(PF_BRAVERY_30) && p->lev >= 30)
+	if (player_has(p, PF_BRAVERY_30) && p->lev >= 30)
 		of_on(f, OF_PROT_FEAR);
 }
 
@@ -448,11 +435,11 @@ byte player_hp_attr(struct player *p)
 	byte attr;
 	
 	if (p->chp >= p->mhp)
-		attr = TERM_L_GREEN;
+		attr = COLOUR_L_GREEN;
 	else if (p->chp > (p->mhp * op_ptr->hitpoint_warn) / 10)
-		attr = TERM_YELLOW;
+		attr = COLOUR_YELLOW;
 	else
-		attr = TERM_RED;
+		attr = COLOUR_RED;
 	
 	return attr;
 }
@@ -462,11 +449,11 @@ byte player_sp_attr(struct player *p)
 	byte attr;
 	
 	if (p->csp >= p->msp)
-		attr = TERM_L_GREEN;
+		attr = COLOUR_L_GREEN;
 	else if (p->csp > (p->msp * op_ptr->hitpoint_warn) / 10)
-		attr = TERM_YELLOW;
+		attr = COLOUR_YELLOW;
 	else
-		attr = TERM_RED;
+		attr = COLOUR_RED;
 	
 	return attr;
 }
@@ -542,43 +529,50 @@ const char *player_safe_name(struct player *p, bool strip_suffix)
 }
 
 
-/** Init / cleanup routines **/
-
+/**
+ * Initialise player struct
+ */
 static void init_player(void) {
 	/* Create the player array, initialised with 0 */
 	player = mem_zalloc(sizeof *player);
 
 	/* Allocate player sub-structs */
-	player->gear = mem_zalloc(MAX_GEAR * sizeof(object_type));
-	player->gear_k = mem_zalloc(MAX_GEAR * sizeof(object_type));
 	player->upkeep = mem_zalloc(sizeof(player_upkeep));
-	player->upkeep->inven = mem_zalloc((z_info->pack_size + 1) * sizeof(int));
-	player->upkeep->quiver = mem_zalloc(z_info->quiver_size * sizeof(int));
+	player->upkeep->inven = mem_zalloc((z_info->pack_size + 1) * sizeof(struct object *));
+	player->upkeep->quiver = mem_zalloc(z_info->quiver_size * sizeof(struct object *));
 	player->timed = mem_zalloc(TMD_MAX * sizeof(s16b));
 }
 
+/**
+ * Free player struct
+ */
 static void cleanup_player(void) {
 	int i;
 
-	player_spells_free(player);
-
+	/* Free the things that are always initialised */
 	mem_free(player->timed);
 	mem_free(player->upkeep->quiver);
 	mem_free(player->upkeep->inven);
 	mem_free(player->upkeep);
-	for (i = 0; i < player->max_gear; i++)
-		object_free(&player->gear[i]);
-	for (i = 0; i < player->max_gear; i++)
-		object_free(&player->gear_k[i]);
-	mem_free(player->gear);
-	mem_free(player->gear_k);
-	for (i = 0; i < player->body.count; i++)
-		string_free(player->body.slots[i].name);
-	mem_free(player->body.slots);
-	string_free(player->body.name);
-	mem_free(player->history);
+	player->upkeep = NULL;
 
+	/* Free the things that are only there if there is a loaded player -
+	 * checking if there are quests will suffice */
+	if (player->quests) {
+		player_quests_free(player);
+		player_spells_free(player);
+		object_pile_free(player->gear);
+		object_pile_free(player->gear_k);
+		for (i = 0; i < player->body.count; i++)
+			string_free(player->body.slots[i].name);
+		mem_free(player->body.slots);
+		string_free(player->body.name);
+		mem_free(player->history);
+	}
+
+	/* Free the basic player struct */
 	mem_free(player);
+	player = NULL;
 }
 
 struct init_module player_module = {

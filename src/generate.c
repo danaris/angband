@@ -29,17 +29,21 @@
 
 #include "angband.h"
 #include "cave.h"
-#include "dungeon.h"
-#include "math.h"
 #include "game-event.h"
+#include "game-input.h"
+#include "game-world.h"
 #include "generate.h"
 #include "init.h"
+#include "math.h"
 #include "mon-make.h"
 #include "mon-spell.h"
 #include "monster.h"
+#include "obj-identify.h"
+#include "obj-tval.h"
 #include "obj-util.h"
 #include "object.h"
 #include "parser.h"
+#include "player-history.h"
 #include "trap.h"
 #include "z-queue.h"
 #include "z-type.h"
@@ -63,9 +67,11 @@ static const struct {
 
 static const struct {
 	const char *name;
+	int max_height;
+	int max_width;
 	room_builder builder;
 } room_builders[] = {
-	#define ROOM(a, b) { a, build_##b },
+	#define ROOM(a, b, c, d) { a, b, c, build_##d },
 	#include "list-rooms.h"
 	#undef ROOM
 };
@@ -297,29 +303,91 @@ static struct file_parser profile_parser = {
 /**
  * Parsing functions for room_template.txt
  */
-static enum parser_error parse_room_n(struct parser *p) {
+static enum parser_error parse_room_name(struct parser *p) {
 	struct room_template *h = parser_priv(p);
 	struct room_template *t = mem_zalloc(sizeof *t);
 
-	t->tidx = parser_getuint(p, "index");
 	t->name = string_make(parser_getstr(p, "name"));
 	t->next = h;
 	parser_setpriv(p, t);
 	return PARSE_ERROR_NONE;
 }
 
-static enum parser_error parse_room_x(struct parser *p) {
+static enum parser_error parse_room_type(struct parser *p) {
 	struct room_template *t = parser_priv(p);
 
 	if (!t)
 		return PARSE_ERROR_MISSING_RECORD_HEADER;
 	t->typ = parser_getuint(p, "type");
-	t->rat = parser_getint(p, "rating");
-	t->hgt = parser_getuint(p, "height");
-	t->wid = parser_getuint(p, "width");
-	t->dor = parser_getuint(p, "doors");
-	t->tval = parser_getuint(p, "tval");
+	return PARSE_ERROR_NONE;
+}
 
+static enum parser_error parse_room_rating(struct parser *p) {
+	struct room_template *t = parser_priv(p);
+
+	if (!t)
+		return PARSE_ERROR_MISSING_RECORD_HEADER;
+	t->rat = parser_getint(p, "rating");
+	return PARSE_ERROR_NONE;
+}
+
+static enum parser_error parse_room_height(struct parser *p) {
+	struct room_template *t = parser_priv(p);
+	size_t i;
+
+	if (!t)
+		return PARSE_ERROR_MISSING_RECORD_HEADER;
+	t->hgt = parser_getuint(p, "height");
+
+	/* Make sure rooms are no higher than the room profiles allow. */
+	for (i = 0; i < N_ELEMENTS(room_builders); i++)
+		if (streq("room template", room_builders[i].name))
+			break;
+	if (i == N_ELEMENTS(room_builders))
+		return PARSE_ERROR_NO_ROOM_FOUND;
+	if (t->wid > room_builders[i].max_height)
+		return PARSE_ERROR_VAULT_TOO_BIG;
+	return PARSE_ERROR_NONE;
+}
+
+static enum parser_error parse_room_width(struct parser *p) {
+	struct room_template *t = parser_priv(p);
+	size_t i;
+
+	if (!t)
+		return PARSE_ERROR_MISSING_RECORD_HEADER;
+	t->wid = parser_getuint(p, "width");
+
+	/* Make sure rooms are no wider than the room profiles allow. */
+	for (i = 0; i < N_ELEMENTS(room_builders); i++)
+		if (streq("room template", room_builders[i].name))
+			break;
+	if (i == N_ELEMENTS(room_builders))
+		return PARSE_ERROR_NO_ROOM_FOUND;
+	if (t->wid > room_builders[i].max_width)
+		return PARSE_ERROR_VAULT_TOO_BIG;
+	return PARSE_ERROR_NONE;
+}
+
+static enum parser_error parse_room_doors(struct parser *p) {
+	struct room_template *t = parser_priv(p);
+
+	if (!t)
+		return PARSE_ERROR_MISSING_RECORD_HEADER;
+	t->dor = parser_getuint(p, "doors");
+	return PARSE_ERROR_NONE;
+}
+
+static enum parser_error parse_room_tval(struct parser *p) {
+	struct room_template *t = parser_priv(p);
+	int tval;
+
+	if (!t)
+		return PARSE_ERROR_MISSING_RECORD_HEADER;
+	tval = tval_find_idx(parser_getsym(p, "tval"));
+	if (tval < 0)
+		return PARSE_ERROR_UNRECOGNISED_TVAL;
+	t->tval = tval;
 	return PARSE_ERROR_NONE;
 }
 
@@ -335,9 +403,13 @@ static enum parser_error parse_room_d(struct parser *p) {
 static struct parser *init_parse_room(void) {
 	struct parser *p = parser_new();
 	parser_setpriv(p, NULL);
-	parser_reg(p, "V sym version", ignored);
-	parser_reg(p, "N uint index str name", parse_room_n);
-	parser_reg(p, "X uint type int rating uint height uint width uint doors uint tval", parse_room_x);
+	parser_reg(p, "name str name", parse_room_name);
+	parser_reg(p, "type uint type", parse_room_type);
+	parser_reg(p, "rating int rating", parse_room_rating);
+	parser_reg(p, "rows uint height", parse_room_height);
+	parser_reg(p, "columns uint width", parse_room_width);
+	parser_reg(p, "doors uint doors", parse_room_doors);
+	parser_reg(p, "tval sym tval", parse_room_tval);
 	parser_reg(p, "D str text", parse_room_d);
 	return p;
 }
@@ -372,104 +444,183 @@ static struct file_parser room_parser = {
 };
 
 
-/* Parsing functions for vault.txt */
-static enum parser_error parse_v_n(struct parser *p) {
+/**
+ * Parsing functions for vault.txt
+ */
+static enum parser_error parse_vault_name(struct parser *p) {
 	struct vault *h = parser_priv(p);
 	struct vault *v = mem_zalloc(sizeof *v);
 
-	v->vidx = parser_getuint(p, "index");
 	v->name = string_make(parser_getstr(p, "name"));
 	v->next = h;
 	parser_setpriv(p, v);
 	return PARSE_ERROR_NONE;
 }
 
-static enum parser_error parse_v_x(struct parser *p) {
+static enum parser_error parse_vault_type(struct parser *p) {
+	struct vault *v = parser_priv(p);
+
+	if (!v)
+		return PARSE_ERROR_MISSING_RECORD_HEADER;
+	v->typ = string_make(parser_getstr(p, "type"));
+	return PARSE_ERROR_NONE;
+}
+
+static enum parser_error parse_vault_rating(struct parser *p) {
+	struct vault *v = parser_priv(p);
+
+	if (!v)
+		return PARSE_ERROR_MISSING_RECORD_HEADER;
+	v->rat = parser_getint(p, "rating");
+	return PARSE_ERROR_NONE;
+}
+
+static enum parser_error parse_vault_rows(struct parser *p) {
+	struct vault *v = parser_priv(p);
+	size_t i;
+
+	if (!v)
+		return PARSE_ERROR_MISSING_RECORD_HEADER;
+	v->hgt = parser_getuint(p, "height");
+
+	/* Make sure vaults are no higher than the room profiles allow. */
+	for (i = 0; i < N_ELEMENTS(room_builders); i++)
+		if (streq(v->typ, room_builders[i].name))
+			break;
+	if (i == N_ELEMENTS(room_builders))
+		return PARSE_ERROR_NO_ROOM_FOUND;
+	if (v->hgt > room_builders[i].max_height)
+		return PARSE_ERROR_VAULT_TOO_BIG;
+	return PARSE_ERROR_NONE;
+}
+
+static enum parser_error parse_vault_columns(struct parser *p) {
+	struct vault *v = parser_priv(p);
+	size_t i;
+
+	if (!v)
+		return PARSE_ERROR_MISSING_RECORD_HEADER;
+	v->wid = parser_getuint(p, "width");
+
+	/* Make sure vaults are no wider than the room profiles allow. */
+	for (i = 0; i < N_ELEMENTS(room_builders); i++)
+		if (streq(v->typ, room_builders[i].name))
+			break;
+	if (i == N_ELEMENTS(room_builders))
+		return PARSE_ERROR_NO_ROOM_FOUND;
+	if (v->wid > room_builders[i].max_width)
+		return PARSE_ERROR_VAULT_TOO_BIG;
+	return PARSE_ERROR_NONE;
+}
+
+static enum parser_error parse_vault_min_depth(struct parser *p) {
+	struct vault *v = parser_priv(p);
+
+	if (!v)
+		return PARSE_ERROR_MISSING_RECORD_HEADER;
+	v->min_lev = parser_getuint(p, "min_lev");
+	return PARSE_ERROR_NONE;
+}
+
+static enum parser_error parse_vault_max_depth(struct parser *p) {
 	struct vault *v = parser_priv(p);
 	int max_lev;
 
 	if (!v)
 		return PARSE_ERROR_MISSING_RECORD_HEADER;
-	v->typ = parser_getuint(p, "type");
-	v->rat = parser_getint(p, "rating");
-	v->hgt = parser_getuint(p, "height");
-	v->wid = parser_getuint(p, "width");
-	v->min_lev = parser_getuint(p, "min_lev");
 	max_lev = parser_getuint(p, "max_lev");
-	v->max_lev = max_lev ? max_lev : MAX_DEPTH;
-
-	/* Make sure vaults are no bigger than the room profiles allow. */
-	if (v->typ == 6 && (v->wid > 33 || v->hgt > 22))
-		return PARSE_ERROR_VAULT_TOO_BIG;
-	if (v->typ == 7 && (v->wid > 66 || v->hgt > 44))
-		return PARSE_ERROR_VAULT_TOO_BIG;
+	v->max_lev = max_lev ? max_lev : z_info->max_depth;
 	return PARSE_ERROR_NONE;
 }
 
-static enum parser_error parse_v_d(struct parser *p) {
+static enum parser_error parse_vault_d(struct parser *p) {
 	struct vault *v = parser_priv(p);
+	const char *desc;
 
 	if (!v)
 		return PARSE_ERROR_MISSING_RECORD_HEADER;
-	v->text = string_append(v->text, parser_getstr(p, "text"));
+	desc = parser_getstr(p, "text");
+	if (strlen(desc) != v->wid)
+		return PARSE_ERROR_VAULT_DESC_WRONG_LENGTH;
+	else
+		v->text = string_append(v->text, desc);
 	return PARSE_ERROR_NONE;
 }
 
-struct parser *init_parse_v(void) {
+struct parser *init_parse_vault(void) {
 	struct parser *p = parser_new();
 	parser_setpriv(p, NULL);
-	parser_reg(p, "N uint index str name", parse_v_n);
-	parser_reg(p, "X uint type int rating uint height uint width uint min_lev uint max_lev", parse_v_x);
-	parser_reg(p, "D str text", parse_v_d);
+	parser_reg(p, "name str name", parse_vault_name);
+	parser_reg(p, "type str type", parse_vault_type);
+	parser_reg(p, "rating int rating", parse_vault_rating);
+	parser_reg(p, "rows uint height", parse_vault_rows);
+	parser_reg(p, "columns uint width", parse_vault_columns);
+	parser_reg(p, "min-depth uint min_lev", parse_vault_min_depth);
+	parser_reg(p, "max-depth uint max_lev", parse_vault_max_depth);
+	parser_reg(p, "D str text", parse_vault_d);
 	return p;
 }
 
-static errr run_parse_v(struct parser *p) {
+static errr run_parse_vault(struct parser *p) {
 	return parse_file(p, "vault");
 }
 
-static errr finish_parse_v(struct parser *p) {
+static errr finish_parse_vault(struct parser *p) {
 	vaults = parser_priv(p);
 	parser_destroy(p);
 	return 0;
 }
 
-static void cleanup_v(void)
+static void cleanup_vault(void)
 {
 	struct vault *v, *next;
 	for (v = vaults; v; v = next) {
 		next = v->next;
 		mem_free(v->name);
+		mem_free(v->typ);
 		mem_free(v->text);
 		mem_free(v);
 	}
 }
 
-static struct file_parser v_parser = {
+static struct file_parser vault_parser = {
 	"vault",
-	init_parse_v,
-	run_parse_v,
-	finish_parse_v,
-	cleanup_v
+	init_parse_vault,
+	run_parse_vault,
+	finish_parse_vault,
+	cleanup_vault
 };
 
 static void run_template_parser(void) {
 	/* Initialize room info */
-	event_signal_string(EVENT_INITSTATUS, "Initializing arrays... (dungeon profiles)");
+	event_signal_message(EVENT_INITSTATUS, 0,
+						 "Initializing arrays... (dungeon profiles)");
 	if (run_parser(&profile_parser))
 		quit("Cannot initialize dungeon profiles");
 
 	/* Initialize room info */
-	event_signal_string(EVENT_INITSTATUS, "Initializing arrays... (room templates)");
+	event_signal_message(EVENT_INITSTATUS, 0,
+						 "Initializing arrays... (room templates)");
 	if (run_parser(&room_parser))
 		quit("Cannot initialize room templates");
 
 	/* Initialize vault info */
-	event_signal_string(EVENT_INITSTATUS, "Initializing arrays... (vaults)");
-	if (run_parser(&v_parser))
+	event_signal_message(EVENT_INITSTATUS, 0,
+						 "Initializing arrays... (vaults)");
+	if (run_parser(&vault_parser))
 		quit("Cannot initialize vaults");
 }
 
+
+/**
+ * Free the template arrays
+ */
+static void cleanup_template_parser(void)
+{
+	cleanup_parser(&profile_parser);
+	cleanup_parser(&room_parser);
+	cleanup_parser(&vault_parser);
+}
 
 
 /**
@@ -481,7 +632,7 @@ static void place_feeling(struct chunk *c)
 	int y,x,i,j;
 	int tries = 500;
 	
-	for (i = 0; i < FEELING_TOTAL; i++) {
+	for (i = 0; i < z_info->feeling_total; i++) {
 		for (j = 0; j < tries; j++) {
 			/* Pick a random dungeon coordinate */
 			y = randint0(c->height);
@@ -525,16 +676,16 @@ static int calc_obj_feeling(struct chunk *c)
 	x = c->obj_rating / c->depth;
 
 	/* Apply a minimum feeling if there's an artifact on the level */
-	if (c->good_item && x < 64001) return 60;
+	if (c->good_item && x < 641) return 60;
 
-	if (x > 16000000) return 20;
-	if (x > 4000000) return 30;
-	if (x > 1000000) return 40;
-	if (x > 250000) return 50;
-	if (x > 64000) return 60;
-	if (x > 16000) return 70;
-	if (x > 4000) return 80;
-	if (x > 1000) return 90;
+	if (x > 160000) return 20;
+	if (x > 40000) return 30;
+	if (x > 10000) return 40;
+	if (x > 2500) return 50;
+	if (x > 640) return 60;
+	if (x > 160) return 70;
+	if (x > 40) return 80;
+	if (x > 10) return 90;
 	return 100;
 }
 
@@ -662,13 +813,44 @@ const struct cave_profile *choose_profile(int depth)
 }
 
 /**
+ * Clear the dungeon, ready for generation to begin.
+ */
+static void cave_clear(struct chunk *c, struct player *p)
+{
+	int x, y;
+
+	/* Clear the monsters */
+	wipe_mon_list(c, p);
+
+	/* Deal with artifacts */
+	for (y = 0; y < c->height; y++) {
+		for (x = 0; x < c->width; x++) {
+			struct object *obj = square_object(c, y, x);
+			while (obj) {
+				if (obj->artifact) {
+					if (!OPT(birth_no_preserve) && !object_was_sensed(obj))
+						obj->artifact->created = FALSE;
+					else
+						history_lose_artifact(obj->artifact);
+				}
+				obj = obj->next;
+			}
+		}
+	}
+	/* Free the chunk */
+	cave_free(c);
+}
+
+
+/**
  * Generate a random level.
  *
  * Confusingly, this function also generate the town level (level 0).
  * \param c is the level we're going to end up with, in practice the global cave
  * \param p is the current player struct, in practice the global player
  */
-void cave_generate(struct chunk **c, struct player *p) {
+void cave_generate(struct chunk **c, struct player *p)
+{
 	const char *error = "no generation";
 	int y, x, tries = 0;
 	struct chunk *chunk;
@@ -732,8 +914,6 @@ void cave_generate(struct chunk **c, struct player *p) {
 		}
 
 		/* Regenerate levels that overflow their maxima */
-		if (cave_object_max(chunk) >= z_info->level_object_max)
-			error = "too many objects";
 		if (cave_monster_max(chunk) >= z_info->level_monster_max)
 			error = "too many monsters";
 
@@ -749,7 +929,7 @@ void cave_generate(struct chunk **c, struct player *p) {
 
 	/* Free the old cave, use the new one */
 	if (*c)
-		cave_free(*c);
+		cave_clear(*c, p);
 	*c = chunk;
 
 	/* Place dungeon squares to trigger feeling (not in town) */
@@ -772,6 +952,13 @@ void cave_generate(struct chunk **c, struct player *p) {
 	/* The dungeon is ready */
 	character_dungeon = TRUE;
 
+	/* Free old and allocate new known level */
+	if (cave_k)
+		cave_free(cave_k);
+	cave_k = cave_new(cave->height, cave->width);
+	if (!cave->depth)
+		cave_known();
+
 	(*c)->created_at = turn;
 }
 
@@ -783,5 +970,5 @@ void cave_generate(struct chunk **c, struct player *p) {
 struct init_module generate_module = {
 	.name = "generate",
 	.init = run_template_parser,
-	.cleanup = NULL
+	.cleanup = cleanup_template_parser
 };

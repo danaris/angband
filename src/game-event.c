@@ -1,6 +1,6 @@
-/*
- * File: game-event.c
- * Purpose: Allows the registering of handlers to be told about game events.
+/**
+ * \file game-event.c
+ * \brief Allows the registering of handlers to be told about game events.
  *
  * Copyright (c) 2007 Antony Sidwell
  *
@@ -17,8 +17,9 @@
  */
 
 #include <assert.h>
-#include "z-virt.h"
 #include "game-event.h"
+#include "object.h"
+#include "z-virt.h"
 
 struct event_handler_entry
 {
@@ -87,6 +88,18 @@ void event_remove_handler(game_event_type type, game_event_handler *fn, void *us
 		prev = this;
 		this = this->next;
 	}
+}
+
+void event_remove_handler_type(game_event_type type)
+{
+	struct event_handler_entry *handler = event_handlers[type];
+
+	while (handler) {
+		struct event_handler_entry *next = handler->next;
+		mem_free(handler);
+		handler = next;
+	}
+	event_handlers[type] = NULL;
 }
 
 void event_remove_all_handlers(void)
@@ -218,15 +231,13 @@ void event_signal_bolt(game_event_type type,
 }
 
 void event_signal_missile(game_event_type type,
-						  byte mattr,
-						  wchar_t mchar,
+						  struct object *obj,
 						  bool seen,
 						  int y,
 						  int x)
 {
 	game_event_data data;
-	data.missile.mattr = mattr;
-	data.missile.mchar = mchar;
+	data.missile.obj = obj;
 	data.missile.seen = seen;
 	data.missile.y = y;
 	data.missile.x = x;

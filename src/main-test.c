@@ -1,6 +1,6 @@
-/*
- * File: main-test.c
- * Purpose: Pseudo-UI for end-to-end testing.
+/**
+ * \file main-test.c
+ * \brief Pseudo-UI for end-to-end testing.
  *
  * Copyright (c) 2011 Elly <elly+angband@leptoquark.net>
  *
@@ -18,6 +18,7 @@
 
 #include "angband.h"
 #include "buildid.h"
+#include "main.h"
 #include "player.h"
 #include "player-birth.h"
 
@@ -69,30 +70,17 @@ static void c_version(char *rest) {
 	printf("cmd-version: %s %s\n", VERSION_NAME, VERSION_STRING);
 }
 
-/* Player commands */
+/**
+ * Player commands
+ */
 static void c_player_birth(char *rest) {
-	char *sex = strtok(rest, " ");
-	char *race = strtok(NULL, " ");
+	char *race = strtok(rest, " ");
 	char *class = strtok(NULL, " ");
-	int i;
 	struct player_class *c;
 	struct player_race *r;
 
-	if (!sex) sex = "Female";
 	if (!race) race = "Human";
 	if (!class) class = "Warrior";
-
-	for (i = 0; i < MAX_SEXES; i++) {
-		if (!strcmp(sex, sex_info[i].title)) {
-			player->psex = i;
-			break;
-		}
-	}
-
-	if (i == MAX_SEXES) {
-		printf("player-birth: bad sex '%s'\n", sex);
-		return;
-	}
 
 	for (r = races; r; r = r->next)
 		if (!strcmp(race, r->name))
@@ -111,7 +99,7 @@ static void c_player_birth(char *rest) {
 		return;
 	}
 
-	player_generate(player, NULL, r, c);
+	player_generate(player, r, c, FALSE);
 }
 
 static void c_player_class(char *rest) {
@@ -120,10 +108,6 @@ static void c_player_class(char *rest) {
 
 static void c_player_race(char *rest) {
 	printf("player-race: %s\n", player->race->name);
-}
-
-static void c_player_sex(char *rest) {
-	printf("player-sex: %s\n", player->sex->title);
 }
 
 typedef struct {
@@ -142,7 +126,6 @@ static test_cmd cmds[] = {
 	{ "player-birth", c_player_birth },
 	{ "player-class?", c_player_class },
 	{ "player-race?", c_player_race },
-	{ "player-sex?", c_player_sex },
 
 	{ NULL, NULL }
 };

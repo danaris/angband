@@ -22,6 +22,7 @@
 #include "mon-desc.h"
 #include "obj-gear.h"
 #include "obj-identify.h"
+#include "player-calcs.h"
 #include "player-timed.h"
 #include "player-util.h"
 #include "project.h"
@@ -29,6 +30,7 @@
 /**
  * Adjust damage according to resistance or vulnerability.
  *
+ * \param p is the player
  * \param type is the attack type we are checking.
  * \param dam is the unadjusted damage.
  * \param dam_aspect is the calc we want (min, avg, max, random).
@@ -40,10 +42,12 @@ int adjust_dam(struct player *p, int type, int dam, aspect dam_aspect, int resis
 
 	/* If an actual player exists, get their actual resist */
 	if (p && p->race) {
-		resist = p->state.el_info[type].res_level;
+		/* Ice is a special case */
+		int res_type = (type == GF_ICE) ? GF_COLD: type;
+		resist = p->state.el_info[res_type].res_level;
 
 		/* Notice element stuff */
-		wieldeds_notice_element(p, type);
+		equip_notice_element(p, res_type);
 	}
 
 	if (resist == 3) /* immune */
@@ -91,8 +95,6 @@ int adjust_dam(struct player *p, int type, int dam, aspect dam_aspect, int resis
  * Drain stats at random
  *
  * \param num is the number of points to drain
- * \param sustain is whether sustains will prevent draining
- * \param perma is whether the drains are permanent
  */
 static void project_player_drain_stats(int num)
 {
@@ -180,7 +182,7 @@ static void project_player_handler_COLD(project_player_handler_context_t *contex
 
 static void project_player_handler_POIS(project_player_handler_context_t *context)
 {
-	if (!player_inc_timed(player, TMD_POISONED, 10 + randint0(context->dam),
+	if (!player_inc_timed(player, TMD_POISONED, 10 + randint1(context->dam),
 						  TRUE, TRUE))
 		msg("You resist the effect!");
 }
@@ -219,7 +221,8 @@ static void project_player_handler_SHARD(project_player_handler_context_t *conte
 {
 	/* Cuts */
 	if (!player_resists(player, ELEM_SHARD))
-		(void)player_inc_timed(player, TMD_CUT, context->dam, TRUE, FALSE);
+		(void)player_inc_timed(player, TMD_CUT, randint1(context->dam),
+							   TRUE, FALSE);
 }
 
 static void project_player_handler_NEXUS(project_player_handler_context_t *context)
@@ -302,7 +305,7 @@ static void project_player_handler_WATER(project_player_handler_context_t *conte
 	(void)player_inc_timed(player, TMD_CONFUSED, 5 + randint1(5), TRUE, TRUE);
 
 	/* Stun */
-	(void)player_inc_timed(player, TMD_STUN, randint0(40), TRUE, TRUE);
+	(void)player_inc_timed(player, TMD_STUN, randint1(40), TRUE, TRUE);
 }
 
 static void project_player_handler_ICE(project_player_handler_context_t *context)
@@ -317,7 +320,7 @@ static void project_player_handler_ICE(project_player_handler_context_t *context
 		msg("You resist the effect!");
 
 	/* Stun */
-	(void)player_inc_timed(player, TMD_STUN, randint0(15), TRUE, TRUE);
+	(void)player_inc_timed(player, TMD_STUN, randint1(15), TRUE, TRUE);
 }
 
 static void project_player_handler_GRAVITY(project_player_handler_context_t *context)
@@ -350,7 +353,7 @@ static void project_player_handler_INERTIA(project_player_handler_context_t *con
 static void project_player_handler_FORCE(project_player_handler_context_t *context)
 {
 	/* Stun */
-	(void)player_inc_timed(player, TMD_STUN, randint0(20), TRUE, TRUE);
+	(void)player_inc_timed(player, TMD_STUN, randint1(20), TRUE, TRUE);
 }
 
 static void project_player_handler_TIME(project_player_handler_context_t *context)
@@ -406,13 +409,13 @@ static void project_player_handler_ARROW(project_player_handler_context_t *conte
 }
 
 static const project_player_handler_f player_handlers[] = {
-	#define ELEM(a, b, c, d, e, f, g, col) project_player_handler_##a,
+	#define ELEM(a, b, c, d, e, f, g, h, i, col) project_player_handler_##a,
 	#include "list-elements.h"
 	#undef ELEM
-	#define PROJ_ENV(a, col) NULL,
+	#define PROJ_ENV(a, col, desc) NULL,
 	#include "list-project-environs.h"
 	#undef PROJ_ENV
-	#define PROJ_MON(a, obv) NULL, 
+	#define PROJ_MON(a, obv, desc) NULL, 
 	#include "list-project-monsters.h"
 	#undef PROJ_MON
 	NULL
@@ -480,7 +483,7 @@ bool project_p(int who, int r, int y, int x, int dam, int typ)
 
 	/* Let player know what is going on */
 	if (!seen)
-		msg("You are hit by %s!", gf_desc(typ));
+		msg("You are hit by %s!", gf_blind_desc(typ));
 
 	/* Adjust damage for resistance, immunity or vulnerability, and apply it */
 	dam = adjust_dam(player, typ, dam, RANDOMISE,

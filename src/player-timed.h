@@ -1,5 +1,6 @@
-/** \file: player-timed.h
-	\brief Timed effects handling
+/**
+ * \file player-timed.h
+ * \brief Timed effects handling
  *
  * Copyright (c) 1997 Ben Harrison
  * Copyright (c) 2007 A Sidwell <andi@takkaria.org>
@@ -18,7 +19,9 @@
 
 #include "player.h"
 
-/* Player food values */
+/**
+ * Player food values
+ */
 #define PY_FOOD_MAX 	17000	/* Food value (Bloated) */
 #define PY_FOOD_FULL	10000	/* Food value (Normal) */
 #define PY_FOOD_ALERT	2000	/* Food value (Hungry) */
@@ -26,19 +29,28 @@
 #define PY_FOOD_FAINT	500		/* Food value (Fainting) */
 #define PY_FOOD_STARVE	100		/* Food value (Starving) */
 
-/*
+/**
+ * Effect failure flag types
+ */
+enum {
+	TMD_FAIL_FLAG_OBJECT = 1,
+	TMD_FAIL_FLAG_RESIST,
+	TMD_FAIL_FLAG_VULN
+};
+
+/**
  * Timed effects
  */
 enum
 {
-	#define TMD(a, b, c, d, e, f, g, h, i, j) TMD_##a,
+	#define TMD(a, b, c, d, e, f, g, h, i, j, k) TMD_##a,
 	#include "list-player-timed.h"
 	#undef TMD
 	TMD_MAX
 };
 
-typedef struct
-{
+typedef struct {
+	const char *description;
 	const char *on_begin;
 	const char *on_end;
 	const char *on_increase;
@@ -51,6 +63,7 @@ typedef struct
 
 int timed_name_to_idx(const char *name);
 const char *timed_idx_to_name(int type);
+const char *timed_idx_to_desc(int type);
 int timed_protect_flag(int type);
 bool player_set_timed(struct player *p, int idx, int v, bool notify);
 bool player_inc_timed(struct player *p, int idx, int v, bool notify,

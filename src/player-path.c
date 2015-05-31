@@ -1,6 +1,6 @@
-/*
- * File: pathfind.c
- * Purpose: Pathfinding and running code.
+/**
+ * \file player-path.c
+ * \brief Pathfinding and running code.
  *
  * Copyright (c) 1988 Christopher J Stuart (running code)
  * Copyright (c) 2004-2007 Christophe Cavalaria, Leon Marrick (pathfinding)
@@ -20,19 +20,27 @@
 #include "angband.h"
 #include "cmds.h"
 #include "cave.h"
+#include "init.h"
 #include "mon-util.h"
 #include "obj-ignore.h"
 #include "obj-util.h"
+#include "player-calcs.h"
 #include "player-path.h"
 #include "player-util.h"
-#include "tables.h"
 
-/****** Pathfinding code ******/
+/**
+ * ------------------------------------------------------------------------
+ * Pathfinding code
+ * ------------------------------------------------------------------------ */
 
-/* Maximum size around the player to consider in the pathfinder */
+/**
+ * Maximum size around the player to consider in the pathfinder
+ */
 #define MAX_PF_RADIUS 50
 
-/* Maximum distance to consider in the pathfinder */
+/**
+ * Maximum distance to consider in the pathfinder
+ */
 #define MAX_PF_LENGTH 250
 
 
@@ -74,7 +82,8 @@ static void fill_terrain_info(void)
 	terrain[player->py - oy][player->px - ox] = 1;
 }
 
-#define MARK_DISTANCE(c,d) if ((c <= MAX_PF_LENGTH) && (c > d)) { c = d; try_again = (TRUE); }
+#define MARK_DISTANCE(c,d) if ((c <= MAX_PF_LENGTH) && (c > d)) \
+							{ c = d; try_again = (TRUE); }
 
 bool findpath(int y, int x)
 {
@@ -102,38 +111,35 @@ bool findpath(int y, int x)
 	 * And now starts the very naive and very 
 	 * inefficient pathfinding algorithm
 	 */
-	do
-	{
+	do {
 		try_again = FALSE;
 
-		for (j = oy + 1; j < ey - 1; j++)
-		{
-			for (i = ox + 1; i < ex - 1; i++)
-			{
+		for (j = oy + 1; j < ey - 1; j++) {
+			for (i = ox + 1; i < ex - 1; i++) {
 				cur_distance = terrain[j - oy][i - ox] + 1;
 
-				if ((cur_distance > 0) && (cur_distance < MAX_PF_LENGTH))
-				{
-					for (dir = 1; dir < 10; dir++)
-					{
+				if ((cur_distance > 0) && (cur_distance < MAX_PF_LENGTH)) {
+					for (dir = 1; dir < 10; dir++) {
+						int next_y, next_x;
 						if (dir == 5)
 							dir++;
+						next_y = j - oy + ddy[dir];
+						next_x = i - ox + ddx[dir];
 
-						MARK_DISTANCE(terrain[j - oy + ddy[dir]][i - ox + ddx[dir]], cur_distance);
+						MARK_DISTANCE(terrain[next_y][next_x], cur_distance);
 					}
 				}
 			}
 		}
 
 		if (terrain[y - oy][x - ox] < MAX_PF_LENGTH)
-			try_again = (FALSE);
+			try_again = FALSE;
 
 	}
-	while (try_again);
+	while (try_again) ;
 
 	/* Failure */
-	if (terrain[y - oy][x - ox] == MAX_PF_LENGTH)
-	{
+	if (terrain[y - oy][x - ox] == MAX_PF_LENGTH) {
 		bell("Target space unreachable.");
 		return (FALSE);
 	}
@@ -144,28 +150,16 @@ bool findpath(int y, int x)
 
 	pf_result_index = 0;
 
-	while ((i != player->px) || (j != player->py))
-	{
+	while ((i != player->px) || (j != player->py)) {
 		cur_distance = terrain[j - oy][i - ox] - 1;
-		for (k = 0; k < 8; k++)
-		{
+		for (k = 0; k < 8; k++) {
 			dir = dir_search[k];
 			if (terrain[j - oy + ddy[dir]][i - ox + ddx[dir]] == cur_distance)
 				break;
 		}
 
-		/* Should never happend */
-		if (dir == 10)
-		{
-			bell("Wtf ?");
-			return (FALSE);
-		}
-
-		else if (dir == 5)
-		{
-			bell("Heyyy !");
-			return (FALSE);
-		}
+		/* Should never happen */
+		assert ((dir != 10) && (dir != 5));
 
 		pf_result[pf_result_index++] = '0' + (char)(10 - dir);
 		i += ddx[dir];
@@ -177,9 +171,11 @@ bool findpath(int y, int x)
 	return (TRUE);
 }
 
-/* Compute the direction (in the angband 123456789 sense) from a point to a
+/**
+ * Compute the direction (in the angband 123456789 sense) from a point to a
  * point. We decide to use diagonals if dx and dy are within a factor of two of
- * each other; otherwise we choose a cardinal direction. */
+ * each other; otherwise we choose a cardinal direction.
+ */
 int pathfind_direction_to(struct loc from, struct loc to)
 {
 	int adx = ABS(to.x - from.x);
@@ -190,35 +186,28 @@ int pathfind_direction_to(struct loc from, struct loc to)
 	if (dx == 0 && dy == 0)
 		return DIR_NONE;
 
-	if (dx >= 0 && dy >= 0)
-	{
+	if (dx >= 0 && dy >= 0) {
 		if (adx < ady * 2 && ady < adx * 2)
 			return DIR_SE;
 		else if (adx > ady)
 			return DIR_E;
 		else
 			return DIR_S;
-	}
-	else if (dx > 0 && dy < 0)
-	{
+	} else if (dx > 0 && dy < 0) {
 		if (adx < ady * 2 && ady < adx * 2)
 			return DIR_NE;
 		else if (adx > ady)
 			return DIR_E;
 		else
 			return DIR_N;
-	}
-	else if (dx < 0 && dy > 0)
-	{
+	} else if (dx < 0 && dy > 0) {
 		if (adx < ady * 2 && ady < adx * 2)
 			return DIR_SW;
 		else if (adx > ady)
 			return DIR_W;
 		else
 			return DIR_S;
-	}
-	else if (dx <= 0 && dy <= 0)
-	{
+	} else if (dx <= 0 && dy <= 0) {
 		if (adx < ady * 2 && ady < adx * 2)
 			return DIR_NW;
 		else if (adx > ady)
@@ -231,9 +220,12 @@ int pathfind_direction_to(struct loc from, struct loc to)
 	return DIR_UNKNOWN;
 }
 
-/****** Running code ******/
+/**
+ * ------------------------------------------------------------------------
+ * Running code
+ * ------------------------------------------------------------------------ */
 
-/*
+/**
  * Basically, once you start running, you keep moving until something
  * interesting happens.  In an enclosed space, you run straight, but
  * you follow corners as needed (i.e. hallways).  In an open space,
@@ -385,21 +377,21 @@ bool run_open_area;		/* Looking for an open area */
 bool run_break_right;	/* Looking for a break (right) */
 bool run_break_left;	/* Looking for a break (left) */
 
-/*
+/**
  * Hack -- allow quick "cycling" through the legal directions
  */
 static const byte cycle[] =
 { 1, 2, 3, 6, 9, 8, 7, 4, 1, 2, 3, 6, 9, 8, 7, 4, 1 };
 
 
-/*
+/**
  * Hack -- map each direction into the "middle" of the "cycle[]" array
  */
 static const byte chome[] =
 { 0, 8, 9, 10, 7, 0, 11, 6, 5, 4 };
 
 
-/*
+/**
  * Hack -- Check for a "known wall" (see below)
  */
 static int see_wall(int dir, int y, int x)
@@ -423,7 +415,7 @@ static int see_wall(int dir, int y, int x)
 }
 
 
-/*
+/**
  * Initialize the running algorithm for a new direction.
  *
  * Diagonal Corridor -- allow diaginal entry into corridors.
@@ -474,70 +466,46 @@ static void run_init(int dir)
 	/* Extract cycle index */
 	i = chome[dir];
 
-	/* Check for nearby wall */
-	if (see_wall(cycle[i+1], py, px))
-	{
+	/* Check for nearby or distant wall */
+	if (see_wall(cycle[i+1], py, px)) {
 		run_break_left = TRUE;
 		shortleft = TRUE;
-	}
-
-	/* Check for distant wall */
-	else if (see_wall(cycle[i+1], row, col))
-	{
+	} else if (see_wall(cycle[i+1], row, col)) {
 		run_break_left = TRUE;
 		deepleft = TRUE;
 	}
 
-	/* Check for nearby wall */
-	if (see_wall(cycle[i-1], py, px))
-	{
+	/* Check for nearby or distant wall */
+	if (see_wall(cycle[i-1], py, px)) {
 		run_break_right = TRUE;
 		shortright = TRUE;
-	}
-
-	/* Check for distant wall */
-	else if (see_wall(cycle[i-1], row, col))
-	{
+	} else if (see_wall(cycle[i-1], row, col)) {
 		run_break_right = TRUE;
 		deepright = TRUE;
 	}
 
 	/* Looking for a break */
-	if (run_break_left && run_break_right)
-	{
+	if (run_break_left && run_break_right) {
 		/* Not looking for open area */
 		run_open_area = FALSE;
 
-		/* Hack -- allow angled corridor entry */
-		if (dir & 0x01)
-		{
+		/* Angled or blunt corridor entry */
+		if (dir & 0x01) {
 			if (deepleft && !deepright)
-			{
 				run_old_dir = cycle[i - 1];
-			}
 			else if (deepright && !deepleft)
-			{
 				run_old_dir = cycle[i + 1];
-			}
-		}
-
-		/* Hack -- allow blunt corridor entry */
-		else if (see_wall(cycle[i], row, col))
-		{
+		} else if (see_wall(cycle[i], row, col)) {
 			if (shortleft && !shortright)
-			{
 				run_old_dir = cycle[i - 2];
-			}
 			else if (shortright && !shortleft)
-			{
 				run_old_dir = cycle[i + 2];
-			}
 		}
 	}
 }
 
 
-/*
+/**
  * Update the current "run" path
  *
  * Return TRUE if the running should be stopped
@@ -568,10 +536,8 @@ static bool run_test(void)
 
 
 	/* Look at every newly adjacent square. */
-	for (i = -max; i <= max; i++)
-	{
-		object_type *o_ptr;
-
+	for (i = -max; i <= max; i++) {
+		struct object *obj;
 
 		/* New direction */
 		new_dir = cycle[chome[prev_dir] + i];
@@ -582,8 +548,7 @@ static bool run_test(void)
 
 
 		/* Visible monsters abort running */
-		if (cave->squares[row][col].mon > 0)
-		{
+		if (cave->squares[row][col].mon > 0) {
 			monster_type *m_ptr = square_monster(cave, row, col);
 
 			/* Visible monster */
@@ -591,20 +556,16 @@ static bool run_test(void)
 		}
 
 		/* Visible objects abort running */
-		for (o_ptr = get_first_object(row, col); o_ptr; o_ptr = get_next_object(o_ptr))
-		{
+		for (obj = square_object(cave, row, col); obj; obj = obj->next)
 			/* Visible object */
-			if (o_ptr->marked && !ignore_item_ok(o_ptr)) return (TRUE);
-		}
-
+			if (obj->marked && !ignore_item_ok(obj)) return (TRUE);
 
 		/* Assume unknown */
 		inv = TRUE;
 
 		/* Check memorized grids */
-		if (square_ismark(cave, row, col))
-		{
-			bool notice = square_noticeable(cave, row, col);
+		if (square_ismark(cave, row, col)) {
+			bool notice = square_isinteresting(cave, row, col);
 
 			/* Interesting feature */
 			if (notice) return (TRUE);
@@ -614,59 +575,33 @@ static bool run_test(void)
 		}
 
 		/* Analyze unknown grids and floors */
-		if (inv || square_ispassable(cave, row, col))
-		{
+		if (inv || square_ispassable(cave, row, col)) {
 			/* Looking for open area */
-			if (run_open_area)
-			{
+			if (run_open_area) {
 				/* Nothing */
-			}
-
-			/* The first new direction. */
-			else if (!option)
-			{
+			} else if (!option) {
+				/* The first new direction. */
 				option = new_dir;
-			}
-
-			/* Three new directions. Stop running. */
-			else if (option2)
-			{
+			} else if (option2) {
+				/* Three new directions. Stop running. */
 				return (TRUE);
-			}
-
-			/* Two non-adjacent new directions.  Stop running. */
-			else if (option != cycle[chome[prev_dir] + i - 1])
-			{
+			} else if (option != cycle[chome[prev_dir] + i - 1]) {
+				/* Two non-adjacent new directions.  Stop running. */
 				return (TRUE);
-			}
-
-			/* Two new (adjacent) directions (case 1) */
-			else if (new_dir & 0x01)
-			{
+			} else if (new_dir & 0x01) {
+				/* Two new (adjacent) directions (case 1) */
 				option2 = new_dir;
-			}
-
-			/* Two new (adjacent) directions (case 2) */
-			else
-			{
+			} else {
+				/* Two new (adjacent) directions (case 2) */
 				option2 = option;
 				option = new_dir;
 			}
-		}
-
-		/* Obstacle, while looking for open area */
-		else
-		{
-			if (run_open_area)
-			{
-				if (i < 0)
-				{
+		} else { /* Obstacle, while looking for open area */
+			if (run_open_area) {
+				if (i < 0) {
 					/* Break to the right */
 					run_break_right = TRUE;
-				}
-
-				else if (i > 0)
-				{
+				} else if (i > 0) {
 					/* Break to the left */
 					run_break_left = TRUE;
 				}
@@ -676,8 +611,7 @@ static bool run_test(void)
 
 
 	/* Look at every soon to be newly adjacent square. */
-	for (i = -max; i <= max; i++)
-	{		
+	for (i = -max; i <= max; i++) {		
 		/* New direction */
 		new_dir = cycle[chome[prev_dir] + i];
 		
@@ -691,8 +625,7 @@ static bool run_test(void)
 		if (row < 0 || col < 0) continue;
 
 		/* Visible monsters abort running */
-		if (cave->squares[row][col].mon > 0)
-		{
+		if (cave->squares[row][col].mon > 0) {
 			monster_type *m_ptr = square_monster(cave, row, col);
 			
 			/* Visible monster */
@@ -702,11 +635,9 @@ static bool run_test(void)
 	}
 
 	/* Looking for open area */
-	if (run_open_area)
-	{
+	if (run_open_area) {
 		/* Hack -- look again */
-		for (i = -max; i < 0; i++)
-		{
+		for (i = -max; i < 0; i++) {
 			new_dir = cycle[chome[prev_dir] + i];
 
 			row = py + ddy[new_dir];
@@ -717,26 +648,19 @@ static bool run_test(void)
 			if (!square_ismark(cave, row, col) ||
 			    (square_ispassable(cave, row, col))) {
 				/* Looking to break right */
-				if (run_break_right)
-				{
+				if (run_break_right) {
 					return (TRUE);
 				}
-			}
-
-			/* Obstacle */
-			else
-			{
+			} else { /* Obstacle */
 				/* Looking to break left */
-				if (run_break_left)
-				{
+				if (run_break_left) {
 					return (TRUE);
 				}
 			}
 		}
 
 		/* Hack -- look again */
-		for (i = max; i > 0; i--)
-		{
+		for (i = max; i > 0; i--) {
 			new_dir = cycle[chome[prev_dir] + i];
 
 			row = py + ddy[new_dir];
@@ -747,47 +671,27 @@ static bool run_test(void)
 			if (!square_ismark(cave, row, col) ||
 			    (square_ispassable(cave, row, col))) {
 				/* Looking to break left */
-				if (run_break_left)
-				{
+				if (run_break_left) {
 					return (TRUE);
 				}
-			}
-
-			/* Obstacle */
-			else
-			{
+			} else { /* Obstacle */
 				/* Looking to break right */
-				if (run_break_right)
-				{
+				if (run_break_right) {
 					return (TRUE);
 				}
 			}
 		}
-	}
-
-
-	/* Not looking for open area */
-	else
-	{
+	} else { /* Not looking for open area */
 		/* No options */
-		if (!option)
-		{
+		if (!option) {
 			return (TRUE);
-		}
-
-		/* One option */
-		else if (!option2)
-		{
+		} else if (!option2) { /* One option */
 			/* Primary option */
 			run_cur_dir = option;
 
 			/* No other options */
 			run_old_dir = option;
-		}
-
-		/* Two options, examining corners */
-		else
-		{
+		} else { /* Two options, examining corners */
 			/* Primary option */
 			run_cur_dir = option;
 
@@ -799,9 +703,7 @@ static bool run_test(void)
 
 	/* About to hit a known wall, stop */
 	if (see_wall(run_cur_dir, py, px))
-	{
 		return (TRUE);
-	}
 
 
 	/* Failure */
@@ -810,7 +712,7 @@ static bool run_test(void)
 
 
 
-/*
+/**
  * Take one step along the current "run" path
  *
  * Called with a real direction to begin a new run, and with zero
@@ -819,10 +721,10 @@ static bool run_test(void)
 void run_step(int dir)
 {
 	int x, y;
+	bool keep_running = TRUE;
 
-	/* Start run */
-	if (dir)
-	{
+	/* Start or continue run */
+	if (dir) {
 		/* Initialize */
 		run_init(dir);
 
@@ -831,98 +733,95 @@ void run_step(int dir)
 
 		/* Calculate torch radius */
 		player->upkeep->update |= (PU_TORCH);
-	}
-
-	/* Continue run */
-	else
-	{
-		if (!player->upkeep->running_withpathfind)
-		{
-			/* Update run */
-			if (run_test())
-			{
+	} else {
+		/* Continue running */
+		if (!player->upkeep->running_withpathfind) {
+			/* Update regular running */
+			if (run_test()) {
 				/* Disturb */
 				disturb(player, 0);
-	
-				/* Done */
 				return;
 			}
-		}
-		else
-		{
-			/* Abort if we have finished */
-			if (pf_result_index < 0)
-			{
+		} else {
+			/* Pathfinding */
+			if (pf_result_index < 0) {
+				/* Abort if the path is finished */
 				disturb(player, 0);
 				player->upkeep->running_withpathfind = FALSE;
 				return;
-			}
-
-			/* Abort if we would hit a wall */
-			else if (pf_result_index == 0)
-			{
-				/* Get next step */
+			} else if (pf_result_index == 0) {
+				/* Abort if we would hit a wall */
 				y = player->py + ddy[pf_result[pf_result_index] - '0'];
 				x = player->px + ddx[pf_result[pf_result_index] - '0'];
 
 				/* Known wall */
-				if (square_ismark(cave, y, x) && !square_ispassable(cave, y, x))
-				{
+				if (square_ismark(cave, y, x) &&
+					!square_ispassable(cave, y, x)) {
 					disturb(player, 0);
 					player->upkeep->running_withpathfind = FALSE;
 					return;
 				}
-			}
-
-			/*
-			 * Hack -- walking stick lookahead.
-			 *
-			 * If the player has computed a path that is going to end up in a wall,
-			 * we notice this and convert to a normal run. This allows us to click
-			 * on unknown areas to explore the map.
-			 *
-			 * We have to look ahead two, otherwise we don't know which is the last
-			 * direction moved and don't initialise the run properly.
-			 */
-			else if (pf_result_index > 0)
-			{
-				/* Get next step */
+			} else if (pf_result_index > 0) {
+				/* If the player has computed a path that is going to end up
+				 * in a wall, we notice this and convert to a normal run. This
+				 * allows us to click on unknown areas to explore the map.
+				 *
+				 * We have to look ahead two, otherwise we don't know which is
+				 * the last direction moved and don't initialise the run
+				 * properly. */
 				y = player->py + ddy[pf_result[pf_result_index] - '0'];
 				x = player->px + ddx[pf_result[pf_result_index] - '0'];
 
 				/* Known wall */
-				if (square_ismark(cave, y, x) && !square_ispassable(cave, y, x))
-				{
+				if (square_ismark(cave, y, x) &&
+					!square_ispassable(cave, y, x)) {
 					disturb(player, 0);
 					player->upkeep->running_withpathfind = FALSE;
 					return;
 				}
 
 				/* Get step after */
-				y = y + ddy[pf_result[pf_result_index-1] - '0'];
-				x = x + ddx[pf_result[pf_result_index-1] - '0'];
+				y = y + ddy[pf_result[pf_result_index - 1] - '0'];
+				x = x + ddx[pf_result[pf_result_index - 1] - '0'];
 
-				/* Known wall */
-				if (square_ismark(cave, y, x) && !square_ispassable(cave, y, x))
-				{
+				/* Known wall, so run the direction we were going */
+				if (square_ismark(cave, y, x) &&
+					!square_ispassable(cave, y, x)) {
 					player->upkeep->running_withpathfind = FALSE;
-
 					run_init(pf_result[pf_result_index] - '0');
 				}
 			}
 
+			/* Now actually run the step if we're still going */
 			run_cur_dir = pf_result[pf_result_index--] - '0';
 		}
 	}
 
-
-	/* Decrease counter */
-	player->upkeep->running--;
+	/* Decrease counter if it hasn't been cancelled */
+	if (player->upkeep->running)
+		player->upkeep->running--;
 
 	/* Take time */
-	player->upkeep->energy_use = 100;
+	player->upkeep->energy_use = z_info->move_energy;
 
-	/* Move the player */
-	move_player(run_cur_dir, TRUE);
+	/* Check for continued running */
+	if (run_test())
+		keep_running = FALSE;
+
+	/* Move the player; running straight into a trap == trying to disarm */
+	move_player(run_cur_dir, dir ? TRUE : FALSE);
+
+	/* Stop now if we have to */
+	if (!keep_running) {
+		/* Disturb */
+		disturb(player, 0);
+		return;
+	}
+
+	/* Prepare the next step */
+	if (player->upkeep->running) {
+		cmdq_push(CMD_RUN);
+		cmd_set_arg_direction(cmdq_peek(), "direction", 0);
+	}
 }
 

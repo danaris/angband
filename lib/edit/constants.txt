@@ -3,15 +3,16 @@
 
 # This file is used to initialize game constants for Angband.
 
-## Level Maxima ##
-
-# Maximum number of objects on the level
-level-max:objects:1024
+#---------------------------------------------------------------------
+# Level Maxima
+#---------------------------------------------------------------------
 
 # Maximum number of monsters on the level
 level-max:monsters:1024
 
-## Monster Generation ##
+#---------------------------------------------------------------------
+# Monster Generation
+#---------------------------------------------------------------------
 
 # 1/per-turn-chance of new monster generation
 mon-gen:chance:500
@@ -34,7 +35,9 @@ mon-gen:ood-chance:25
 # Maximum out-of-depth amount for monster generation
 mon-gen:ood-amount:10
 
-## Monster Gameplay ##
+#---------------------------------------------------------------------
+# Monster Gameplay
+#---------------------------------------------------------------------
 
 # Rune of protection resistance to monster breaking
 mon-play:break-glyph:550
@@ -48,7 +51,16 @@ mon-play:life-drain:2
 # Maximum flow depth when using for monster flow calculation
 mon-play:flow-depth:32
 
-## Dungeon Generation ##
+# Monsters will run up to this many grids out of sight
+mon-play:flee-range:5
+
+# Terrified monsters will turn to fight if they are slower than the character,
+# and closer than this distance.
+mon-play:turn-range:5
+
+#---------------------------------------------------------------------
+# Dungeon Generation
+#---------------------------------------------------------------------
 
 # Number of possible room centres (and hence rooms) on a normal level
 dun-gen:cent-max:100
@@ -74,21 +86,41 @@ dun-gen:amt-gold:3
 # Maximum number of pits or nests allowed per level
 dun-gen:pit-max:2
 
-## Dungeon Dimensions ##
+#---------------------------------------------------------------------
+# Game World
+#---------------------------------------------------------------------
+
+# Maximum dungeon level; must be at least 100.
+# Setting it below 128 may prevent the creation of some objects.
+world:max-depth:128
+
+# Number of turns from dawn to dawn
+world:day-length:10000
 
 # Max number of grids in each dungeon level (vertically)
-dun-dim:dungeon-hgt:66
+world:dungeon-hgt:66
 
 # Max number of grids in each dungeon level (horizontally)
-dun-dim:dungeon-wid:198
+world:dungeon-wid:198
 
 # Max number of grids in each town level (vertically)
-dun-dim:town-hgt:22
+world:town-hgt:22
 
 # Max number of grids in each town level (horizontally)
-dun-dim:town-wid:66
+world:town-wid:66
 
-## Carrying Capacity ##
+# Total number of feeling squares per level
+world:feeling-total:100
+
+# Squares needed to see to get first feeling
+world:feeling-need:10
+
+# Energy needed by player or monsters to move
+world:move-energy:100
+
+#---------------------------------------------------------------------
+# Carrying Capacity
+#---------------------------------------------------------------------
 
 # Max number of pack slots for carrying inventory
 carry-cap:pack-size:23
@@ -101,3 +133,60 @@ carry-cap:quiver-size:10
 # The main screen originally had a minimum size of 24 rows, so it could always
 # display 23 objects + 1 header line.
 carry-cap:floor-size:23
+
+# Max number of pack slots for carrying inventory
+carry-cap:stack-size:40
+
+
+#---------------------------------------------------------------------
+# Store Parameters
+#---------------------------------------------------------------------
+
+# Maximum number of discrete objects in store inventory
+store:inven-max:24
+
+# Number of turns between turnovers
+store:turns:1000
+
+# 1/Chance (per day) of an owner changing
+store:shuffle:25
+
+# Dungeon level to apply magic to objects for normal stores
+store:magic-level:5
+
+
+#---------------------------------------------------------------------
+# Object generation
+#---------------------------------------------------------------------
+
+# Maximum depth used in object allocation
+obj-make:max-depth:100
+
+# 1/chance of inflating the requested object level
+obj-make:great-obj:20
+
+# 1/chance of inflating the requested ego item level
+obj-make:great-ego:20
+
+# Maximum amount of fuel in a torch
+obj-make:fuel-torch:5000
+
+# Maximum amount of fuel in a lantern
+obj-make:fuel-lamp:15000
+
+# Default amount of fuel in a lantern
+obj-make:default-lamp:7500
+
+
+#---------------------------------------------------------------------
+# Player constants
+#---------------------------------------------------------------------
+
+# Maximum visual range
+player:max-sight:20
+
+# Maximum missile and spell range
+player:max-range:20
+
+# Amount of gold (or value of equipment) the player starts with
+player:start-gold:600

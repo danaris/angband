@@ -1,6 +1,6 @@
 /**
-   \file object.h
-   \brief basic object structs and enums
+ * \file object.h
+ * \brief basic object structs and enums
  */
 #ifndef INCLUDED_OBJECT_H
 #define INCLUDED_OBJECT_H
@@ -20,7 +20,7 @@
  */
 enum
 {
-	#define ELEM(a, b, c, d, e, f, g, col) ELEM_##a,
+	#define ELEM(a, b, c, d, e, f, g, h, i, col) ELEM_##a,
 	#include "list-elements.h"
 	#undef ELEM
 
@@ -102,6 +102,7 @@ struct brand {
 	char *name;
 	int element;
 	int multiplier;
+	int damage; /* Storage for damage during description */
 	bool known;
 	struct brand *next;
 };
@@ -111,6 +112,7 @@ struct slay {
 	char *name;
 	int race_flag;
 	int multiplier;
+	int damage; /* Storage for damage during description */
 	bool known;
 	struct slay *next;
 };
@@ -236,12 +238,6 @@ typedef struct object_kind
 	random_value stack_size;/**< Number to generate */
 
 	struct flavor *flavor;	/**< Special object flavor (or zero) */
-
-
-	/** Game-dependent **/
-
-	byte x_attr;	/**< Desired object attribute (set by user/pref file) */
-	wchar_t x_char;	/**< Desired object character (set by user/pref file) */
 
 	/** Also saved in savefile **/
 
@@ -383,35 +379,37 @@ extern ego_item_type *e_info;
 /*
  * Object information, for a specific object.
  *
- * Note that a "discount" on an item is permanent and never goes away.
- *
  * Note that inscriptions are now handled via the "quark_str()" function
  * applied to the "note" field, which will return NULL if "note" is zero.
  *
- * Note that "object" records are "copied" on a fairly regular basis,
- * and care must be taken when handling such objects.
+ * Each cave grid points to one (or zero) objects via the "obj" field in
+ * its "squares" struct.  Each object then points to one (or zero) objects
+ * via the "next" field, and (aside from the first) back via its "prev"
+ * field, forming a doubly linked list, which in game terms represents a
+ * stack of objects in the same grid.
  *
- * Note that "object flags" must now be derived from the object kind,
- * the artifact and ego-item indexes, and the two "xtra" fields.
- *
- * Each cave grid points to one (or zero) objects via the "o_idx"
- * field (above).  Each object then points to one (or zero) objects
- * via the "next_o_idx" field, forming a singly linked list, which
- * in game terms, represents a "stack" of objects in the same grid.
- *
- * Each monster points to one (or zero) objects via the "hold_o_idx"
- * field (below).  Each object then points to one (or zero) objects
- * via the "next_o_idx" field, forming a singly linked list, which
- * in game terms, represents a pile of objects held by the monster.
+ * Each monster points to one (or zero) objects via the "held_obj"
+ * field (see monster.h).  Each object then points to one (or zero) objects
+ * and back to previous objects by its own "next" and "prev" fields,
+ * forming a doubly linked list, which in game terms represents the
+ * monster's inventory.
  *
  * The "held_m_idx" field is used to indicate which monster, if any,
- * is holding the object.  Objects being held have "ix=0" and "iy=0".
+ * is holding the object.  Objects being held have "ix = 0" and "iy = 0".
+ *
+ * Note that object records are not now copied, but allocated on object
+ * creation and freed on object destruction.  These records are handed
+ * around between player and monster inventories and the floor on a fairly
+ * regular basis, and care must be taken when handling such objects.
  */
 typedef struct object
 {
 	struct object_kind *kind;
 	struct ego_item *ego;
 	struct artifact *artifact;
+
+	struct object *prev;	/* Previous object in a pile */
+	struct object *next;	/* Next object in a pile */
 
 	byte iy;			/* Y-position on map, or zero */
 	byte ix;			/* X-position on map, or zero */
@@ -450,7 +448,6 @@ typedef struct object
 	byte marked;		/* Object is marked */
 	byte ignore;		/* Object is ignored */
 
-	s16b next_o_idx;	/* Next object in stack (if any) */
 	s16b held_m_idx;	/* Monster holding us (if any) */
 	s16b mimicking_m_idx; /* Monster mimicking us (if any) */
 
@@ -472,9 +469,6 @@ struct flavor
 
 	byte d_attr;	/* Default flavor attribute */
 	wchar_t d_char;	/* Default flavor character */
-
-	byte x_attr;	/* Desired flavor attribute */
-	wchar_t x_char;	/* Desired flavor character */
 };
 
 extern struct flavor *flavors;

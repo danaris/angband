@@ -1,4 +1,6 @@
-/* list-options.h - options
+/**
+ * \file list-options.h
+ * \brief options
  *
  * Currently, if there are more than 20 of any option type, the later ones
  * will be ignored
@@ -71,8 +73,6 @@ OP(birth_randarts,        "Randomise the artifacts (except a very few)",
 BIRTH, FALSE)
 OP(birth_no_recall,       "Word of Recall has no effect",
 BIRTH, FALSE)
-OP(birth_small_range,     "Halve view and spell distances",
-BIRTH, FALSE)
 OP(birth_no_artifacts,    "Restrict creation of artifacts",
 BIRTH, FALSE)
 OP(birth_no_stacking,     "Don't stack objects on the floor",
@@ -83,7 +83,7 @@ OP(birth_no_stairs,       "Don't generate connected stairs",
 BIRTH, FALSE)
 OP(birth_no_feelings,     "Don't show level feelings",
 BIRTH, FALSE)
-OP(birth_no_selling,      "Items always sell for 0 gold",
+OP(birth_no_selling,      "Increase gold drops but disable selling",
 BIRTH, TRUE)
 OP(birth_keep_randarts,   "Use previous set of randarts",
 BIRTH, TRUE)

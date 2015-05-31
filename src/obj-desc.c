@@ -1,6 +1,6 @@
 /**
-   \file obj-desc.c
-   \brief Create object name descriptions
+ * \file obj-desc.c
+ * \brief Create object name descriptions
  *
  * Copyright (c) 1997 - 2007 Angband contributors
  *
@@ -335,7 +335,8 @@ static size_t obj_desc_name(char *buf, size_t max, size_t end,
 	if ((object_name_is_visible(o_ptr) || known) && o_ptr->artifact)
 		strnfcat(buf, max, &end, " %s", o_ptr->artifact->name);
 
-	else if ((spoil && o_ptr->ego) || object_ego_is_visible(o_ptr))
+	else if (((spoil && o_ptr->ego) || object_ego_is_visible(o_ptr)) &&
+			 !(mode & ODESC_NOEGO))
 		strnfcat(buf, max, &end, " %s", o_ptr->ego->name);
 
 	else if (aware && !o_ptr->artifact &&
@@ -507,9 +508,7 @@ static size_t obj_desc_mods(const object_type *o_ptr, char *buf, size_t max,
 	size_t end, bool spoil)
 {
 	int i, j, num_mods = 0;
-
-	/* Show maximum of (a fairly arbitrary) 4 modifiers */
-	int mods[4] = { 0, 0, 0, 0 };
+	int mods[OBJ_MOD_MAX] = { 0 };
 
 	/* Run through possible modifiers and store distinct ones */
 	for (i = 0; i < OBJ_MOD_MAX; i++) {
@@ -529,9 +528,6 @@ static size_t obj_desc_mods(const object_type *o_ptr, char *buf, size_t max,
 			/* Add another mod if needed */
 			if (j == num_mods)
 				mods[num_mods++] = o_ptr->modifiers[i];
-
-			/* Quit if we've reached our limit */
-			if (num_mods == 4) break;
 		}
 	}
 
@@ -672,21 +668,19 @@ static size_t obj_desc_aware(const object_type *o_ptr, char *buf, size_t max,
  */
 size_t object_desc(char *buf, size_t max, const object_type *o_ptr, int mode)
 {
-	bool prefix = mode & ODESC_PREFIX;
-	bool spoil = mode & ODESC_SPOIL;
-	bool terse = mode & ODESC_TERSE;
-	bool known;
+	bool prefix = mode & ODESC_PREFIX ? TRUE : FALSE;
+	bool spoil = mode & ODESC_SPOIL ? TRUE : FALSE;
+	bool terse = mode & ODESC_TERSE ? TRUE : FALSE;
 
 	size_t end = 0;
 
 	/* Simple description for null item */
-	if (!o_ptr->tval)
+	if (!o_ptr)
 		return strnfmt(buf, max, "(nothing)");
 
-	known = object_is_known(o_ptr) || spoil;
-
-	/* We've seen it at least once now we're aware of it */
-	if (known && o_ptr->ego && !spoil) o_ptr->ego->everseen = TRUE;
+	/* Egos whose name we know are seen */
+	if (object_name_is_visible(o_ptr) && o_ptr->ego && !spoil)
+		o_ptr->ego->everseen = TRUE;
 
 
 	/*** Some things get really simple descriptions ***/

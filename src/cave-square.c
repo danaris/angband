@@ -18,9 +18,11 @@
 
 #include "angband.h"
 #include "cave.h"
-#include "dungeon.h"
+#include "game-world.h"
+#include "init.h"
 #include "monster.h"
 #include "obj-util.h"
+#include "obj-pile.h"
 #include "object.h"
 #include "trap.h"
 
@@ -98,11 +100,11 @@ bool feat_is_projectable(int feat)
 }
 
 /**
- * True if the feature is "boring".
+ * True if the feature is internally lit.
  */
-bool feat_is_boring(int feat)
+bool feat_is_bright(int feat)
 {
-	return !tf_has(f_info[feat].flags, TF_INTERESTING);
+	return tf_has(f_info[feat].flags, TF_BRIGHT);
 }
 
 /**
@@ -236,7 +238,7 @@ bool square_isdoor(struct chunk *c, int y, int x)
 /**
  * True if square is any stair
  */
-bool square_isstairs(struct chunk*c, int y, int x)
+bool square_isstairs(struct chunk *c, int y, int x)
 {
 	int feat = c->squares[y][x].feat;
 	return tf_has(f_info[feat].flags, TF_STAIR);
@@ -266,11 +268,6 @@ bool square_isdownstairs(struct chunk *c, int y, int x)
 bool square_isshop(struct chunk *c, int y, int x)
 {
 	return feat_is_shop(c->squares[y][x].feat);
-}
-
-bool square_noticeable(struct chunk *c, int y, int x)
-{
-	return tf_has(f_info[c->squares[y][x].feat].flags, TF_INTERESTING);
 }
 
 /**
@@ -472,14 +469,18 @@ bool square_isopen(struct chunk *c, int y, int x) {
  * True if the square is empty (an open square without any items).
  */
 bool square_isempty(struct chunk *c, int y, int x) {
-	return square_isopen(c, y, x) && !c->o_idx[y][x];
+	return square_isopen(c, y, x) && !square_object(c, y, x);
 }
 
 /**
- * True if the square is a floor square without items.
+ * True if the square is an untrapped floor square without items.
  */
 bool square_canputitem(struct chunk *c, int y, int x) {
-	return square_isfloor(c, y, x) && !c->o_idx[y][x];
+	if (!square_isfloor(c, y, x))
+		return FALSE;
+	if (square_iswarded(c, y, x) || square_isplayertrap(c, y, x))
+		return FALSE;
+	return !square_object(c, y, x);
 }
 
 /**
@@ -543,11 +544,11 @@ bool square_isstrongwall(struct chunk *c, int y, int x) {
 }
 
 /**
- * True if the cave square is "boring".
+ * True if the cave square is internally lit.
  */
-bool square_isboring(struct chunk *c, int y, int x) {
+bool square_isbright(struct chunk *c, int y, int x) {
 	assert(square_in_bounds(c, y, x));
-	return feat_is_boring(c->squares[y][x].feat);
+	return feat_is_bright(c->squares[y][x].feat);
 }
 
 bool square_iswarded(struct chunk *c, int y, int x)
@@ -619,18 +620,17 @@ bool square_isknowntrap(struct chunk *c, int y, int x)
  */
 bool square_changeable(struct chunk *c, int y, int x)
 {
-	object_type *o_ptr;
+	object_type *obj;
 
 	/* Forbid perma-grids */
-	if (square_isperm(c, y, x) || square_isshop(c, y, x) || 
-		square_isstairs(c, y, x)) return (FALSE);
+	if (square_isperm(c, y, x) || square_isshop(c, y, x) ||
+		square_isstairs(c, y, x))
+		return (FALSE);
 
 	/* Check objects */
-	for (o_ptr = get_first_object(y, x); o_ptr; o_ptr = get_next_object(o_ptr))
-	{
+	for (obj = square_object(c, y, x); obj; obj = obj->next)
 		/* Forbid artifact grids */
-		if (o_ptr->artifact) return (FALSE);
-	}
+		if (obj->artifact) return (FALSE);
 
 	/* Accept */
 	return (TRUE);
@@ -702,14 +702,38 @@ struct monster *square_monster(struct chunk *c, int y, int x)
  * Get the top object of a pile on the current level by its position.
  */
 struct object *square_object(struct chunk *c, int y, int x) {
-	if (c->o_idx[y][x] > 0) {
-	struct object *obj = cave_object(c, c->o_idx[y][x]);
-	return obj->kind ? obj : NULL;
-	}
-
-	return NULL;
+	return c->squares[y][x].obj;
 }
 
+/**
+ * Return TRUE if the given object is on the floor at this grid
+ */
+bool square_holds_object(struct chunk *c, int y, int x, struct object *obj) {
+	return pile_contains(square_object(c, y, x), obj);
+}
+
+/**
+ * Excise an object from a floor pile, leaving it orphaned.
+ */
+void square_excise_object(struct chunk *c, int y, int x, struct object *obj) {
+	pile_excise(&c->squares[y][x].obj, obj);
+}
+
+/**
+ * Excise an entire floor pile.
+ */
+void square_excise_pile(struct chunk *c, int y, int x) {
+	object_pile_free(square_object(c, y, x));
+	c->squares[y][x].obj = NULL;
+}
+
+
+/**
+ * Set the terrain type for a square.
+ *
+ * This should be the only function that sets terrain, apart from the savefile
+ * loading code.
+ */
 void square_set_feat(struct chunk *c, int y, int x, int feat)
 {
 	int current_feat = c->squares[y][x].feat;
@@ -727,13 +751,17 @@ void square_set_feat(struct chunk *c, int y, int x, int feat)
 
 	/* Make the new terrain feel at home */
 	if (character_dungeon) {
+		/* Remove traps if necessary */
+		if (!square_player_trap_allowed(c, y, x))
+			square_destroy_trap(c, y, x);
+
 		square_note_spot(c, y, x);
 		square_light_spot(c, y, x);
 	} else {
 		/* Make sure no incorrect wall flags set for dungeon generation */
-		   sqinfo_off(c->squares[y][x].info, SQUARE_WALL_INNER);
-		   sqinfo_off(c->squares[y][x].info, SQUARE_WALL_OUTER);
-		   sqinfo_off(c->squares[y][x].info, SQUARE_WALL_SOLID);
+		sqinfo_off(c->squares[y][x].info, SQUARE_WALL_INNER);
+		sqinfo_off(c->squares[y][x].info, SQUARE_WALL_OUTER);
+		sqinfo_off(c->squares[y][x].info, SQUARE_WALL_SOLID);
 	}
 }
 
@@ -752,8 +780,12 @@ void square_add_stairs(struct chunk *c, int y, int x, int depth) {
 	int down = randint0(100) < 50;
 	if (depth == 0)
 		down = 1;
-	else if (is_quest(depth) || depth >= MAX_DEPTH - 1)
+	else if (is_quest(depth) || depth >= z_info->max_depth - 1)
 		down = 0;
+
+	/* Remove any traps */
+	square_destroy_trap(c, y, x);
+
 	square_set_feat(c, y, x, down ? FEAT_MORE : FEAT_LESS);
 }
 
@@ -878,8 +910,8 @@ int square_digging(struct chunk *c, int y, int x) {
 const char *square_apparent_name(struct chunk *c, struct player *p, int y, int x) {
 	int f = f_info[c->squares[y][x].feat].mimic;
 
-	if (!square_ismark(c, y, x) && !player_can_see_bold(y, x))
-		return "unknown_grid";
+	if (!square_ismark(c, y, x) && !square_isseen(c, y, x))
+		return "unknown grid";
 
 	return f_info[f].name;
 }

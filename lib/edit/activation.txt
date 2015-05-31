@@ -467,9 +467,7 @@ desc:attempts to magically enhance a weapon's to-dam bonus.  Also gives a chance
 name:ENCHANT_WEAPON
 aim:0
 power:22
-effect:ENCHANT:TOHIT
-dice:1d3
-effect:ENCHANT:TODAM
+effect:ENCHANT:TOBOTH
 dice:1d3
 desc:attempts to magically enhance a weapon both to-hit and to-dam.  Also gives a chance to break a curse
 
@@ -495,13 +493,13 @@ desc:reveals to you the extent of an item's magical powers
 
 name:REMOVE_CURSE
 aim:0
-power:8
+power:20000
 effect:REMOVE_CURSE
 desc:removes all ordinary curses from all equipped items
 
 name:REMOVE_CURSE2
 aim:0
-power:20
+power:20000
 effect:REMOVE_ALL_CURSE
 desc:removes all curses from all equipped items
 
@@ -638,6 +636,7 @@ name:DESTRUCTION2
 aim:0
 power:12
 effect:DESTRUCTION
+param:15
 desc:destroys an area around you in the shape of a circle radius 15, and blinds you for 1d10+10 turns
 
 
@@ -1048,7 +1047,7 @@ name:TELE_OTHER
 aim:1
 power:11
 msg:Your {kind} glow{s} deep red...
-effect:BOLT:AWAY_ALL
+effect:BOLT_STATUS:AWAY_ALL
 dice:$B
 expr:B:MAX_SIGHT:* 5
 desc:teleports a target monster away
@@ -1064,7 +1063,7 @@ desc:confuses a target monster
 name:MON_SLOW
 aim:1
 power:3
-effect:BOLT:OLD_SLOW
+effect:BOLT_STATUS:OLD_SLOW
 dice:20
 desc:attempts to magically slow a single monster
 
@@ -1114,7 +1113,7 @@ desc:destroys traps and doors
 name:POLYMORPH
 aim:1
 power:7
-effect:BOLT:OLD_POLY
+effect:BOLT_STATUS:OLD_POLY
 dice:$B
 expr:B:PLAYER_LEVEL:+ 0
 desc:polymorphs a monster into another kind of creature
@@ -1268,8 +1267,8 @@ name:SHROOM_PURGING
 aim:0
 power:5
 effect:SET_NOURISH
-#PY_FOOD_FAINT - 1
-dice:499
+dice:$B
+expr:B:FOOD_FAINT:- 1
 effect:RESTORE_STAT:STR
 effect:RESTORE_STAT:CON
 desc:makes you very hungry but restores constitution and strength
@@ -1376,7 +1375,7 @@ effect:BREATH:SOUND:2
 dice:230
 effect:BREATH:SHARD:2
 dice:230
-desc:allows you to breathe sound/shards for 230 damage
+desc:allows you to breathe sound or shards for 230 damage
 
 name:DRAGON_BALANCE
 aim:1

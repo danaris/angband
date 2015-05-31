@@ -20,96 +20,18 @@
 #ifndef PLAYER_CALCS_H
 #define PLAYER_CALCS_H
 
-/**
- * Indexes of the various "stats" (hard-coded by savefiles, etc).
- */
-enum
-{
-	#define STAT(a, b, c, d, e, f, g, h) STAT_##a,
-	#include "list-stats.h"
-	#undef STAT
-
-	STAT_MAX
-};
-
+#include "player.h"
 
 /**
- * Player race and class flags
- */
-enum
-{
-	#define PF(a,b) PF_##a,
-	#include "list-player-flags.h"
-	#undef PF
-	PF_MAX
-};
-
-#define PF_SIZE                FLAG_SIZE(PF_MAX)
-
-#define pf_has(f, flag)        flag_has_dbg(f, PF_SIZE, flag, #f, #flag)
-#define pf_next(f, flag)       flag_next(f, PF_SIZE, flag)
-#define pf_is_empty(f)         flag_is_empty(f, PF_SIZE)
-#define pf_is_full(f)          flag_is_full(f, PF_SIZE)
-#define pf_is_inter(f1, f2)    flag_is_inter(f1, f2, PF_SIZE)
-#define pf_is_subset(f1, f2)   flag_is_subset(f1, f2, PF_SIZE)
-#define pf_is_equal(f1, f2)    flag_is_equal(f1, f2, PF_SIZE)
-#define pf_on(f, flag)         flag_on_dbg(f, PF_SIZE, flag, #f, #flag)
-#define pf_off(f, flag)        flag_off(f, PF_SIZE, flag)
-#define pf_wipe(f)             flag_wipe(f, PF_SIZE)
-#define pf_setall(f)           flag_setall(f, PF_SIZE)
-#define pf_negate(f)           flag_negate(f, PF_SIZE)
-#define pf_copy(f1, f2)        flag_copy(f1, f2, PF_SIZE)
-#define pf_union(f1, f2)       flag_union(f1, f2, PF_SIZE)
-#define pf_comp_union(f1, f2)  flag_comp_union(f1, f2, PF_SIZE)
-#define pf_inter(f1, f2)       flag_inter(f1, f2, PF_SIZE)
-#define pf_diff(f1, f2)        flag_diff(f1, f2, PF_SIZE)
-
-#define player_has(flag)       (pf_has(player->race->pflags, (flag)) || pf_has(player->class->pflags, (flag)))
-
-
-/**
- * Skill indexes
- */
-enum
-{
-	SKILL_DISARM,			/* Skill: Disarming */
-	SKILL_DEVICE,			/* Skill: Magic Devices */
-	SKILL_SAVE,				/* Skill: Saving throw */
-	SKILL_STEALTH,			/* Skill: Stealth factor */
-	SKILL_SEARCH,			/* Skill: Searching ability */
-	SKILL_SEARCH_FREQUENCY,	/* Skill: Searching frequency */
-	SKILL_TO_HIT_MELEE,		/* Skill: To hit (normal) */
-	SKILL_TO_HIT_BOW,		/* Skill: To hit (shooting) */
-	SKILL_TO_HIT_THROW,		/* Skill: To hit (throwing) */
-	SKILL_DIGGING,			/* Skill: Digging */
-
-	SKILL_MAX
-};
-
-/* Terrain that the player has a chance of digging through */
-enum
-{
-	DIGGING_RUBBLE = 0,
-	DIGGING_MAGMA,
-	DIGGING_QUARTZ,
-	DIGGING_GRANITE,
-	DIGGING_DOORS,
-	
-	DIGGING_MAX
-};
-
-/*
- * Bit flags for the "player->notice" variable
+ * Bit flags for the "player->upkeep->notice" variable
  */
 #define PN_COMBINE      0x00000001L    /* Combine the pack */
-#define PN_AUTOINSCRIBE 0x00000002L    /* Autoinscribe items */
-#define PN_PICKUP       0x00000004L    /* Pick stuff up */
 #define PN_IGNORE       0x00000008L    /* Ignore stuff */
 #define PN_MON_MESSAGE	0x00000010L	   /* flush monster pain messages */
 
 
-/*
- * Bit flags for the "player->update" variable
+/**
+ * Bit flags for the "player->upkeep->update" variable
  */
 #define PU_BONUS		0x00000001L	/* Calculate bonuses */
 #define PU_TORCH		0x00000002L	/* Calculate torch radius */
@@ -126,8 +48,8 @@ enum
 #define PU_INVEN		0x00001000L	/* Update inventory */
 
 
-/*
- * Bit flags for the "player->redraw" variable
+/**
+ * Bit flags for the "player->upkeep->redraw" variable
  */
 #define PR_MISC			0x00000001L	/* Display Race/Class */
 #define PR_TITLE		0x00000002L	/* Display Title */
@@ -164,6 +86,7 @@ enum
 #define PR_EXTRA \
 	(PR_STATUS | PR_STATE | PR_STUDY)
 
+//<<<<<<< HEAD
 /**
  * The range of possible indexes into tables based upon stats.
  * Currently things range from 3 to 18/220 = 40.
@@ -300,30 +223,33 @@ typedef struct player_upkeep {
 	
 } player_upkeep;
 
+//>>>>>>> 77dc1ae5e9b36a01cdfca9b2a2e384c608e65208
 
 extern const byte adj_str_blow[STAT_RANGE];
 extern const byte adj_dex_safe[STAT_RANGE];
 extern const byte adj_con_fix[STAT_RANGE];
 extern const byte adj_str_hold[STAT_RANGE];
 
-int equipped_item_slot(struct player_body body, int item);
-void calc_inventory(struct player_upkeep *upkeep, object_type gear[],
-					struct player_body body, int max_gear);
-void calc_bonuses(object_type inventory[], player_state *state, bool known_only);
+bool earlier_object(struct object *orig, struct object *new, bool store);
+int equipped_item_slot(struct player_body body, struct object *obj);
+void calc_inventory(struct player_upkeep *upkeep, struct object *gear,
+					struct player_body body);
+void calc_bonuses(struct player *p, player_state *state, bool known_only);
 void calc_digging_chances(player_state *state, int chances[DIGGING_MAX]);
-int calc_blows(const object_type *o_ptr, player_state *state, int extra_blows);
+int calc_blows(struct player *p, const object_type *o_ptr, player_state *state,
+			   int extra_blows);
 
 void health_track(struct player_upkeep *upkeep, struct monster *m_ptr);
 void monster_race_track(struct player_upkeep *upkeep, 
 						struct monster_race *race);
-void track_object(struct player_upkeep *upkeep, int item);
+void track_object(struct player_upkeep *upkeep, struct object *obj);
 void track_object_kind(struct player_upkeep *upkeep, struct object_kind *kind);
-bool tracked_object_is(struct player_upkeep *upkeep, int item);
+bool tracked_object_is(struct player_upkeep *upkeep, struct object *obj);
 
-void notice_stuff(struct player_upkeep *upkeep);
-void update_stuff(struct player_upkeep *upkeep);
-void redraw_stuff(struct player_upkeep *upkeep);
-void handle_stuff(struct player_upkeep *upkeep);
-int weight_remaining(void);
+void notice_stuff(struct player *p);
+void update_stuff(struct player *p);
+void redraw_stuff(struct player *p);
+void handle_stuff(struct player *p);
+int weight_remaining(struct player *p);
 
 #endif /* !PLAYER_CALCS_H */

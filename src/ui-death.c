@@ -1,6 +1,6 @@
 /**
-   \file ui-death.c
-   \brief Handle the UI bits that happen after the character dies.
+ * \file ui-death.c
+ * \brief Handle the UI bits that happen after the character dies.
  *
  * Copyright (c) 1987 - 2007 Angband contributors
  *
@@ -18,18 +18,21 @@
 
 #include "angband.h"
 #include "cmds.h"
-#include "history.h"
+#include "game-input.h"
 #include "init.h"
 #include "obj-desc.h"
 #include "obj-identify.h"
 #include "obj-info.h"
-#include "obj-ui.h"
 #include "savefile.h"
-#include "score.h"
 #include "store.h"
 #include "ui-death.h"
+#include "ui-history.h"
+#include "ui-input.h"
+#include "ui-knowledge.h"
 #include "ui-menu.h"
+#include "ui-object.h"
 #include "ui-player.h"
+#include "ui-score.h"
 #include "wizard.h"
 
 /**
@@ -73,8 +76,7 @@ static void print_tomb(void)
 	path_build(buf, sizeof(buf), ANGBAND_DIR_FILE, "dead.txt");
 	fp = file_open(buf, MODE_READ, FTYPE_TEXT);
 
-	if (fp)
-	{
+	if (fp) {
 		while (file_getl(fp, buf, sizeof(buf)))
 			put_str(buf, line++, 0);
 
@@ -124,8 +126,7 @@ static void display_winner(void)
 	Term_clear();
 	Term_get_size(&wid, &hgt);
 
-	if (fp)
-	{
+	if (fp) {
 		/* Get us the first line of file, which tells us how long the */
 		/* longest line is */
 		file_getl(fp, buf, sizeof(buf));
@@ -139,9 +140,9 @@ static void display_winner(void)
 		file_close(fp);
 	}
 
-	put_str_centred(i, 0, wid, "All Hail the Mighty %s!", player->sex->winner);
+	put_str_centred(i, 0, wid, "All Hail the Mighty Champion!");
 
-	flush();
+	event_signal(EVENT_INPUT_FLUSH);
 	pause_line(Term);
 }
 
@@ -156,8 +157,7 @@ static void death_file(const char *title, int row)
 
 	strnfmt(ftmp, sizeof(ftmp), "%s.txt", player_safe_name(player, FALSE));
 
-	if (get_file(ftmp, buf, sizeof buf))
-	{
+	if (get_file(ftmp, buf, sizeof buf)) {
 		bool success;
 
 		/* Dump a character file */
@@ -172,7 +172,7 @@ static void death_file(const char *title, int row)
 			msg("Character dump failed!");
 
 		/* Flush messages */
-		message_flush();
+		event_signal(EVENT_MESSAGE_FLUSH);
 	}
 }
 
@@ -181,10 +181,7 @@ static void death_file(const char *title, int row)
  */
 static void death_info(const char *title, int row)
 {
-	int i, j, k;
-	object_type *o_ptr;
-	struct store *st_ptr = &stores[STORE_HOME];
-
+	struct store *home = &stores[STORE_HOME];
 
 	screen_save();
 
@@ -201,8 +198,7 @@ static void death_info(const char *title, int row)
 	/* Show equipment and inventory */
 
 	/* Equipment -- if any */
-	if (player->upkeep->equip_cnt)
-	{
+	if (player->upkeep->equip_cnt) {
 		Term_clear();
 		show_equip(OLIST_WEIGHT | OLIST_SEMPTY, NULL);
 		prt("You are using: -more-", 0, 0);
@@ -210,53 +206,49 @@ static void death_info(const char *title, int row)
 	}
 
 	/* Inventory -- if any */
-	if (player->upkeep->inven_cnt)
-	{
+	if (player->upkeep->inven_cnt) {
 		Term_clear();
 		show_inven(OLIST_WEIGHT, NULL);
 		prt("You are carrying: -more-", 0, 0);
 		(void)anykey();
 	}
 
-
-
 	/* Home -- if anything there */
-	if (st_ptr->stock_num)
-	{
+	if (home->stock) {
+		int page;
+		object_type *obj = home->stock;
+
 		/* Display contents of the home */
-		for (k = 0, i = 0; i < st_ptr->stock_num; k++)
-		{
+		for (page = 1; obj; page++) {
+			int line;
+
 			/* Clear screen */
 			Term_clear();
 
 			/* Show 12 items */
-			for (j = 0; (j < 12) && (i < st_ptr->stock_num); j++, i++)
-			{
+			for (line = 0; obj && line < 12; obj = obj->next, line++) {
 				byte attr;
 
 				char o_name[80];
 				char tmp_val[80];
 
-				/* Get the object */
-				o_ptr = &st_ptr->stock[i];
-
 				/* Print header, clear line */
-				strnfmt(tmp_val, sizeof(tmp_val), "%c) ", I2A(j));
-				prt(tmp_val, j+2, 4);
+				strnfmt(tmp_val, sizeof(tmp_val), "%c) ", I2A(line));
+				prt(tmp_val, line + 2, 4);
 
 				/* Get the object description */
-				object_desc(o_name, sizeof(o_name), o_ptr,
-							ODESC_PREFIX | ODESC_FULL);
+				object_desc(o_name, sizeof(o_name), obj,
+						ODESC_PREFIX | ODESC_FULL);
 
 				/* Get the inventory color */
-				attr = o_ptr->kind->base->attr;
+				attr = obj->kind->base->attr;
 
 				/* Display the object */
-				c_put_str(attr, o_name, j+2, 7);
+				c_put_str(attr, o_name, line + 2, 7);
 			}
 
 			/* Caption */
-			prt(format("Your home contains (page %d): -more-", k+1), 0, 0);
+			prt(format("Your home contains (page %d): -more-", page), 0, 0);
 
 			/* Wait for it */
 			(void)anykey();
@@ -291,24 +283,21 @@ static void death_scores(const char *title, int row)
  */
 static void death_examine(const char *title, int row)
 {
-	int item;
+	struct object *obj;
 	const char *q, *s;
 
 	/* Get an item */
 	q = "Examine which item? ";
 	s = "You have nothing to examine.";
 
-	while (get_item(&item, q, s, 0, NULL, (USE_INVEN | USE_QUIVER | USE_EQUIP | IS_HARMLESS)))
-	{
+	while (get_item(&obj, q, s, 0, NULL, (USE_INVEN | USE_QUIVER | USE_EQUIP | IS_HARMLESS))) {
 		char header[120];
 
 		textblock *tb;
 		region area = { 0, 0, 0, 0 };
 
-		object_type *o_ptr = &player->gear[item];
-
-		tb = object_info(o_ptr, OINFO_NONE);
-		object_desc(header, sizeof(header), o_ptr,
+		tb = object_info(obj, OINFO_NONE);
+		object_desc(header, sizeof(header), obj,
 				ODESC_PREFIX | ODESC_FULL | ODESC_CAPITAL);
 
 		textui_textblock_show(tb, area, header);
@@ -348,7 +337,6 @@ static void death_randarts(const char *title, int row)
  * Menu structures for the death menu. Note that Quit must always be the
  * last option, due to a hard-coded check in death_screen
  */
-static menu_type *death_menu;
 static menu_action death_actions[] =
 {
 	{ 0, 'i', "Information",   death_info      },
@@ -369,6 +357,7 @@ static menu_action death_actions[] =
  */
 void death_screen(void)
 {
+	struct menu *death_menu;
 	bool done = FALSE;
 	const region area = { 51, 2, 0, N_ELEMENTS(death_actions) };
 
@@ -382,17 +371,14 @@ void death_screen(void)
 	print_tomb();
 
 	/* Flush all input and output */
-	flush();
-	message_flush();
+	event_signal(EVENT_INPUT_FLUSH);
+	event_signal(EVENT_MESSAGE_FLUSH);
 
 	/* Display and use the death menu */
-	if (!death_menu)
-	{
-		death_menu = menu_new_action(death_actions,
-				N_ELEMENTS(death_actions));
+	death_menu = menu_new_action(death_actions,
+			N_ELEMENTS(death_actions));
 
-		death_menu->flags = MN_CASELESS_TAGS;
-	}
+	death_menu->flags = MN_CASELESS_TAGS;
 
 	menu_layout(death_menu, &area);
 
@@ -408,4 +394,6 @@ void death_screen(void)
 			done = get_check("Do you want to quit? ");
 		}
 	}
+
+	menu_free(death_menu);
 }

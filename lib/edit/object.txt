@@ -139,7 +139,7 @@ graphics:~:u
 type:light
 properties:1:22:2
 alloc:70:1 to 40
-power:0:1d1:0:0:0
+combat:0:1d1:0:0:0
 flags:BURNS_OUT | EASY_KNOW
 values:LIGHT[1]
 
@@ -148,7 +148,7 @@ graphics:~:U
 type:light
 properties:3:50:35
 alloc:70:5 to 100
-power:0:1d1:0:0:0
+combat:0:1d1:0:0:0
 flags:TAKES_FUEL | EASY_KNOW | IGNORE_FIRE
 values:LIGHT[2]
 
@@ -157,7 +157,7 @@ graphics:!:y
 type:flask
 properties:1:20:3
 alloc:50:1 to 100
-power:0:1d4:0:0:0
+combat:0:1d4:0:0:0
 values:BRAND_FIRE[3]
 pval:7500
 desc:It can be used to fuel a lantern with 7500 turns of light, up to
@@ -186,6 +186,7 @@ properties:0:8:3
 alloc:40:0 to 50
 pile:100:1d5
 power:0
+msg:That tastes good.
 effect:NOURISH
 dice:6000
 desc:This nutritious but fairly bland food is familiar to anyone contemplating
@@ -198,6 +199,7 @@ properties:1:2:2
 alloc:40:5 to 60
 pile:100:2d3
 power:0
+msg:That tastes good.
 effect:NOURISH
 dice:2500
 desc:A strange fungal growth, prone to moving if not observed.  Not very tasty
@@ -210,6 +212,7 @@ properties:5:3:10
 alloc:40:30 to 100
 pile:10:1d3
 power:4
+msg:That tastes good.
 effect:NOURISH
 dice:7500
 effect:CURE:POISONED
@@ -233,6 +236,7 @@ graphics:,:y
 type:food
 properties:0:5:1
 power:0
+msg:That tastes great!
 effect:NOURISH
 dice:250
 effect:TIMED_INC:CONFUSED
@@ -244,6 +248,7 @@ graphics:,:r
 type:food
 properties:0:10:2
 power:0
+msg:That tastes great!  A fine vintage.
 effect:NOURISH
 dice:250
 effect:TIMED_INC:BOLD
@@ -289,10 +294,15 @@ alloc:25:20 to 100
 pile:13:1d3
 power:15
 effect:RESTORE_STAT:STR
+param:1
 effect:RESTORE_STAT:INT
+param:1
 effect:RESTORE_STAT:WIS
+param:1
 effect:RESTORE_STAT:DEX
+param:1
 effect:RESTORE_STAT:CON
+param:1
 effect:NOURISH
 dice:500
 
@@ -400,8 +410,8 @@ alloc:1:15 to 100
 pile:70:1d4
 power:5
 effect:SET_NOURISH
-#PY_FOOD_FAINT - 1
-dice:499
+dice:$B
+expr:B:FOOD_FAINT:- 1
 effect:RESTORE_STAT:STR
 effect:RESTORE_STAT:CON
 effect:NOURISH
@@ -1515,7 +1525,7 @@ graphics:=:d
 type:ring
 properties:0:2:100
 alloc:50:10 to 50
-flags:PROT_FEAR
+flags:PROT_FEAR | EASY_KNOW
 values:STEALTH[-2]
 
 ### 222, sval 33
@@ -1718,8 +1728,8 @@ graphics:":d
 type:amulet
 properties:15:3:10
 alloc:20:15 to 40
-flags:FREE_ACT | EASY_KNOW
-values:SPEED[-d2]
+flags:FREE_ACT
+values:SPEED[-3+1d2]
 
 
 
@@ -1856,10 +1866,9 @@ properties:50:5:500
 alloc:40:50 to 100
 pile:25:2
 power:22
-effect:ENCHANT:TOHIT
+effect:ENCHANT:TOBOTH
 dice:1d3
-effect:ENCHANT:TODAM
-dice:1d3
+
 
 name:274:*Enchant Armour*
 graphics:?:w
@@ -2103,7 +2112,7 @@ properties:40:5:1000
 alloc:30:40 to 100
 power:12
 effect:DESTRUCTION
-
+param:15
 
 ### Bad scrolls ###
 
@@ -2152,6 +2161,7 @@ properties:10:5:0
 alloc:10:10 to 70
 pile:70:1d3
 power:0
+msg:You hear a low-pitched whistling sound.
 effect:TOUCH:MAKE_TRAP
 
 
@@ -2168,6 +2178,7 @@ properties:30:4:8000
 alloc:30:30 to 100
 pile:10:2
 power:20000
+effect:RESTORE_STAT:STR
 effect:GAIN_STAT:STR
 
 name:311:Intelligence
@@ -2177,6 +2188,7 @@ properties:30:4:8000
 alloc:30:30 to 100
 pile:10:2
 power:20000
+effect:RESTORE_STAT:INT
 effect:GAIN_STAT:INT
 
 name:312:Wisdom
@@ -2186,6 +2198,7 @@ properties:30:4:8000
 alloc:30:30 to 100
 pile:10:2
 power:20000
+effect:RESTORE_STAT:WIS
 effect:GAIN_STAT:WIS
 
 name:313:Dexterity
@@ -2195,6 +2208,7 @@ properties:30:4:8000
 alloc:30:30 to 100
 pile:10:2
 power:20000
+effect:RESTORE_STAT:DEX
 effect:GAIN_STAT:DEX
 
 name:314:Constitution
@@ -2204,6 +2218,7 @@ properties:30:4:8000
 alloc:30:30 to 100
 pile:10:2
 power:20000
+effect:RESTORE_STAT:CON
 effect:GAIN_STAT:CON
 
 ### 315, sval 6
@@ -2215,10 +2230,15 @@ properties:40:4:50000
 alloc:20:40 to 100
 combat:0:1d1:0:0:0
 power:20000
+effect:RESTORE_STAT:STR
 effect:GAIN_STAT:STR
+effect:RESTORE_STAT:INT
 effect:GAIN_STAT:INT
+effect:RESTORE_STAT:WIS
 effect:GAIN_STAT:WIS
+effect:RESTORE_STAT:DEX
 effect:GAIN_STAT:DEX
+effect:RESTORE_STAT:CON
 effect:GAIN_STAT:CON
 
 name:317:Experience
@@ -2383,6 +2403,7 @@ properties:3:4:1000
 alloc:30:20 to 40
 pile:10:2
 power:30
+effect:RESTORE_STAT:STR
 effect:GAIN_STAT:STR
 effect:LOSE_RANDOM_STAT:STR
 
@@ -2393,6 +2414,7 @@ properties:20:4:1000
 alloc:30:20 to 40
 pile:10:2
 power:25
+effect:RESTORE_STAT:INT
 effect:GAIN_STAT:INT
 effect:LOSE_RANDOM_STAT:INT
 
@@ -2403,6 +2425,7 @@ properties:20:4:1000
 alloc:30:20 to 40
 pile:10:2
 power:25
+effect:RESTORE_STAT:WIS
 effect:GAIN_STAT:WIS
 effect:LOSE_RANDOM_STAT:WIS
 
@@ -2413,6 +2436,7 @@ properties:5:4:1000
 alloc:30:20 to 40
 pile:10:2
 power:25
+effect:RESTORE_STAT:DEX
 effect:GAIN_STAT:DEX
 effect:LOSE_RANDOM_STAT:DEX
 
@@ -2423,6 +2447,7 @@ properties:10:4:1000
 alloc:30:20 to 40
 pile:10:2
 power:30
+effect:RESTORE_STAT:CON
 effect:GAIN_STAT:CON
 effect:LOSE_RANDOM_STAT:CON
 
@@ -2437,6 +2462,7 @@ alloc:40:25 to 100
 pile:25:2
 power:22
 effect:ENLIGHTENMENT
+dice:1
 
 name:342:*Enlightenment*
 graphics:!:d
@@ -2446,7 +2472,10 @@ alloc:8:70 to 100
 combat:0:1d1:0:0:0
 power:20000
 effect:ENLIGHTENMENT
+dice:1
+effect:RESTORE_STAT:INT
 effect:GAIN_STAT:INT
+effect:RESTORE_STAT:WIS
 effect:GAIN_STAT:WIS
 effect:DETECT_TRAPS
 dice:22d40
@@ -2655,8 +2684,8 @@ pile:100:1d2
 msg:The potion makes you vomit!
 power:0
 effect:SET_NOURISH
-#PY_FOOD_STARVE - 1
-dice:99
+dice:$B
+expr:B:FOOD_STARVE:- 1
 effect:CURE:POISONED
 effect:TIMED_INC:PARALYZED
 dice:4
@@ -2813,7 +2842,7 @@ alloc:20:5 to 60
 combat:0:1d1:0:0:0
 charges:6+d10
 power:3
-effect:BOLT:OLD_SLOW
+effect:BOLT_STATUS:OLD_SLOW
 dice:20
 
 name:381:Confuse Monster
@@ -2884,7 +2913,7 @@ alloc:20:20 to 60
 combat:0:1d1:0:0:0
 charges:6+d8
 power:7
-effect:BOLT:OLD_POLY
+effect:BOLT_STATUS:OLD_POLY
 dice:$B
 expr:B:PLAYER_LEVEL:+ 0
 
@@ -2906,7 +2935,7 @@ alloc:20:15 to 100
 combat:0:1d1:0:0:0
 charges:3+d5
 power:0
-effect:BOLT:OLD_CLONE
+effect:BOLT_STATUS:OLD_CLONE
 
 name:389:Teleport Other
 graphics:-:d
@@ -2916,7 +2945,7 @@ alloc:20:20 to 100
 combat:0:1d1:0:0:0
 charges:6+d5
 power:11
-effect:BOLT:AWAY_ALL
+effect:BOLT_STATUS:AWAY_ALL
 dice:$B
 expr:B:MAX_SIGHT:* 5
 
@@ -3004,7 +3033,7 @@ alloc:50:50 to 100
 combat:0:1d1:0:0:0
 charges:3+d3
 power:11
-effect:BOLT:OLD_DRAIN
+effect:BOLT_STATUS_DAM:OLD_DRAIN
 dice:150
 
 name:396:Annihilation
@@ -3016,7 +3045,7 @@ combat:0:1d1:0:0:0
 charges:1+d2
 flags:IGNORE_ACID | IGNORE_ELEC | IGNORE_FIRE | IGNORE_COLD
 power:12
-effect:BOLT:OLD_DRAIN
+effect:BOLT_STATUS_DAM:OLD_DRAIN
 dice:250
 
 
@@ -3030,7 +3059,7 @@ alloc:10:3 to 40
 combat:0:1d1:0:0:0
 charges:8+d20
 power:0
-effect:BOLT:OLD_HEAL
+effect:BOLT_STATUS:OLD_HEAL
 dice:4d6
 
 name:398:Haste Monster
@@ -3041,7 +3070,7 @@ alloc:10:3 to 40
 combat:0:1d1:0:0:0
 charges:8+d20
 power:0
-effect:BOLT:OLD_SPEED
+effect:BOLT_STATUS:OLD_SPEED
 dice:100
 
 
@@ -3097,6 +3126,7 @@ combat:0:1d2:0:0:0
 charges:3+d5
 power:5
 effect:EARTHQUAKE
+param:10
 
 name:404:*Destruction*
 graphics:_:d
@@ -3107,7 +3137,7 @@ combat:0:1d2:0:0:0
 charges:1+d3
 power:12
 effect:DESTRUCTION
-
+param:15
 
 ### Monster-affecting ###
 
@@ -3565,7 +3595,7 @@ properties:30:15:1500
 alloc:20:30 to 100
 combat:0:1d1:0:0:0
 power:3
-effect:BOLT:OLD_SLOW
+effect:BOLT_STATUS:OLD_SLOW
 dice:20
 time:20
 
@@ -3638,7 +3668,7 @@ properties:35:15:1200
 alloc:20:35 to 80
 combat:0:1d1:0:0:0
 power:7
-effect:BOLT:OLD_POLY
+effect:BOLT_STATUS:OLD_POLY
 dice:$B
 expr:B:PLAYER_LEVEL:+ 0
 time:25
@@ -3650,7 +3680,7 @@ properties:75:15:3600
 alloc:20:75 to 100
 combat:0:1d1:0:0:0
 power:11
-effect:BOLT:OLD_DRAIN
+effect:BOLT_STATUS_DAM:OLD_DRAIN
 dice:150
 time:23
 
@@ -3661,7 +3691,7 @@ properties:45:15:5000
 alloc:20:45 to 100
 combat:0:1d1:0:0:0
 power:11
-effect:BOLT:AWAY_ALL
+effect:BOLT_STATUS:AWAY_ALL
 dice:$B
 expr:B:MAX_SIGHT:* 5
 time:25

@@ -17,42 +17,52 @@
  */
 #include "angband.h"
 #include "buildid.h"
-#include "dungeon.h"
-#include "history.h"
+#include "game-world.h"
 #include "init.h"
 #include "obj-desc.h"
 #include "obj-gear.h"
 #include "obj-identify.h"
 #include "obj-info.h"
-#include "obj-ui.h"
 #include "obj-util.h"
 #include "player.h"
 #include "player-timed.h"
 #include "player-util.h"
 #include "store.h"
-#include "ui-game.h"
+#include "ui-display.h"
+#include "ui-history.h"
+#include "ui-input.h"
 #include "ui-menu.h"
+#include "ui-object.h"
+#include "ui-output.h"
 #include "ui-player.h"
-#include "ui.h"
 
 
-/** Panel utilities **/
+/**
+ * ------------------------------------------------------------------------
+ * Panel utilities
+ * ------------------------------------------------------------------------ */
 
-/* Panel line type */
+/**
+ * Panel line type
+ */
 struct panel_line {
 	byte attr;
 	const char *label;
 	char value[20];
 };
 
-/* Panel holder type */
+/**
+ * Panel holder type
+ */
 struct panel {
 	size_t len;
 	size_t max;
 	struct panel_line *lines;
 };
 
-/* Allocate some panel lines */
+/**
+ * Allocate some panel lines
+ */
 static struct panel *panel_allocate(int n) {
 	struct panel *p = mem_zalloc(sizeof *p);
 
@@ -63,14 +73,18 @@ static struct panel *panel_allocate(int n) {
 	return p;
 }
 
-/* Free up panel lines */
+/**
+ * Free up panel lines
+ */
 static void panel_free(struct panel *p) {
 	assert(p);
 	mem_free(p->lines);
 	mem_free(p);
 }
 
-/* Add a new line to the panel */
+/**
+ * Add a new line to the panel
+ */
 static void panel_line(struct panel *p, byte attr, const char *label,
 		const char *fmt, ...) {
 	va_list vp;
@@ -92,7 +106,9 @@ static void panel_line(struct panel *p, byte attr, const char *label,
 	va_end(vp);
 }
 
-/* Add a spacer line in a panel */
+/**
+ * Add a spacer line in a panel
+ */
 static void panel_space(struct panel *p) {
 	assert(p);
 	assert(p->len != p->max);
@@ -100,7 +116,7 @@ static void panel_space(struct panel *p) {
 }
 
 
-/*
+/**
  * Returns a "rating" of x depending on y, and sets "attr" to the
  * corresponding "attribute".
  */
@@ -110,9 +126,8 @@ static const char *likert(int x, int y, byte *attr)
 	if (y <= 0) y = 1;
 
 	/* Negative value */
-	if (x < 0)
-	{
-		*attr = TERM_RED;
+	if (x < 0) {
+		*attr = COLOUR_RED;
 		return ("Very Bad");
 	}
 
@@ -122,34 +137,34 @@ static const char *likert(int x, int y, byte *attr)
 		case 0:
 		case 1:
 		{
-			*attr = TERM_RED;
+			*attr = COLOUR_RED;
 			return ("Bad");
 		}
 		case 2:
 		{
-			*attr = TERM_RED;
+			*attr = COLOUR_RED;
 			return ("Poor");
 		}
 		case 3:
 		case 4:
 		{
-			*attr = TERM_YELLOW;
+			*attr = COLOUR_YELLOW;
 			return ("Fair");
 		}
 		case 5:
 		{
-			*attr = TERM_YELLOW;
+			*attr = COLOUR_YELLOW;
 			return ("Good");
 		}
 		case 6:
 		{
-			*attr = TERM_YELLOW;
+			*attr = COLOUR_YELLOW;
 			return ("Very Good");
 		}
 		case 7:
 		case 8:
 		{
-			*attr = TERM_L_GREEN;
+			*attr = COLOUR_L_GREEN;
 			return ("Excellent");
 		}
 		case 9:
@@ -158,7 +173,7 @@ static const char *likert(int x, int y, byte *attr)
 		case 12:
 		case 13:
 		{
-			*attr = TERM_L_GREEN;
+			*attr = COLOUR_L_GREEN;
 			return ("Superb");
 		}
 		case 14:
@@ -166,19 +181,19 @@ static const char *likert(int x, int y, byte *attr)
 		case 16:
 		case 17:
 		{
-			*attr = TERM_L_GREEN;
+			*attr = COLOUR_L_GREEN;
 			return ("Heroic");
 		}
 		default:
 		{
-			*attr = TERM_L_GREEN;
+			*attr = COLOUR_L_GREEN;
 			return ("Legendary");
 		}
 	}
 }
 
 
-/*
+/**
  * Equippy chars
  */
 static void display_player_equippy(int y, int x)
@@ -188,31 +203,27 @@ static void display_player_equippy(int y, int x)
 	byte a;
 	wchar_t c;
 
-	object_type *o_ptr;
-
+	struct object *obj;
 
 	/* Dump equippy chars */
-	for (i = 0; i < player->body.count; ++i)
-	{
+	for (i = 0; i < player->body.count; ++i) {
 		/* Object */
-		o_ptr = equipped_item_by_slot(player, i);
+		obj = slot_object(player, i);
 
 		/* Skip empty objects */
-		if (!o_ptr->kind) continue;
+		if (!obj) continue;
 
 		/* Get attr/char for display */
-		a = object_attr(o_ptr);
-		c = object_char(o_ptr);
+		a = object_attr(obj);
+		c = object_char(obj);
 
 		/* Dump */
 		if ((tile_width == 1) && (tile_height == 1))
-		{
 		        Term_putch(x + i, y, a, c);
-		}
 	}
 }
 
-/*
+/**
  * List of resistances and abilities to display
  */
 #define RES_ROWS 9
@@ -240,7 +251,7 @@ static const struct player_flag_record player_flag_table[RES_ROWS * 4] = {
 	{ "Nethr",	-1,					-1,				ELEM_NETHER,-1 },
 	{ "Chaos",	-1,					-1,				ELEM_CHAOS,	-1 },
 	{ "Disen",	-1,					-1,				ELEM_DISEN,	-1 },
-	{ "pFear",	-1,					OF_PROT_FEAR,	-1,			-1 },
+	{ "pFear",	-1,					OF_PROT_FEAR,	-1,			TMD_BOLD },
 	{ "pBlnd",	-1,					OF_PROT_BLIND,	-1,			-1 },
 	{ "pConf",	-1,					OF_PROT_CONF,	-1,			TMD_OPP_CONF },
 	{ "pStun",	-1,					OF_PROT_STUN,	-1,			-1 },
@@ -276,17 +287,17 @@ static void display_resistance_panel(const struct player_flag_record *rec,
 	int row = bounds->row;
 	int res_cols = 5 + 2 + player->body.count;
 
-	Term_putstr(col, row++, res_cols, TERM_WHITE, "      abcdefghijkl@");
+	Term_putstr(col, row++, res_cols, COLOUR_WHITE, "      abcdefghijkl@");
 	for (i = 0; i < size - 3; i++, row++) {
-		byte name_attr = TERM_WHITE;
+		byte name_attr = COLOUR_WHITE;
 		Term_gotoxy(col + 6, row);
 
 		/* Repeated extraction of flags is inefficient but more natural */
 		for (j = 0; j <= player->body.count; j++) {
-			object_type *o_ptr = equipped_item_by_slot(player, j);
+			struct object *obj;
 			bitflag f[OF_SIZE];
 
-			byte attr = TERM_WHITE | (j % 2) * 8; /* alternating columns */
+			byte attr = COLOUR_WHITE | (j % 2) * 8; /* alternating columns */
 			char sym = '.';
 
 			bool res = FALSE, imm = FALSE, vul = FALSE;
@@ -297,13 +308,14 @@ static void display_resistance_panel(const struct player_flag_record *rec,
 			of_wipe(f);
 
 			/* Get the object or player info */
-			if (j < player->body.count && o_ptr->kind) {
+			obj = j < player->body.count ? slot_object(player, j) : NULL;
+			if (j < player->body.count && obj) {
 				/* Get known properties */
-				object_flags_known(o_ptr, f);
+				object_flags_known(obj, f);
 				if (rec[i].element != -1)
-					known = object_element_is_known(o_ptr, rec[i].element);
+					known = object_element_is_known(obj, rec[i].element);
 				else if (rec[i].flag != -1)
-					known = object_flag_is_known(o_ptr, rec[i].flag);
+					known = object_flag_is_known(obj, rec[i].flag);
 				else
 					known = TRUE;
 			} else if (j == player->body.count) {
@@ -311,14 +323,19 @@ static void display_resistance_panel(const struct player_flag_record *rec,
 				known = TRUE;
 
 				/* Timed flags only in the player column */
-				if (rec[i].tmd_flag >= 0)
+				if (rec[i].tmd_flag >= 0) {
 	 				timed = player->timed[rec[i].tmd_flag] ? TRUE : FALSE;
+					/* There has to be one special case... */
+					if ((rec[i].tmd_flag == TMD_AFRAID) &&
+						(player->timed[TMD_TERROR]))
+						timed = TRUE;
+				}
 			}
 
 			/* Set which (if any) symbol and color are used */
 			if (rec[i].mod != -1) {
 				if (j != player->body.count)
-					res = (o_ptr->modifiers[rec[i].mod] != 0);
+					res = (obj && (obj->modifiers[rec[i].mod] != 0));
 				else {
 					/* Messy special cases */
 					if (rec[i].mod == OBJ_MOD_INFRA)
@@ -329,27 +346,37 @@ static void display_resistance_panel(const struct player_flag_record *rec,
 			} else if (rec[i].flag != -1) {
 				res = of_has(f, rec[i].flag);
 			} else if (rec[i].element != -1) {
-				imm = known && (o_ptr->el_info[rec[i].element].res_level == 3);
-				res = known && (o_ptr->el_info[rec[i].element].res_level == 1);
-				vul = known && (o_ptr->el_info[rec[i].element].res_level == -1);
+				if (j != player->body.count) {
+					imm = obj && known &&
+						(obj->el_info[rec[i].element].res_level == 3);
+					res = obj && known &&
+						(obj->el_info[rec[i].element].res_level == 1);
+					vul = obj && known &&
+						(obj->el_info[rec[i].element].res_level == -1);
+				} else {
+					imm = player->race->el_info[rec[i].element].res_level == 3;
+					res = player->race->el_info[rec[i].element].res_level == 1;
+					vul = player->race->el_info[rec[i].element].res_level == -1;
+				}
 			}
 
 			/* Set the symbols and print them */
-			if (imm) name_attr = TERM_GREEN;
-			else if (res) name_attr = TERM_L_BLUE;
+			if (imm) name_attr = COLOUR_GREEN;
+			else if (res && (name_attr != COLOUR_GREEN))
+				name_attr = COLOUR_L_BLUE;
 
 			if (vul) sym = '-';
 			else if (imm) sym = '*';
 			else if (res) sym = '+';
-			else if (timed) { sym = '!'; attr = TERM_L_GREEN; }
-			else if ((j < player->body.count) && o_ptr->kind && !known)
+			else if (timed) { sym = '!'; attr = COLOUR_L_GREEN; }
+			else if ((j < player->body.count) && obj && !known)
 				sym = '?';
 
 			Term_addch(attr, sym);
 		}
 		Term_putstr(col, row, 6, name_attr, format("%5s:", rec[i].name));
 	}
-	Term_putstr(col, row++, res_cols, TERM_WHITE, "      abcdefghijkl@");
+	Term_putstr(col, row++, res_cols, COLOUR_WHITE, "      abcdefghijkl@");
 
 	/* Equippy */
 	display_player_equippy(row++, col + 6);
@@ -373,7 +400,7 @@ static void display_player_flag_info(void)
 }
 
 
-/*
+/**
  * Special display, part 2b
  */
 void display_player_stat_info(void)
@@ -390,66 +417,56 @@ void display_player_stat_info(void)
 	col = 42;
 
 	/* Print out the labels for the columns */
-	c_put_str(TERM_WHITE, "  Self", row-1, col+5);
-	c_put_str(TERM_WHITE, " RB", row-1, col+12);
-	c_put_str(TERM_WHITE, " CB", row-1, col+16);
-	c_put_str(TERM_WHITE, " EB", row-1, col+20);
-	c_put_str(TERM_WHITE, "  Best", row-1, col+24);
+	c_put_str(COLOUR_WHITE, "  Self", row-1, col+5);
+	c_put_str(COLOUR_WHITE, " RB", row-1, col+12);
+	c_put_str(COLOUR_WHITE, " CB", row-1, col+16);
+	c_put_str(COLOUR_WHITE, " EB", row-1, col+20);
+	c_put_str(COLOUR_WHITE, "  Best", row-1, col+24);
 
 	/* Display the stats */
-	for (i = 0; i < STAT_MAX; i++)
-	{
-		/* Reduced */
+	for (i = 0; i < STAT_MAX; i++) {
+		/* Reduced or normal */
 		if (player->stat_cur[i] < player->stat_max[i])
-		{
 			/* Use lowercase stat name */
 			put_str(stat_names_reduced[i], row+i, col);
-		}
-
-		/* Normal */
 		else
-		{
 			/* Assume uppercase stat name */
 			put_str(stat_names[i], row+i, col);
-		}
 
 		/* Indicate natural maximum */
 		if (player->stat_max[i] == 18+100)
-		{
 			put_str("!", row+i, col+3);
-		}
 
 		/* Internal "natural" maximum value */
 		cnv_stat(player->stat_max[i], buf, sizeof(buf));
-		c_put_str(TERM_L_GREEN, buf, row+i, col+5);
+		c_put_str(COLOUR_L_GREEN, buf, row+i, col+5);
 
 		/* Race Bonus */
 		strnfmt(buf, sizeof(buf), "%+3d", player->race->r_adj[i]);
-		c_put_str(TERM_L_BLUE, buf, row+i, col+12);
+		c_put_str(COLOUR_L_BLUE, buf, row+i, col+12);
 
 		/* Class Bonus */
 		strnfmt(buf, sizeof(buf), "%+3d", player->class->c_adj[i]);
-		c_put_str(TERM_L_BLUE, buf, row+i, col+16);
+		c_put_str(COLOUR_L_BLUE, buf, row+i, col+16);
 
 		/* Equipment Bonus */
 		strnfmt(buf, sizeof(buf), "%+3d", player->state.stat_add[i]);
-		c_put_str(TERM_L_BLUE, buf, row+i, col+20);
+		c_put_str(COLOUR_L_BLUE, buf, row+i, col+20);
 
 		/* Resulting "modified" maximum value */
 		cnv_stat(player->state.stat_top[i], buf, sizeof(buf));
-		c_put_str(TERM_L_GREEN, buf, row+i, col+24);
+		c_put_str(COLOUR_L_GREEN, buf, row+i, col+24);
 
 		/* Only display stat_use if there has been draining */
-		if (player->stat_cur[i] < player->stat_max[i])
-		{
+		if (player->stat_cur[i] < player->stat_max[i]) {
 			cnv_stat(player->state.stat_use[i], buf, sizeof(buf));
-			c_put_str(TERM_YELLOW, buf, row+i, col+31);
+			c_put_str(COLOUR_YELLOW, buf, row+i, col+31);
 		}
 	}
 }
 
 
-/*
+/**
  * Special display, part 2c
  *
  * How to print out the modifications and sustains.
@@ -478,15 +495,14 @@ static void display_player_sust_info(void)
 	col = 26;
 
 	/* Header */
-	c_put_str(TERM_WHITE, "abcdefghijkl@", row-1, col);
+	c_put_str(COLOUR_WHITE, "abcdefghijkl@", row-1, col);
 
 	/* Process equipment */
-	for (i = 0; i < player->body.count; ++i)
-	{
+	for (i = 0; i < player->body.count; ++i) {
 		/* Get the object */
-		o_ptr = equipped_item_by_slot(player, i);
+		o_ptr = slot_object(player, i);
 
-		if (!o_ptr->kind) {
+		if (!o_ptr) {
 			col++;
 			continue;
 		}
@@ -495,25 +511,23 @@ static void display_player_sust_info(void)
 		object_flags_known(o_ptr, f);
 
 		/* Initialize color based on sign of modifier. */
-		for (stat = 0; stat < STAT_MAX; stat++)
-		{
+		for (stat = OBJ_MOD_MIN_STAT; stat < OBJ_MOD_MIN_STAT + STAT_MAX;
+			 stat++) {
 			/* Default */
-			a = TERM_SLATE;
+			a = COLOUR_SLATE;
 			c = '.';
 
-			/* Boost */
-			/* Assumption is that stats appear first in list-object-modifiers.h
-			 * This assumption should be removed asap NRM */
+			/* Boosted or reduced */
 			if (o_ptr->modifiers[stat] > 0) {
 				/* Good */
-				a = TERM_L_GREEN;
+				a = COLOUR_L_GREEN;
 
 				/* Label boost */
 				if (o_ptr->modifiers[stat] < 10)
 						c = I2D(o_ptr->modifiers[stat]);
 			} else if (o_ptr->modifiers[stat] > 0) {
 				/* Bad */
-				a = TERM_RED;
+				a = COLOUR_RED;
 
 				/* Label boost */
 				if (o_ptr->modifiers[stat] > -10)
@@ -521,16 +535,15 @@ static void display_player_sust_info(void)
 			}
 
 			/* Sustain */
-			if (of_has(f, sustain_flag(stat)))
-			{
+			if (of_has(f, sustain_flag(stat))) {
 				/* Dark green */
-				a = TERM_GREEN;
+				a = COLOUR_GREEN;
 
 				/* Convert '.' to 's' */
 				if (c == '.') c = 's';
 			}
 
-			if ((c == '.') && o_ptr->kind && 
+			if ((c == '.') && o_ptr && 
 				!object_flag_is_known(o_ptr, sustain_flag(stat)))
 				c = '?';
 
@@ -546,17 +559,15 @@ static void display_player_sust_info(void)
 	player_flags(player, f);
 
 	/* Check stats */
-	for (stat = 0; stat < STAT_MAX; ++stat)
-	{
+	for (stat = 0; stat < STAT_MAX; ++stat) {
 		/* Default */
-		a = TERM_SLATE;
+		a = COLOUR_SLATE;
 		c = '.';
 
 		/* Sustain */
-		if (of_has(f, sustain_flag(stat)))
-		{
+		if (of_has(f, sustain_flag(stat))) {
 			/* Dark green "s" */
-			a = TERM_GREEN;
+			a = COLOUR_GREEN;
 			c = 's';
 		}
 
@@ -568,7 +579,7 @@ static void display_player_sust_info(void)
 	col = 26;
 
 	/* Footer */
-	c_put_str(TERM_WHITE, "abcdefghijkl@", row+6, col);
+	c_put_str(COLOUR_WHITE, "abcdefghijkl@", row+6, col);
 
 	/* Equippy */
 	display_player_equippy(row+7, col);
@@ -604,7 +615,7 @@ static void display_panel(const struct panel *p, bool left_adj,
 		if (!pl->label)
 			continue;
 
-		Term_putstr(col, row, strlen(pl->label), TERM_WHITE, pl->label);
+		Term_putstr(col, row, strlen(pl->label), COLOUR_WHITE, pl->label);
 
 		len = strlen(pl->value);
 		len = len < w - offset ? len : w - offset - 1;
@@ -628,8 +639,7 @@ static const char *show_title(void)
 
 static const char *show_adv_exp(void)
 {
-	if (player->lev < PY_MAX_LEVEL)
-	{
+	if (player->lev < PY_MAX_LEVEL) {
 		static char buffer[30];
 		s32b advance = (player_exp[player->lev - 1] * player->expfact / 100L);
 		strnfmt(buffer, sizeof(buffer), "%d", advance);
@@ -675,28 +685,29 @@ static const char *show_bonus_move(void)
 
 static byte max_color(int val, int max)
 {
-	return val < max ? TERM_YELLOW : TERM_L_GREEN;
+	return val < max ? COLOUR_YELLOW : COLOUR_L_GREEN;
 }
 
-/* colours for table items */
+/**
+ * Colours for table items
+ */
 static const byte colour_table[] =
 {
-	TERM_RED, TERM_RED, TERM_RED, TERM_L_RED, TERM_ORANGE,
-	TERM_YELLOW, TERM_YELLOW, TERM_GREEN, TERM_GREEN, TERM_L_GREEN,
-	TERM_L_BLUE
+	COLOUR_RED, COLOUR_RED, COLOUR_RED, COLOUR_L_RED, COLOUR_ORANGE,
+	COLOUR_YELLOW, COLOUR_YELLOW, COLOUR_GREEN, COLOUR_GREEN, COLOUR_L_GREEN,
+	COLOUR_L_BLUE
 };
 
 
 static struct panel *get_panel_topleft(void) {
-	struct panel *p = panel_allocate(7);
+	struct panel *p = panel_allocate(6);
 
-	panel_line(p, TERM_L_BLUE, "Name", "%s", op_ptr->full_name);
-	panel_line(p, TERM_L_BLUE, "Sex", "%s", player->sex->title);
-	panel_line(p, TERM_L_BLUE, "Race",	"%s", player->race->name);
-	panel_line(p, TERM_L_BLUE, "Class", "%s", player->class->name);
-	panel_line(p, TERM_L_BLUE, "Title", "%s", show_title());
-	panel_line(p, TERM_L_BLUE, "HP", "%d/%d", player->chp, player->mhp);
-	panel_line(p, TERM_L_BLUE, "SP", "%d/%d", player->csp, player->msp);
+	panel_line(p, COLOUR_L_BLUE, "Name", "%s", op_ptr->full_name);
+	panel_line(p, COLOUR_L_BLUE, "Race",	"%s", player->race->name);
+	panel_line(p, COLOUR_L_BLUE, "Class", "%s", player->class->name);
+	panel_line(p, COLOUR_L_BLUE, "Title", "%s", show_title());
+	panel_line(p, COLOUR_L_BLUE, "HP", "%d/%d", player->chp, player->mhp);
+	panel_line(p, COLOUR_L_BLUE, "SP", "%d/%d", player->csp, player->msp);
 
 	return p;
 }
@@ -708,11 +719,11 @@ static struct panel *get_panel_midleft(void) {
 			"Level", "%d", player->lev);
 	panel_line(p, max_color(player->exp, player->max_exp),
 			"Cur Exp", "%d", player->exp);
-	panel_line(p, TERM_L_GREEN, "Max Exp", "%d", player->max_exp);
-	panel_line(p, TERM_L_GREEN, "Adv Exp", "%s", show_adv_exp());
+	panel_line(p, COLOUR_L_GREEN, "Max Exp", "%d", player->max_exp);
+	panel_line(p, COLOUR_L_GREEN, "Adv Exp", "%s", show_adv_exp());
 	panel_space(p);
-	panel_line(p, TERM_L_GREEN, "Gold", "%d", player->au);
-	panel_line(p, TERM_L_GREEN, "Burden", "%.1f lbs",
+	panel_line(p, COLOUR_L_GREEN, "Gold", "%d", player->au);
+	panel_line(p, COLOUR_L_GREEN, "Burden", "%.1f lbs",
 			player->upkeep->total_weight / 10.0F);
 	panel_line(p, TERM_L_GREEN, "Speed", "%s", show_speed());
 	panel_line(p, TERM_L_GREEN, "Bonus Move", "%s", show_bonus_move());
@@ -728,32 +739,32 @@ static struct panel *get_panel_combat(void) {
 	int melee_dice = 1, melee_sides = 1;
 
 	/* AC */
-	panel_line(p, TERM_L_BLUE, "Armor", "[%d,%+d]",
+	panel_line(p, COLOUR_L_BLUE, "Armor", "[%d,%+d]",
 			player->known_state.ac, player->known_state.to_a);
 
 	/* Melee */
 	obj = equipped_item_by_slot_name(player, "weapon");
 	bth = (player->state.skills[SKILL_TO_HIT_MELEE] * 10) / BTH_PLUS_ADJ;
-	dam = player->known_state.to_d + (object_attack_plusses_are_visible(obj) ? obj->to_d : 0);
-	hit = player->known_state.to_h + (object_attack_plusses_are_visible(obj) ? obj->to_h : 0);
+	dam = player->known_state.to_d + (obj && object_attack_plusses_are_visible(obj) ? obj->to_d : 0);
+	hit = player->known_state.to_h + (obj && object_attack_plusses_are_visible(obj) ? obj->to_h : 0);
 
 	panel_space(p);
 
-	if (obj->kind) {
+	if (obj) {
 		melee_dice = obj->dd;
 		melee_sides = obj->ds;
 	}
 
-	panel_line(p, TERM_L_BLUE, "Melee", "%dd%d,%+d", melee_dice, melee_sides, dam);
-	panel_line(p, TERM_L_BLUE, "To-hit", "%d,%+d", bth / 10, hit);
-	panel_line(p, TERM_L_BLUE, "Blows", "%d.%d/turn",
+	panel_line(p, COLOUR_L_BLUE, "Melee", "%dd%d,%+d", melee_dice, melee_sides, dam);
+	panel_line(p, COLOUR_L_BLUE, "To-hit", "%d,%+d", bth / 10, hit);
+	panel_line(p, COLOUR_L_BLUE, "Blows", "%d.%d/turn",
 			player->state.num_blows / 100, (player->state.num_blows / 10 % 10));
 
 	/* Ranged */
 	obj = equipped_item_by_slot_name(player, "shooting");
 	bth = (player->state.skills[SKILL_TO_HIT_BOW] * 10) / BTH_PLUS_ADJ;
-	hit = player->known_state.to_h + (object_attack_plusses_are_visible(obj) ? obj->to_h : 0);
-	dam = object_attack_plusses_are_visible(obj) ? obj->to_d : 0;
+	hit = player->known_state.to_h + (obj && object_attack_plusses_are_visible(obj) ? obj->to_h : 0);
+	dam = obj && object_attack_plusses_are_visible(obj) ? obj->to_d : 0;
 
 	panel_line(p, TERM_L_BLUE, "Shoot to-dam", "%+d", dam);
 	panel_line(p, TERM_L_BLUE, "To-hit", "%d,%+d", bth / 10, hit);
@@ -804,7 +815,7 @@ static struct panel *get_panel_skills(void) {
 	panel_line(p, colour_table[skill / 10], "Searching", "%d%%", skill);
 
 	/* Infravision */
-	panel_line(p, TERM_L_GREEN, "Infravision", "%d ft",
+	panel_line(p, COLOUR_L_GREEN, "Infravision", "%d ft",
 			player->state.see_infra * 10);
 
 	return p;
@@ -812,7 +823,7 @@ static struct panel *get_panel_skills(void) {
 
 static struct panel *get_panel_misc(void) {
 	struct panel *p = panel_allocate(7);
-	byte attr = TERM_L_BLUE;
+	byte attr = COLOUR_L_BLUE;
 
 	panel_line(p, attr, "Age", "%d", player->age);
 	panel_line(p, attr, "Height", "%d'%d\"", player->ht / 12, player->ht % 12);
@@ -825,7 +836,9 @@ static struct panel *get_panel_misc(void) {
 	return p;
 }
 
-/* Panels for main character screen */
+/**
+ * Panels for main character screen
+ */
 static const struct {
 	region bounds;
 	bool align_left;
@@ -855,7 +868,7 @@ void display_player_xtra_info(void)
 
 	/* History */
 	Term_gotoxy(text_out_indent, 19);
-	text_out_to_screen(TERM_WHITE, player->history);
+	text_out_to_screen(COLOUR_WHITE, player->history);
 
 	/* Reset text_out() vars */
 	text_out_wrap = 0;
@@ -864,7 +877,7 @@ void display_player_xtra_info(void)
 	return;
 }
 
-/*
+/**
  * Display the character on the screen (two different modes)
  *
  * The top two lines, and the bottom line (or two) are left blank.
@@ -883,8 +896,7 @@ void display_player(int mode)
 	/* Stat info */
 	display_player_stat_info();
 
-	if (mode)
-	{
+	if (mode) {
 		struct panel *p = panels[0].panel();
 		display_panel(p, panels[0].align_left, &panels[0].bounds);
 		panel_free(p);
@@ -894,11 +906,7 @@ void display_player(int mode)
 
 		/* Other flags */
 		display_player_flag_info();
-	}
-
-	/* Standard */
-	else
-	{
+	} else {
 		/* Extra info */
 		display_player_xtra_info();
 	}
@@ -1023,11 +1031,11 @@ void write_character_dump(ang_file *fff)
 	/* Dump the equipment */
 	file_putf(fff, "  [Character Equipment]\n\n");
 	for (i = 0; i < player->body.count; i++) {
-		struct object *obj = equipped_item_by_slot(player, i);
-		if (!obj->kind) continue;
+		struct object *obj = slot_object(player, i);
+		if (!obj) continue;
 
 		object_desc(o_name, sizeof(o_name), obj, ODESC_PREFIX | ODESC_FULL);
-		file_putf(fff, "%c) %s\n", equip_to_label(i), o_name);
+		file_putf(fff, "%c) %s\n", gear_to_label(obj), o_name);
 		object_info_chardump(fff, obj, 5, 72);
 	}
 	file_putf(fff, "\n\n");
@@ -1035,11 +1043,11 @@ void write_character_dump(ang_file *fff)
 	/* Dump the inventory */
 	file_putf(fff, "\n\n  [Character Inventory]\n\n");
 	for (i = 0; i < z_info->pack_size; i++) {
-		struct object *obj = &player->gear[player->upkeep->inven[i]];
-		if (!obj->kind) break;
+		struct object *obj = player->upkeep->inven[i];
+		if (!obj) break;
 
 		object_desc(o_name, sizeof(o_name), obj, ODESC_PREFIX | ODESC_FULL);
-		file_putf(fff, "%c) %s\n", inven_to_label(i), o_name);
+		file_putf(fff, "%c) %s\n", gear_to_label(obj), o_name);
 		object_info_chardump(fff, obj, 5, 72);
 	}
 	file_putf(fff, "\n\n");
@@ -1047,28 +1055,27 @@ void write_character_dump(ang_file *fff)
 	/* Dump the quiver */
 	file_putf(fff, "\n\n  [Character Quiver]\n\n");
 	for (i = 0; i < z_info->quiver_size; i++) {
-		struct object *obj = &player->gear[player->upkeep->quiver[i]];
-		if (!obj->kind) break;
+		struct object *obj = player->upkeep->quiver[i];
+		if (!obj) break;
 
 		object_desc(o_name, sizeof(o_name), obj, ODESC_PREFIX | ODESC_FULL);
-		file_putf(fff, "%c) %s\n", quiver_to_label(i), o_name);
+		file_putf(fff, "%c) %s\n", gear_to_label(obj), o_name);
 		object_info_chardump(fff, obj, 5, 72);
 	}
 	file_putf(fff, "\n\n");
 
 	/* Dump the Home -- if anything there */
 	if (st_ptr->stock_num) {
+		struct object *obj;
 		/* Header */
 		file_putf(fff, "  [Home Inventory]\n\n");
 
 		/* Dump all available items */
-		for (i = 0; i < st_ptr->stock_num; i++)
-		{
-			object_desc(o_name, sizeof(o_name), &st_ptr->stock[i],
-						ODESC_PREFIX | ODESC_FULL);
+		for (obj = st_ptr->stock, i = 0; obj; obj = obj->next, i++) {
+			object_desc(o_name, sizeof(o_name), obj, ODESC_PREFIX | ODESC_FULL);
 			file_putf(fff, "%c) %s\n", I2A(i), o_name);
 
-			object_info_chardump(fff, &st_ptr->stock[i], 5, 72);
+			object_info_chardump(fff, obj, 5, 72);
 		}
 
 		/* Add an empty line */
@@ -1110,7 +1117,7 @@ void write_character_dump(ang_file *fff)
 /**
  * Save the lore to a file in the user directory.
  *
- * \param name is the filename
+ * \param path is the path to the filename
  *
  * \returns TRUE on success, FALSE otherwise.
  */
@@ -1124,3 +1131,99 @@ bool dump_save(const char *path)
 	return TRUE;
 }
 
+
+
+#define INFO_SCREENS 2 /* Number of screens in character info mode */
+
+
+/**
+ * Hack -- change name
+ */
+void do_cmd_change_name(void)
+{
+	ui_event ke;
+	int mode = 0;
+
+	const char *p;
+
+	bool more = TRUE;
+
+	/* Prompt */
+	p = "['c' to change name, 'f' to file, 'h' to change mode, or ESC]";
+
+	/* Save screen */
+	screen_save();
+
+	/* Forever */
+	while (more) {
+		/* Display the player */
+		display_player(mode);
+
+		/* Prompt */
+		Term_putstr(2, 23, -1, COLOUR_WHITE, p);
+
+		/* Query */
+		ke = inkey_ex();
+
+		if ((ke.type == EVT_KBRD)||(ke.type == EVT_BUTTON)) {
+			switch (ke.key.code) {
+				case ESCAPE: more = FALSE; break;
+				case 'c': {
+					char namebuf[32] = "";
+
+					/* Set player name */
+					if (get_character_name(namebuf, sizeof namebuf))
+						my_strcpy(op_ptr->full_name, namebuf,
+								  sizeof(op_ptr->full_name));
+
+					break;
+				}
+
+				case 'f': {
+					char buf[1024];
+					char fname[80];
+
+					strnfmt(fname, sizeof fname, "%s.txt",
+							player_safe_name(player, FALSE));
+
+					if (get_file(fname, buf, sizeof buf))
+					{
+						if (dump_save(buf))
+							msg("Character dump successful.");
+						else
+							msg("Character dump failed!");
+					}
+					break;
+				}
+				
+				case 'h':
+				case ARROW_LEFT:
+				case ' ':
+					mode = (mode + 1) % INFO_SCREENS;
+					break;
+
+				case 'l':
+				case ARROW_RIGHT:
+					mode = (mode - 1) % INFO_SCREENS;
+					break;
+			}
+		} else if (ke.type == EVT_MOUSE) {
+			if (ke.mouse.button == 1) {
+				/* Flip through the screens */			
+				mode = (mode + 1) % INFO_SCREENS;
+			} else if (ke.mouse.button == 2) {
+				/* exit the screen */
+				more = FALSE;
+			} else {
+				/* Flip backwards through the screens */			
+				mode = (mode - 1) % INFO_SCREENS;
+			}
+		}
+
+		/* Flush messages */
+		event_signal(EVENT_MESSAGE_FLUSH);
+	}
+
+	/* Load screen */
+	screen_load();
+}

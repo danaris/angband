@@ -1,20 +1,18 @@
-/*
- * File: src/list-project-environs.h
- * Purpose: Spell types used by project() and related functions.
+/**
+ * \file list-project-environs.h
+ * \brief Spell types used by project() and related functions.
  *
  * Fields:
- * name - type index 
+ * name - type name
  * color - color of the effect
- * feature handler - handler affecting the environment
- * object handler - handler affecting an object
- * monster handler - handler affecting a monster
+ * description - description of the effect
  */
 
-/* name  				color	*/
-PROJ_ENV(LIGHT_WEAK,	TERM_ORANGE)
-PROJ_ENV(DARK_WEAK,		TERM_L_DARK)
-PROJ_ENV(KILL_WALL,		TERM_WHITE)
-PROJ_ENV(KILL_DOOR,		TERM_WHITE)
-PROJ_ENV(KILL_TRAP,		TERM_WHITE)
-PROJ_ENV(MAKE_DOOR,		TERM_WHITE)
-PROJ_ENV(MAKE_TRAP,		TERM_WHITE)
+/* name  				color	 		description*/
+PROJ_ENV(LIGHT_WEAK,	COLOUR_ORANGE,	"light")
+PROJ_ENV(DARK_WEAK,		COLOUR_L_DARK,	"darkness")
+PROJ_ENV(KILL_WALL,		COLOUR_WHITE,	"rock remover")
+PROJ_ENV(KILL_DOOR,		COLOUR_WHITE,	"destroys doors")
+PROJ_ENV(KILL_TRAP,		COLOUR_WHITE,	"destroys traps")
+PROJ_ENV(MAKE_DOOR,		COLOUR_WHITE,	"creates doors")
+PROJ_ENV(MAKE_TRAP,		COLOUR_WHITE,	"creates traps")

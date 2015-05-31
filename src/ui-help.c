@@ -1,6 +1,6 @@
 /**
-   \file ui-help.c
-   \brief In-game help
+ * \file ui-help.c
+ * \brief In-game help
  *
  * Copyright (c) 1997 Ben Harrison, James E. Wilson, Robert A. Koeneke
  *
@@ -18,6 +18,9 @@
 #include "angband.h"
 #include "buildid.h"
 #include "init.h"
+#include "ui-input.h"
+#include "ui-output.h"
+#include "ui-term.h"
 
 /*
  * Make a string lower case.
@@ -158,7 +161,7 @@ bool show_file(const char *name, const char *what, int line, int mode)
 	{
 		/* Message */
 		msg("Cannot open '%s'.", name);
-		message_flush();
+		event_signal(EVENT_MESSAGE_FLUSH);
 
 		/* Oops */
 		return (TRUE);
@@ -323,7 +326,7 @@ bool show_file(const char *name, const char *what, int line, int mode)
 			find = NULL;
 
 			/* Dump the line */
-			Term_putstr(0, i+2, -1, TERM_WHITE, buf);
+			Term_putstr(0, i+2, -1, COLOUR_WHITE, buf);
 
 			/* Highlight "shower" */
 			if (shower[0])
@@ -336,7 +339,8 @@ bool show_file(const char *name, const char *what, int line, int mode)
 					int len = strlen(shower);
 
 					/* Display the match */
-					Term_putstr(str-lc_buf, i+2, len, TERM_YELLOW, &buf[str-lc_buf]);
+					Term_putstr(str-lc_buf, i+2, len, COLOUR_YELLOW,
+								&buf[str-lc_buf]);
 
 					/* Advance */
 					str += len;

@@ -19,22 +19,49 @@
 #include "angband.h"
 #include "cave.h"
 #include "cmds.h"
-#include "dungeon.h"
 #include "cmd-core.h"
 #include "game-event.h"
+#include "game-world.h"
 #include "init.h"
 #include "monster.h"
 #include "obj-ignore.h"
+#include "obj-pile.h"
 #include "obj-tval.h"
 #include "obj-util.h"
 #include "object.h"
 #include "player-timed.h"
-#include "tables.h"
 #include "trap.h"
 
 struct feature *f_info;
 struct chunk *cave = NULL;
 struct chunk *cave_k = NULL;
+
+/**
+ * Global array for looping through the "keypad directions".
+ */
+const s16b ddd[9] =
+{ 2, 8, 6, 4, 3, 1, 9, 7, 5 };
+
+/**
+ * Global arrays for converting "keypad direction" into "offsets".
+ */
+const s16b ddx[10] =
+{ 0, -1, 0, 1, -1, 0, 1, -1, 0, 1 };
+
+const s16b ddy[10] =
+{ 0, 1, 1, 1, 0, 0, 0, -1, -1, -1 };
+
+/**
+ * Global arrays for optimizing "ddx[ddd[i]]" and "ddy[ddd[i]]".
+ *
+ * This means that each entry in this array corresponds to the direction
+ * with the same array index in ddd[].
+ */
+const s16b ddx_ddd[9] =
+{ 0, 0, 1, -1, 1, -1, 1, -1, 0 };
+
+const s16b ddy_ddd[9] =
+{ 1, -1, 0, 0, 1, 1, -1, -1, 0 };
 
 /**
  * Find a terrain feature index by name
@@ -73,12 +100,14 @@ void set_terrain(void)
 	FEAT_MORE = lookup_feat("down staircase");
 	FEAT_SECRET = lookup_feat("secret door");
 	FEAT_RUBBLE = lookup_feat("pile of rubble");
+	FEAT_PASS_RUBBLE = lookup_feat("pile of passable rubble");
 	FEAT_MAGMA = lookup_feat("magma vein");
 	FEAT_QUARTZ = lookup_feat("quartz vein");
 	FEAT_MAGMA_K = lookup_feat("magma vein with treasure");
 	FEAT_QUARTZ_K = lookup_feat("quartz vein with treasure");
 	FEAT_GRANITE = lookup_feat("granite wall");
 	FEAT_PERM = lookup_feat("permanent wall");
+	FEAT_LAVA = lookup_feat("lava flow");
 	FEAT_DTRAP_FLOOR = lookup_feat("dtrap edge - floor");
 	FEAT_DTRAP_WALL = lookup_feat("dtrap edge - wall");
 }
@@ -93,10 +122,6 @@ struct chunk *cave_new(int height, int width) {
 	c->height = height;
 	c->width = width;
 	c->feat_count = mem_zalloc((z_info->f_max + 1) * sizeof(int));
-	c->o_idx = mem_zalloc(c->height * sizeof(s16b*));
-	for (y = 0; y < c->height; y++){
-		c->o_idx[y] = mem_zalloc(c->width * sizeof(s16b));
-	}
 
 	c->squares = mem_zalloc(c->height * sizeof(struct square*));
 	for (y = 0; y < c->height; y++) {
@@ -109,9 +134,6 @@ struct chunk *cave_new(int height, int width) {
 	c->mon_max = 1;
 	c->mon_current = -1;
 
-	c->objects = mem_zalloc(z_info->level_object_max * sizeof(struct object));
-	c->obj_max = 1;
-
 	c->created_at = turn;
 	return c;
 }
@@ -122,27 +144,22 @@ struct chunk *cave_new(int height, int width) {
 void cave_free(struct chunk *c) {
 	int y, x;
 
-	wipe_o_list(c);
-
 	for (y = 0; y < c->height; y++) {
 		for (x = 0; x < c->width; x++) {
 			mem_free(c->squares[y][x].info);
 			if (c->squares[y][x].trap)
 				square_free_trap(c, y, x);
+			if (c->squares[y][x].obj)
+				object_pile_free(c->squares[y][x].obj);
 		}
 		mem_free(c->squares[y]);
 	}
 	mem_free(c->squares);
 
-	for (y = 0; y < c->height; y++){
-		mem_free(c->o_idx[y]);
-	}
 	mem_free(c->feat_count);
-	mem_free(c->o_idx);
 	mem_free(c->monsters);
-	mem_free(c->objects);
 	if (c->name)
-		mem_free(c->name);
+		string_free(c->name);
 	mem_free(c);
 }
 
@@ -209,29 +226,6 @@ int cave_monster_max(struct chunk *c) {
  */
 int cave_monster_count(struct chunk *c) {
 	return c->mon_cnt;
-}
-
-/**
- * Get an object on the current level by its index.
- */
-struct object *cave_object(struct chunk *c, int idx) {
-	assert(idx > 0);
-	assert(idx <= z_info->level_object_max);
-	return &c->objects[idx];
-}
-
-/**
- * The maximum number of objects allowed in the level.
- */
-int cave_object_max(struct chunk *c) {
-	return c->obj_max;
-}
-
-/**
- * The current number of objects present on the level.
- */
-int cave_object_count(struct chunk *c) {
-	return c->obj_cnt;
 }
 
 /**

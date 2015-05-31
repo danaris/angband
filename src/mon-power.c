@@ -17,6 +17,7 @@
  */
 
 #include "angband.h"
+#include "game-world.h"
 #include "init.h"
 #include "mon-init.h"
 #include "mon-power.h"
@@ -25,8 +26,10 @@
 #include "mon-blow-effects.h"
 #include "obj-tval.h"
 #include "obj-util.h"
-#include "prefs.h"
-#include "tables.h"
+#include "z-textblock.h"
+
+bool arg_power;				/* Command arg -- Generate monster power */
+bool arg_rebalance;			/* Command arg -- Rebalance monsters */
 
 long *power, *scaled_power, *final_hp, *final_melee_dam, *final_spell_dam;
 int *highest_threat;
@@ -53,7 +56,7 @@ static byte adj_energy(monster_race *r_ptr)
 	unsigned i = r_ptr->speed + (rsf_has(r_ptr->spell_flags,RSF_HASTE) ? 5 : 0);
 
 	/* Fastest monster in the game is currently +30, but bounds check anyway */
-	return extract_energy[MIN(i, N_ELEMENTS(extract_energy) - 1)];
+	return turn_energy(MIN(i, N_ELEMENTS(extract_energy) - 1));
 }
 
 static long eval_max_dam(monster_race *r_ptr, int ridx)
@@ -83,14 +86,16 @@ static long eval_max_dam(monster_race *r_ptr, int ridx)
 	}
 
 	/* Check attacks */
-	for (i = 0; i < 4; i++) {
-		/* Extract the attack infomation */
-		int effect = r_ptr->blow[i].effect;
-		int method = r_ptr->blow[i].method;
-		random_value dice = r_ptr->blow[i].dice;
+	for (i = 0; i < z_info->mon_blows_max; i++) {
+		int effect, method;
+		random_value dice;
 
-		/* Hack -- no more attacks */
-		if (!method) continue;
+		if (!r_ptr->blow) break;
+
+		/* Extract the attack infomation */
+		effect = r_ptr->blow[i].effect;
+		method = r_ptr->blow[i].method;
+		dice = r_ptr->blow[i].dice;
 
 		/* Assume maximum damage*/
 		atk_dam = eval_blow_effect(effect, dice, r_ptr->level);
@@ -370,8 +375,6 @@ errr eval_monster_power(struct monster_race *racelist)
 {
 	int i, j, iteration;
 	byte lvl;
-	long hp, av_hp, dam, av_dam;
-	long tot_hp[MAX_DEPTH], tot_dam[MAX_DEPTH], mon_count[MAX_DEPTH];
 	monster_race *r_ptr = NULL;
 	ang_file *mon_fp;
 	char buf[1024];
@@ -386,16 +389,13 @@ errr eval_monster_power(struct monster_race *racelist)
 	highest_threat = mem_zalloc(z_info->r_max * sizeof(int));
 
 	for (iteration = 0; iteration < 3; iteration ++) {
+		long hp, av_hp, dam, av_dam;
+		long *tot_hp = mem_zalloc(z_info->max_depth * sizeof(long));
+		long *tot_dam = mem_zalloc(z_info->max_depth * sizeof(long));
+		long *mon_count = mem_zalloc(z_info->max_depth * sizeof(long));
 
 		/* Reset the sum of all monster power values */
 		tot_mon_power = 0;
-
-		/* Make sure all arrays start at zero */
-		for (i = 0; i < MAX_DEPTH; i++)	{
-			tot_hp[i] = 0;
-			tot_dam[i] = 0;
-			mon_count[i] = 0;
-		}
 
 		/* Go through r_info and evaluate power ratings & flows. */
 		for (i = 0; i < z_info->r_max; i++)	{
@@ -518,7 +518,7 @@ errr eval_monster_power(struct monster_race *racelist)
 
 			/* Update the running totals - these will be used as divisors later
 			 * Total HP / dam / count for everything up to the current level */
-			for (j = lvl; j < (lvl == 0 ? lvl + 1: MAX_DEPTH); j++)	{
+			for (j = lvl; j < (lvl == 0 ? lvl + 1: z_info->max_depth); j++)	{
 				int count = 10;
 
 				/* Uniques don't count towards monster power on the level. */
@@ -629,6 +629,9 @@ errr eval_monster_power(struct monster_race *racelist)
 			}
 		}
 
+		mem_free(mon_count);
+		mem_free(tot_dam);
+		mem_free(tot_hp);
 	}
 
 	/* Determine total monster power */

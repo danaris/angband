@@ -1,6 +1,6 @@
-/*
- * File: ui-spell.c
- * Purpose: Spell UI handing
+/**
+ * \file ui-spell.c
+ * \brief Spell UI handing
  *
  * Copyright (c) 2010 Andi Sidwell
  *
@@ -19,15 +19,14 @@
 #include "cave.h"
 #include "cmds.h"
 #include "cmd-core.h"
+#include "game-input.h"
 #include "obj-tval.h"
-#include "obj-ui.h"
 #include "obj-util.h"
 #include "object.h"
+#include "player-calcs.h"
 #include "player-spell.h"
-#include "ui.h"
 #include "ui-menu.h"
-
-
+#include "ui-output.h"
 
 
 /**
@@ -48,7 +47,7 @@ struct spell_menu_data {
 /**
  * Is item oid valid?
  */
-static int spell_menu_valid(menu_type *m, int oid)
+static int spell_menu_valid(struct menu *m, int oid)
 {
 	struct spell_menu_data *d = menu_priv(m);
 	int *spells = d->spells;
@@ -59,7 +58,7 @@ static int spell_menu_valid(menu_type *m, int oid)
 /**
  * Display a row of the spell menu
  */
-static void spell_menu_display(menu_type *m, int oid, bool cursor,
+static void spell_menu_display(struct menu *m, int oid, bool cursor,
 		int row, int col, int wid)
 {
 	struct spell_menu_data *d = menu_priv(m);
@@ -75,26 +74,26 @@ static void spell_menu_display(menu_type *m, int oid, bool cursor,
 
 	if (s_ptr->slevel >= 99) {
 		illegible = "(illegible)";
-		attr = TERM_L_DARK;
+		attr = COLOUR_L_DARK;
 	} else if (player->spell_flags[spell] & PY_SPELL_FORGOTTEN) {
 		comment = " forgotten";
-		attr = TERM_YELLOW;
+		attr = COLOUR_YELLOW;
 	} else if (player->spell_flags[spell] & PY_SPELL_LEARNED) {
 		if (player->spell_flags[spell] & PY_SPELL_WORKED) {
 			/* Get extra info */
 			get_spell_info(spell, help, sizeof(help));
 			comment = help;
-			attr = TERM_WHITE;
+			attr = COLOUR_WHITE;
 		} else {
 			comment = " untried";
-			attr = TERM_L_GREEN;
+			attr = COLOUR_L_GREEN;
 		}
 	} else if (s_ptr->slevel <= player->lev) {
 		comment = " unknown";
-		attr = TERM_L_BLUE;
+		attr = COLOUR_L_BLUE;
 	} else {
 		comment = " difficult";
-		attr = TERM_RED;
+		attr = COLOUR_RED;
 	}
 
 	/* Dump the spell --(-- */
@@ -106,7 +105,7 @@ static void spell_menu_display(menu_type *m, int oid, bool cursor,
 /**
  * Handle an event on a menu row.
  */
-static bool spell_menu_handler(menu_type *m, const ui_event *e, int oid)
+static bool spell_menu_handler(struct menu *m, const ui_event *e, int oid)
 {
 	struct spell_menu_data *d = menu_priv(m);
 
@@ -155,25 +154,26 @@ static const menu_iter spell_menu_iter = {
 	NULL	/* no resize hook */
 };
 
-/** Create and initialise a spell menu, given an object and a validity hook */
-static menu_type *spell_menu_new(const object_type *o_ptr,
+/**
+ * Create and initialise a spell menu, given an object and a validity hook
+ */
+static struct menu *spell_menu_new(const object_type *o_ptr,
 		bool (*is_valid)(int spell))
 {
-	menu_type *m = menu_new(MN_SKIN_SCROLL, &spell_menu_iter);
+	struct menu *m = menu_new(MN_SKIN_SCROLL, &spell_menu_iter);
 	struct spell_menu_data *d = mem_alloc(sizeof *d);
 
 	region loc = { -60, 1, 60, -99 };
 
 	/* collect spells from object */
 	d->n_spells = spell_collect_from_book(o_ptr, &d->spells);
-	if (d->n_spells == 0 || !spell_okay_list(is_valid, d->spells, d->n_spells))
-	{
+	if (d->n_spells == 0 || !spell_okay_list(is_valid, d->spells, d->n_spells)){
 		mem_free(m);
 		mem_free(d);
 		return NULL;
 	}
 
-	/* copy across private data */
+	/* Copy across private data */
 	d->is_valid = is_valid;
 	d->selected_spell = -1;
 	d->browse = FALSE;
@@ -181,22 +181,24 @@ static menu_type *spell_menu_new(const object_type *o_ptr,
 
 	menu_setpriv(m, d->n_spells, d);
 
-	/* set flags */
+	/* Set flags */
 	m->header = "Name                             Lv Mana Fail Info";
 	m->flags = MN_CASELESS_TAGS;
 	m->selections = lower_case;
 	m->browse_hook = spell_menu_browser;
 	m->cmd_keys = "?";
 
-	/* set size */
+	/* Set size */
 	loc.page_rows = d->n_spells + 1;
 	menu_layout(m, &loc);
 
 	return m;
 }
 
-/** Clean up a spell menu instance */
-static void spell_menu_destroy(menu_type *m)
+/**
+ * Clean up a spell menu instance
+ */
+static void spell_menu_destroy(struct menu *m)
 {
 	struct spell_menu_data *d = menu_priv(m);
 	mem_free(d);
@@ -206,7 +208,7 @@ static void spell_menu_destroy(menu_type *m)
 /**
  * Run the spell menu to select a spell.
  */
-static int spell_menu_select(menu_type *m, const char *noun, const char *verb)
+static int spell_menu_select(struct menu *m, const char *noun, const char *verb)
 {
 	struct spell_menu_data *d = menu_priv(m);
 	char buf[80];
@@ -215,7 +217,8 @@ static int spell_menu_select(menu_type *m, const char *noun, const char *verb)
 	region_erase_bordered(&m->active);
 
 	/* Format, capitalise and display */
-	strnfmt(buf, sizeof buf, "%s which %s? ('?' to toggle description)", verb, noun);
+	strnfmt(buf, sizeof buf, "%s which %s? ('?' to toggle description)",
+			verb, noun);
 	my_strcap(buf);
 	prt(buf, 0, 0);
 
@@ -228,7 +231,7 @@ static int spell_menu_select(menu_type *m, const char *noun, const char *verb)
 /**
  * Run the spell menu, without selections.
  */
-static void spell_menu_browse(menu_type *m, const char *noun)
+static void spell_menu_browse(struct menu *m, const char *noun)
 {
 	struct spell_menu_data *d = menu_priv(m);
 
@@ -248,7 +251,7 @@ static void spell_menu_browse(menu_type *m, const char *noun)
  */
 void textui_book_browse(const object_type *o_ptr)
 {
-	menu_type *m;
+	struct menu *m;
 	const char *noun = player->class->magic.spell_realm->spell_noun;
 
 	m = spell_menu_new(o_ptr, spell_okay_to_browse);
@@ -265,35 +268,36 @@ void textui_book_browse(const object_type *o_ptr)
  */
 void textui_spell_browse(void)
 {
-	int item;
+	struct object *obj;
 
-	if (!get_item(&item, "Browse which book? ",
-			"You have no books that you can read.",
-			CMD_BROWSE_SPELL, obj_can_browse, (USE_INVEN | USE_FLOOR | IS_HARMLESS)))
+	if (!get_item(&obj, "Browse which book? ",
+				  "You have no books that you can read.",
+				  CMD_BROWSE_SPELL, obj_can_browse,
+				  (USE_INVEN | USE_FLOOR | IS_HARMLESS)))
 		return;
 
 	/* Track the object kind */
-	track_object(player->upkeep, item);
-	handle_stuff(player->upkeep);
+	track_object(player->upkeep, obj);
+	handle_stuff(player);
 
-	textui_book_browse(object_from_item_idx(item));
+	textui_book_browse(obj);
 }
 
 /**
  * Get a spell from specified book.
  */
-int get_spell_from_book(const char *verb, int book,
-		const char *error, bool (*spell_filter)(int spell))
+int textui_get_spell_from_book(const char *verb, struct object *book,
+							   const char *error,
+							   bool (*spell_filter)(int spell))
 {
 	const char *noun = player->class->magic.spell_realm->spell_noun;
 
-	menu_type *m;
-	struct object *o_ptr = object_from_item_idx(book);
+	struct menu *m;
 
 	track_object(player->upkeep, book);
-	handle_stuff(player->upkeep);
+	handle_stuff(player);
 
-	m = spell_menu_new(o_ptr, spell_filter);
+	m = spell_menu_new(book, spell_filter);
 	if (m) {
 		int spell = spell_menu_select(m, noun, verb);
 		spell_menu_destroy(m);
@@ -306,19 +310,20 @@ int get_spell_from_book(const char *verb, int book,
 /**
  * Get a spell from the player.
  */
-int get_spell(const char *verb, item_tester book_filter,
-		cmd_code cmd, const char *error, bool (*spell_filter)(int spell))
+int textui_get_spell(const char *verb, item_tester book_filter,
+					 cmd_code cmd, const char *error,
+					 bool (*spell_filter)(int spell))
 {
 	char prompt[1024];
-	int book;
+	struct object *book;
 
 	/* Create prompt */
 	strnfmt(prompt, sizeof prompt, "%s which book?", verb);
 	my_strcap(prompt);
 
 	if (!get_item(&book, prompt, error,
-			cmd, book_filter, (USE_INVEN | USE_FLOOR)))
+				  cmd, book_filter, (USE_INVEN | USE_FLOOR)))
 		return -1;
 
-	return get_spell_from_book(verb, book, error, spell_filter);
+	return textui_get_spell_from_book(verb, book, error, spell_filter);
 }

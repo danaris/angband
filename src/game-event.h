@@ -1,10 +1,29 @@
+/**
+ * \file game-event.h
+ * \brief Allows the registering of handlers to be told about game events.
+ *
+ * Copyright (c) 2007 Antony Sidwell
+ *
+ * This work is free software; you can redistribute it and/or modify it
+ * under the terms of either:
+ *
+ * a) the GNU General Public License as published by the Free Software
+ *    Foundation, version 2, or
+ *
+ * b) the "Angband licence":
+ *    This software may be copied and distributed for educational, research,
+ *    and not for profit purposes provided that this copyright and statement
+ *    are included in all such copies.  Other copyrights may also apply.
+ */
 
 #ifndef INCLUDED_GAME_EVENT_H
 #define INCLUDED_GAME_EVENT_H
 
 #include "z-type.h"
 
-/* The various events we can send signals about. */
+/**
+ * The various events we can send signals about.
+ */
 typedef enum game_event_type
 {
 	EVENT_MAP = 0,		/* Some part of the map has changed. */
@@ -41,6 +60,18 @@ typedef enum game_event_type
 	EVENT_OBJECTTARGET,
 	EVENT_MESSAGE,
 	EVENT_SOUND,
+	EVENT_BELL,
+	EVENT_USE_STORE,
+	EVENT_STORECHANGED,	/* Triggered on a successful buy/retrieve or sell/drop */
+
+	EVENT_INPUT_FLUSH,
+	EVENT_MESSAGE_FLUSH,
+	EVENT_CHECK_INTERRUPT,
+	EVENT_REFRESH,
+	EVENT_NEW_LEVEL_DISPLAY,
+	EVENT_COMMAND_REPEAT,
+	EVENT_ANIMATE,
+	EVENT_CHEAT_DEATH,
 
 	EVENT_INITSTATUS,	/* New status message for initialisation */
 	EVENT_BIRTHPOINTS,	/* Change in the birth points */
@@ -52,6 +83,8 @@ typedef enum game_event_type
 	EVENT_LEAVE_BIRTH,
 	EVENT_ENTER_GAME,
 	EVENT_LEAVE_GAME,
+	EVENT_ENTER_WORLD,
+	EVENT_LEAVE_WORLD,
 	EVENT_ENTER_STORE,
 	EVENT_LEAVE_STORE,
 	EVENT_ENTER_DEATH,
@@ -115,8 +148,7 @@ typedef union
 
 	struct
 	{
-		byte mattr;
-		wchar_t mchar;
+		struct object *obj;
 		bool seen;
 		int y;
 		int x;
@@ -125,7 +157,7 @@ typedef union
 } game_event_data;
 
 
-/* 
+/**
  * A function called when a game event occurs - these are registered to be
  * called by event_add_handler or event_add_handler_set, and deregistered
  * when they should no longer be called through event_remove_handler or
@@ -135,6 +167,7 @@ typedef void game_event_handler(game_event_type type, game_event_data *data, voi
 
 void event_add_handler(game_event_type type, game_event_handler *fn, void *user);
 void event_remove_handler(game_event_type type, game_event_handler *fn, void *user);
+void event_remove_handler_type(game_event_type type);
 void event_remove_all_handlers(void);
 void event_add_handler_set(game_event_type *type, size_t n_types, game_event_handler *fn, void *user);
 void event_remove_handler_set(game_event_type *type, size_t n_types, game_event_handler *fn, void *user);
@@ -162,8 +195,7 @@ void event_signal_bolt(game_event_type type,
 					   int y,
 					   int x);
 void event_signal_missile(game_event_type type,
-						  byte mattr,
-						  wchar_t mchar,
+						  struct object *obj,
 						  bool seen,
 						  int y,
 						  int x);

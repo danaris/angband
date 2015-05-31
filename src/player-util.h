@@ -1,5 +1,6 @@
-/** \file player-util.h
-	\brief Player utility functions
+/**
+ * \file player-util.h
+ * \brief Player utility functions
  *
  * Copyright (c) 1997 Ben Harrison, James E. Wilson, Robert A. Koeneke
  * Copyright (c) 2014 Nick McConnell
@@ -28,7 +29,7 @@
 #define PY_REGEN_HPBASE		1442	/* Min amount hp regen*2^16 */
 #define PY_REGEN_MNBASE		524		/* Min amount mana regen*2^16 */
 
-/* 
+/**
  * Special values for the number of turns to rest, these need to be
  * negative numbers, as postive numbers are taken to be a turncount,
  * and zero means "not resting". 
@@ -45,8 +46,13 @@ enum
  */
 #define REST_REQUIRED_FOR_REGEN 5
 
+void dungeon_change_level(int dlev);
 void take_hit(struct player *p, int dam, const char *kb_str);
+void death_knowledge(void);
 s16b modify_stat_value(int value, int amount);
+void player_regen_hp(void);
+void player_regen_mana(void);
+void player_update_light(void);
 bool player_can_cast(struct player *p, bool show_msg);
 bool player_can_study(struct player *p, bool show_msg);
 bool player_can_read(struct player *p, bool show_msg);
@@ -63,14 +69,17 @@ bool player_resting_is_special(s16b count);
 bool player_is_resting(struct player *p);
 s16b player_resting_count(struct player *p);
 void player_resting_set_count(struct player *p, s16b count);
-void player_resting_cancel(struct player *p);
+void player_resting_cancel(struct player *p, bool disturb);
 bool player_resting_can_regenerate(struct player *p);
 void player_resting_step_turn(struct player *p);
 void player_resting_complete_special(struct player *p);
+int player_get_resting_repeat_count(struct player *p);
+void player_set_resting_repeat_count(struct player *p, s16b count);
 bool player_of_has(struct player *p, int flag);
 bool player_resists(struct player *p, int element);
 bool player_is_immune(struct player *p, int element);
 int coords_to_dir(int y, int x);
+void player_place(struct chunk *c, struct player *p, int y, int x);
 void disturb(struct player *p, int stop_search);
 
 #endif /* !PLAYER_UTIL_H */

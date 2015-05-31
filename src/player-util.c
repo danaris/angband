@@ -18,22 +18,47 @@
 
 #include "angband.h"
 #include "cave.h"
+#include "cmd-core.h"
+#include "game-input.h"
+#include "game-world.h"
 #include "init.h"
 #include "obj-gear.h"
+#include "obj-identify.h"
 #include "obj-tval.h"
-#include "obj-ui.h"
+#include "obj-pile.h"
 #include "obj-util.h"
+#include "player-calcs.h"
+#include "player-history.h"
 #include "player-spell.h"
 #include "player-timed.h"
 #include "player-util.h"
-#include "tables.h"
+#include "score.h"
+#include "store.h"
 #include "target.h"
-#include "cmd-core.h"
 
-/*
+/**
+ * Change dungeon level - e.g. by going up stairs or with WoR.
+ */
+void dungeon_change_level(int dlev)
+{
+	/* New depth */
+	player->depth = dlev;
+
+	/* If we're returning to town, update the store contents
+	   according to how long we've been away */
+	if (!dlev && daycount)
+		store_update();
+
+	/* Leaving, make new level */
+	player->upkeep->generate_level = TRUE;
+
+	/* Save the game when we arrive on the new level. */
+	player->upkeep->autosave = TRUE;
+}
+
+
+/**
  * Decreases players hit points and sets death flag if necessary
- *
- * Invulnerability needs to be changed into a "shield" XXX XXX XXX
  *
  * Hack -- this function allows the user to save (or quit) the game
  * when he dies, since the "You die." message is shown before setting
@@ -45,10 +70,8 @@ void take_hit(struct player *p, int dam, const char *kb_str)
 
 	int warning = (p->mhp * op_ptr->hitpoint_warn / 10);
 
-
 	/* Paranoia */
 	if (p->is_dead) return;
-
 
 	/* Disturb */
 	disturb(p, 1);
@@ -63,11 +86,14 @@ void take_hit(struct player *p, int dam, const char *kb_str)
 	p->upkeep->redraw |= (PR_HP);
 
 	/* Dead player */
-	if (p->chp < 0)
-	{
+	if (p->chp < 0) {
+		/* Allow cheating */
+		if ((p->wizard || OPT(cheat_live)) && !get_check("Die? "))
+			event_signal(EVENT_CHEAT_DEATH);
+
 		/* Hack -- Note death */
 		msgt(MSG_DEATH, "You die.");
-		message_flush();
+		event_signal(EVENT_MESSAGE_FLUSH);
 
 		/* Note cause of death */
 		my_strcpy(p->died_from, kb_str, sizeof(p->died_from));
@@ -78,29 +104,62 @@ void take_hit(struct player *p, int dam, const char *kb_str)
 		/* Note death */
 		p->is_dead = TRUE;
 
-		/* Leaving */
-		p->upkeep->leaving = TRUE;
-
 		/* Dead */
 		return;
 	}
 
 	/* Hitpoint warning */
-	if (p->chp < warning)
-	{
+	if (p->chp < warning) {
 		/* Hack -- bell on first notice */
 		if (old_chp > warning)
-		{
 			bell("Low hitpoint warning!");
-		}
 
 		/* Message */
 		msgt(MSG_HITPOINT_WARN, "*** LOW HITPOINT WARNING! ***");
-		message_flush();
+		event_signal(EVENT_MESSAGE_FLUSH);
 	}
 }
 
-/*
+/**
+ * Win or not, know inventory, home items and history upon death, enter score
+ */
+void death_knowledge(void)
+{
+	struct store *home = &stores[STORE_HOME];
+	object_type *obj;
+	time_t death_time = (time_t)0;
+
+	/* Retire in the town in a good state */
+	if (player->total_winner) {
+		player->depth = 0;
+		my_strcpy(player->died_from, "Ripe Old Age", sizeof(player->died_from));
+		player->exp = player->max_exp;
+		player->lev = player->max_lev;
+		player->au += 10000000L;
+	}
+
+	for (obj = player->gear; obj; obj = obj->next) {
+		object_flavor_aware(obj);
+		object_notice_everything(obj);
+	}
+
+	for (obj = home->stock; obj; obj = obj->next) {
+		object_flavor_aware(obj);
+		object_notice_everything(obj);
+	}
+
+	history_unmask_unknown();
+
+	/* Get time of death */
+	(void)time(&death_time);
+	enter_score(&death_time);
+
+	/* Hack -- Recalculate bonuses */
+	player->upkeep->update |= (PU_BONUS);
+	handle_stuff(player);
+}
+
+/**
  * Modify a stat value by a "modifier", return new value
  *
  * Stats go up: 3,4,...,17,18,18/10,18/20,...,18/220
@@ -113,26 +172,19 @@ s16b modify_stat_value(int value, int amount)
 {
 	int i;
 
-	/* Reward */
-	if (amount > 0)
-	{
+	/* Reward or penalty */
+	if (amount > 0) {
 		/* Apply each point */
-		for (i = 0; i < amount; i++)
-		{
+		for (i = 0; i < amount; i++) {
 			/* One point at a time */
 			if (value < 18) value++;
 
 			/* Ten "points" at a time */
 			else value += 10;
 		}
-	}
-
-	/* Penalty */
-	else if (amount < 0)
-	{
+	} else if (amount < 0) {
 		/* Apply each point */
-		for (i = 0; i < (0 - amount); i++)
-		{
+		for (i = 0; i < (0 - amount); i++) {
 			/* Ten points at a time */
 			if (value >= 18+10) value -= 10;
 
@@ -149,9 +201,187 @@ s16b modify_stat_value(int value, int amount)
 }
 
 /**
+ * Regenerate hit points
+ */
+void player_regen_hp(void)
+{
+	s32b new_chp, new_chp_frac;
+	int old_chp, percent = 0;
+
+	/* Save the old hitpoints */
+	old_chp = player->chp;
+
+	/* Default regeneration */
+	if (player->food >= PY_FOOD_WEAK)
+		percent = PY_REGEN_NORMAL;
+	else if (player->food >= PY_FOOD_FAINT)
+		percent = PY_REGEN_WEAK;
+	else if (player->food >= PY_FOOD_STARVE)
+		percent = PY_REGEN_FAINT;
+
+	/* Various things speed up regeneration */
+	if (player_of_has(player, OF_REGEN))
+		percent *= 2;
+	if (player->searching || player_resting_can_regenerate(player))
+		percent *= 2;
+
+	/* Some things slow it down */
+	if (player_of_has(player, OF_IMPAIR_HP))
+		percent /= 2;
+
+	/* Various things interfere with physical healing */
+	if (player->timed[TMD_PARALYZED]) percent = 0;
+	if (player->timed[TMD_POISONED]) percent = 0;
+	if (player->timed[TMD_STUN]) percent = 0;
+	if (player->timed[TMD_CUT]) percent = 0;
+
+	/* Extract the new hitpoints */
+	new_chp = ((long)player->mhp) * percent + PY_REGEN_HPBASE;
+	player->chp += (s16b)(new_chp >> 16);   /* div 65536 */
+
+	/* check for overflow */
+	if ((player->chp < 0) && (old_chp > 0))
+		player->chp = MAX_SHORT;
+	new_chp_frac = (new_chp & 0xFFFF) + player->chp_frac;	/* mod 65536 */
+	if (new_chp_frac >= 0x10000L) {
+		player->chp_frac = (u16b)(new_chp_frac - 0x10000L);
+		player->chp++;
+	} else {
+		player->chp_frac = (u16b)new_chp_frac;
+	}
+
+	/* Fully healed */
+	if (player->chp >= player->mhp) {
+		player->chp = player->mhp;
+		player->chp_frac = 0;
+	}
+
+	/* Notice changes */
+	if (old_chp != player->chp) {
+		player->upkeep->redraw |= (PR_HP);
+		equip_notice_flag(player, OF_REGEN);
+		equip_notice_flag(player, OF_IMPAIR_HP);
+	}
+}
+
+
+/**
+ * Regenerate mana points
+ */
+void player_regen_mana(void)
+{
+	s32b new_mana, new_mana_frac;
+	int old_csp, percent;
+
+	/* Save the old spell points */
+	old_csp = player->csp;
+
+	/* Default regeneration */
+	percent = PY_REGEN_NORMAL;
+
+	/* Various things speed up regeneration */
+	if (player_of_has(player, OF_REGEN))
+		percent *= 2;
+	if (player->searching || player_resting_can_regenerate(player))
+		percent *= 2;
+
+	/* Some things slow it down */
+	if (player_of_has(player, OF_IMPAIR_MANA))
+		percent /= 2;
+
+	/* Regenerate mana */
+	new_mana = ((long)player->msp) * percent + PY_REGEN_MNBASE;
+	player->csp += (s16b)(new_mana >> 16);	/* div 65536 */
+
+	/* check for overflow */
+	if ((player->csp < 0) && (old_csp > 0)) {
+		player->csp = MAX_SHORT;
+	}
+	new_mana_frac = (new_mana & 0xFFFF) + player->csp_frac;	/* mod 65536 */
+	if (new_mana_frac >= 0x10000L) {
+		player->csp_frac = (u16b)(new_mana_frac - 0x10000L);
+		player->csp++;
+	} else {
+		player->csp_frac = (u16b)new_mana_frac;
+	}
+
+	/* Must set frac to zero even if equal */
+	if (player->csp >= player->msp) {
+		player->csp = player->msp;
+		player->csp_frac = 0;
+	}
+
+	/* Notice changes */
+	if (old_csp != player->csp) {
+		player->upkeep->redraw |= (PR_MANA);
+		equip_notice_flag(player, OF_REGEN);
+		equip_notice_flag(player, OF_IMPAIR_MANA);
+	}
+}
+
+/**
+ * Update the player's light fuel
+ */
+void player_update_light(void)
+{
+	/* Check for light being wielded */
+	struct object *obj = equipped_item_by_slot_name(player, "light");
+
+	/* Burn some fuel in the current light */
+	if (obj && tval_is_light(obj)) {
+		bool burn_fuel = TRUE;
+
+		/* Turn off the wanton burning of light during the day in the town */
+		if (!player->depth && is_daytime())
+			burn_fuel = FALSE;
+
+		/* If the light has the NO_FUEL flag, well... */
+		if (of_has(obj->flags, OF_NO_FUEL))
+		    burn_fuel = FALSE;
+
+		/* Use some fuel (except on artifacts, or during the day) */
+		if (burn_fuel && obj->timeout > 0) {
+			/* Decrease life-span */
+			obj->timeout--;
+
+			/* Hack -- notice interesting fuel steps */
+			if ((obj->timeout < 100) || (!(obj->timeout % 100)))
+				/* Redraw stuff */
+				player->upkeep->redraw |= (PR_EQUIP);
+
+			/* Hack -- Special treatment when blind */
+			if (player->timed[TMD_BLIND]) {
+				/* Hack -- save some light for later */
+				if (obj->timeout == 0) obj->timeout++;
+			} else if (obj->timeout == 0) {
+				/* The light is now out */
+				disturb(player, 0);
+				msg("Your light has gone out!");
+
+				/* If it's a torch, now is the time to delete it */
+				if (of_has(obj->flags, OF_BURNS_OUT)) {
+					gear_excise_object(obj);
+					object_delete(&obj);
+				}
+			} else if ((obj->timeout < 50) && (!(obj->timeout % 20))) {
+				/* The light is getting dim */
+				disturb(player, 0);
+				msg("Your light is growing faint.");
+			}
+		}
+	}
+
+	/* Calculate torch radius */
+	player->upkeep->update |= (PU_TORCH);
+}
+
+
+/**
  * Return TRUE if the player can cast a spell.
  *
- * \param show_msg should be set to TRUE if a failure message should be displayed.
+ * \param p is the player
+ * \param show_msg should be set to TRUE if a failure message should be
+ * displayed.
  */
 bool player_can_cast(struct player *p, bool show_msg)
 {
@@ -185,7 +415,9 @@ bool player_can_cast(struct player *p, bool show_msg)
 /**
  * Return TRUE if the player can study a spell.
  *
- * \param show_msg should be set to TRUE if a failure message should be displayed.
+ * \param p is the player
+ * \param show_msg should be set to TRUE if a failure message should be
+ * displayed.
  */
 bool player_can_study(struct player *p, bool show_msg)
 {
@@ -208,36 +440,34 @@ bool player_can_study(struct player *p, bool show_msg)
 /**
  * Return TRUE if the player can read scrolls or books.
  *
- * \param show_msg should be set to TRUE if a failure message should be displayed.
+ * \param p is the player
+ * \param show_msg should be set to TRUE if a failure message should be
+ * displayed.
  */
 bool player_can_read(struct player *p, bool show_msg)
 {
-	if (p->timed[TMD_BLIND])
-	{
+	if (p->timed[TMD_BLIND]) {
 		if (show_msg)
 			msg("You can't see anything.");
 
 		return FALSE;
 	}
 
-	if (no_light())
-	{
+	if (no_light()) {
 		if (show_msg)
 			msg("You have no light to read by.");
 
 		return FALSE;
 	}
 
-	if (p->timed[TMD_CONFUSED])
-	{
+	if (p->timed[TMD_CONFUSED]) {
 		if (show_msg)
 			msg("You are too confused to read!");
 
 		return FALSE;
 	}
 
-	if (p->timed[TMD_AMNESIA])
-	{
+	if (p->timed[TMD_AMNESIA]) {
 		if (show_msg)
 			msg("You can't remember how to read!");
 
@@ -250,14 +480,16 @@ bool player_can_read(struct player *p, bool show_msg)
 /**
  * Return TRUE if the player can fire something with a launcher.
  *
- * \param show_msg should be set to TRUE if a failure message should be displayed.
+ * \param p is the player
+ * \param show_msg should be set to TRUE if a failure message should be
+ * displayed.
  */
 bool player_can_fire(struct player *p, bool show_msg)
 {
-	object_type *o_ptr = equipped_item_by_slot_name(player, "shooting");
+	object_type *obj = equipped_item_by_slot_name(player, "shooting");
 
 	/* Require a usable launcher */
-	if (!o_ptr->tval || !p->state.ammo_tval)
+	if (!obj || !p->state.ammo_tval)
 	{
 		if (show_msg)
 			msg("You have nothing to fire with.");
@@ -271,13 +503,15 @@ bool player_can_fire(struct player *p, bool show_msg)
 /**
  * Return TRUE if the player can refuel their light source.
  *
- * \param show_msg should be set to TRUE if a failure message should be displayed.
+ * \param p is the player
+ * \param show_msg should be set to TRUE if a failure message should be
+ * displayed.
  */
 bool player_can_refuel(struct player *p, bool show_msg)
 {
 	object_type *obj = equipped_item_by_slot_name(player, "light");
 
-	if (obj->kind && of_has(obj->flags, OF_TAKES_FUEL))
+	if (obj && of_has(obj->flags, OF_TAKES_FUEL))
 		return TRUE;
 
 	if (show_msg)
@@ -329,43 +563,36 @@ bool player_can_refuel_prereq(void)
 /**
  * Return TRUE if the player has a book in their inventory that has unlearned
  * spells.
+ *
+ * \param p is the player
  */
 bool player_book_has_unlearned_spells(struct player *p)
 {
 	int i, j;
-	int item_max = z_info->pack_size;
-	int *item_list = mem_zalloc(item_max * sizeof(int));
-	int item_num;
 	const class_book *book;
 
 	/* Check if the player can learn new spells */
-	if (!p->upkeep->new_spells) {
-		mem_free(item_list);
+	if (!p->upkeep->new_spells)
 		return FALSE;
-	}
-
-	/* Get the number of books in inventory */
-	item_num = scan_items(item_list, item_max, (USE_INVEN), obj_can_browse);
 
 	/* Check through all available books */
-	for (i = 0; i < item_num; i++) {
-		book = object_to_book(object_from_item_idx(player->upkeep->inven[i]));
+	for (i = 0; i < z_info->pack_size; i++) {
+		struct object *obj = player->upkeep->inven[i];
+		if (!obj || !obj_can_browse(obj)) continue;
+		book = object_to_book(player->upkeep->inven[i]);
 		if (!book) continue;
 
 		/* Extract spells */
 		for (j = 0; j < book->num_spells; j++)
-			if (spell_okay_to_study(book->spells[j].sidx)) {
+			if (spell_okay_to_study(book->spells[j].sidx))
 				/* There is a spell the player can study */
-				mem_free(item_list);
 				return TRUE;
-			}
 	}
 
-	mem_free(item_list);
 	return FALSE;
 }
 
-/*
+/**
  * Apply confusion, if needed, to a direction
  *
  * Display a message and return TRUE if direction changes.
@@ -392,9 +619,6 @@ bool player_confuse_dir(struct player *p, int *dp, bool too)
 	return FALSE;
 }
 
-/* Resting counter */
-int resting;
-
 /**
  * Return TRUE if the provided count is one of the conditional REST_ flags.
  */
@@ -415,7 +639,8 @@ bool player_resting_is_special(s16b count)
  */
 bool player_is_resting(struct player *p)
 {
-	return resting > 0 || player_resting_is_special(resting);
+	return (p->upkeep->resting > 0 ||
+			player_resting_is_special(p->upkeep->resting));
 }
 
 /**
@@ -423,15 +648,16 @@ bool player_is_resting(struct player *p)
  */
 s16b player_resting_count(struct player *p)
 {
-	return resting;
+	return p->upkeep->resting;
 }
 
-/*
- * In order to prevent the regeneration bonus from the first few turns, we have to
- * store the original number of turns the user entered. Otherwise, the first few
- * turns will have the bonus and the last few will not.
+/**
+ * In order to prevent the regeneration bonus from the first few turns, we have
+ * to store the number of turns the player has rested. Otherwise, the first
+ * few turns will have the bonus and the last few will not.
  */
-static s16b player_resting_start_count = 0;
+static int player_turns_rested = 0;
+static bool player_rest_disturb = FALSE;
 
 /**
  * Set the number of resting turns.
@@ -440,112 +666,121 @@ static s16b player_resting_start_count = 0;
  */
 void player_resting_set_count(struct player *p, s16b count)
 {
-	if (count < 0 && !player_resting_is_special(count)) {
-		/* Ignore if the rest count is negative. */
-		resting = 0;
+	/* Cancel if player is disturbed */
+	if (player_rest_disturb) {
+		p->upkeep->resting = 0;
+		player_rest_disturb = FALSE;
+		return;
+	}
+
+	/* Ignore if the rest count is negative. */
+	if ((count < 0) && !player_resting_is_special(count)) {
+		p->upkeep->resting = 0;
 		return;
 	}
 
 	/* Save the rest code */
-	resting = count;
+	p->upkeep->resting = count;
 
 	/* Truncate overlarge values */
-	if (resting > 9999) resting = 9999;
-
-	/* The first turn is always used, so we need to adjust the count. */
-	if (resting > 0)
-		resting--;
-
-	player_resting_start_count = resting;
+	if (p->upkeep->resting > 9999) p->upkeep->resting = 9999;
 }
 
 /**
  * Cancel current rest.
  */
-void player_resting_cancel(struct player *p)
+void player_resting_cancel(struct player *p, bool disturb)
 {
 	player_resting_set_count(p, 0);
+	player_turns_rested = 0;
+	player_rest_disturb = disturb;
 }
 
 /**
- * Return TRUE if the player should get a regeneration bonus for the current rest.
+ * Return TRUE if the player should get a regeneration bonus for the current
+ * rest.
  */
 bool player_resting_can_regenerate(struct player *p)
 {
-	return (player_resting_start_count - resting) >= REST_REQUIRED_FOR_REGEN || player_resting_is_special(resting);
+	return player_turns_rested >= REST_REQUIRED_FOR_REGEN ||
+		player_resting_is_special(p->upkeep->resting);
 }
 
 /**
- * Perform one turn of resting. This only handles the bookkeeping of resting itself,
- * and does not calculate any possible other effects of resting (see process_world()
- * for regeneration).
+ * Perform one turn of resting. This only handles the bookkeeping of resting
+ * itself, and does not calculate any possible other effects of resting (see
+ * process_world() for regeneration).
  */
 void player_resting_step_turn(struct player *p)
 {
 	/* Timed rest */
-	if (resting > 0)
-	{
+	if (p->upkeep->resting > 0) {
 		/* Reduce rest count */
-		resting--;
+		p->upkeep->resting--;
 
 		/* Redraw the state */
 		p->upkeep->redraw |= (PR_STATE);
 	}
 
 	/* Take a turn */
-	p->upkeep->energy_use = 100;
+	p->upkeep->energy_use = z_info->move_energy;
 
-	/* Increment the resting counter */
+	/* Increment the resting counters */
 	p->resting_turn++;
+	player_turns_rested++;
 }
 
 /**
- * Handle the conditions for conditional resting (resting with the REST_ constants).
+ * Handle the conditions for conditional resting (resting with the REST_
+ * constants).
  */
 void player_resting_complete_special(struct player *p)
 {
 	/* Complete resting */
-	if (player_resting_is_special(resting))
-	{
-		/* Basic resting */
-		if (resting == REST_ALL_POINTS)
-		{
-			/* Stop resting */
-			if ((p->chp == p->mhp) &&
-			    (p->csp == p->msp))
-			{
+	if (player_resting_is_special(p->upkeep->resting)) {
+		if (p->upkeep->resting == REST_ALL_POINTS) {
+			if ((p->chp == p->mhp) && (p->csp == p->msp))
+				/* Stop resting */
 				disturb(p, 0);
-			}
-		}
-
-		/* Complete resting */
-		else if (resting == REST_COMPLETE)
-		{
-			/* Stop resting */
-			if ((p->chp == p->mhp) &&
-			    (p->csp == p->msp) &&
-			    !p->timed[TMD_BLIND] && !p->timed[TMD_CONFUSED] &&
-			    !p->timed[TMD_POISONED] && !p->timed[TMD_AFRAID] &&
-			    !p->timed[TMD_TERROR] &&
-			    !p->timed[TMD_STUN] && !p->timed[TMD_CUT] &&
-			    !p->timed[TMD_SLOW] && !p->timed[TMD_PARALYZED] &&
-			    !p->timed[TMD_IMAGE] && !p->word_recall)
-			{
+		} else if (p->upkeep->resting == REST_COMPLETE) {
+			if ((p->chp == p->mhp) && (p->csp == p->msp) &&
+				!p->timed[TMD_BLIND] && !p->timed[TMD_CONFUSED] &&
+				!p->timed[TMD_POISONED] && !p->timed[TMD_AFRAID] &&
+				!p->timed[TMD_TERROR] && !p->timed[TMD_STUN] &&
+				!p->timed[TMD_CUT] && !p->timed[TMD_SLOW] &&
+				!p->timed[TMD_PARALYZED] && !p->timed[TMD_IMAGE] &&
+				!p->word_recall)
+				/* Stop resting */
 				disturb(p, 0);
-			}
-		}
-
-		/* Rest until HP or SP are filled */
-		else if (resting == REST_SOME_POINTS)
-		{
-			/* Stop resting */
-			if ((p->chp == p->mhp) ||
-			    (p->csp == p->msp))
-			{
+		} else if (p->upkeep->resting == REST_SOME_POINTS) {
+			if ((p->chp == p->mhp) || (p->csp == p->msp))
+				/* Stop resting */
 				disturb(p, 0);
-			}
 		}
 	}
+}
+
+/* Record the player's last rest count for repeating */
+static int player_resting_repeat_count = 0;
+
+/**
+ * Get the number of resting turns to repeat.
+ *
+ * \param count is the number of turns requested for rest most recently.
+ */
+int player_get_resting_repeat_count(struct player *p)
+{
+	return player_resting_repeat_count;
+}
+
+/**
+ * Set the number of resting turns to repeat.
+ *
+ * \param count is the number of turns requested for rest most recently.
+ */
+void player_set_resting_repeat_count(struct player *p, s16b count)
+{
+	player_resting_repeat_count = count;
 }
 
 /**
@@ -582,6 +817,25 @@ int coords_to_dir(int y, int x)
 	return (motion_dir(player->py, player->px, y, x));
 }
 
+/**
+ * Places the player at the given coordinates in the cave.
+ */
+void player_place(struct chunk *c, struct player *p, int y, int x)
+{
+	assert(!c->squares[y][x].mon);
+
+	/* Save player location */
+	p->py = y;
+	p->px = x;
+
+	/* Mark cave grid */
+	c->squares[y][x].mon = -1;
+
+	/* Clear stair creation */
+	p->upkeep->create_down_stair = FALSE;
+	p->upkeep->create_up_stair = FALSE;
+}
+
 
 
 /*
@@ -603,7 +857,7 @@ void disturb(struct player *p, int stop_search)
 
 	/* Cancel Resting */
 	if (player_is_resting(p)) {
-		player_resting_cancel(p);
+		player_resting_cancel(p, TRUE);
 		p->upkeep->redraw |= PR_STATE;
 	}
 
@@ -612,18 +866,18 @@ void disturb(struct player *p, int stop_search)
 		p->upkeep->running = 0;
 
 		/* Check for new panel if appropriate */
-		if (OPT(center_player)) verify_panel();
+		if (OPT(center_player))
+			event_signal(EVENT_PLAYERMOVED);
 		p->upkeep->update |= PU_TORCH;
 	}
 
 	/* Cancel searching if requested */
-	if (stop_search && p->searching)
-	{
+	if (stop_search && p->searching) {
 		p->searching = FALSE;
 		p->upkeep->update |= PU_BONUS;
 		p->upkeep->redraw |= PR_STATE;
 	}
 
 	/* Flush input */
-	flush();
+	event_signal(EVENT_INPUT_FLUSH);
 }

@@ -38,7 +38,6 @@
 #include "mon-spell.h"
 #include "obj-tval.h"
 #include "parser.h"
-#include "tables.h"
 #include "trap.h"
 #include "z-queue.h"
 #include "z-type.h"
@@ -69,13 +68,13 @@ struct room_template *random_room_template(int typ)
  * \param typ vault type
  * \return a pointer to the vault template
  */
-struct vault *random_vault(int depth, int typ)
+struct vault *random_vault(int depth, const char *typ)
 {
 	struct vault *v = vaults;
 	struct vault *r = NULL;
 	int n = 1;
 	do {
-		if ((v->typ == typ) && (v->min_lev <= depth)
+		if (streq(v->typ, typ) && (v->min_lev <= depth)
 			&& (v->max_lev >= depth)) {
 			if (one_in_(n)) r = v;
 			n++;
@@ -167,13 +166,18 @@ void draw_rectangle(struct chunk *c, int y1, int x1, int y2, int x2, int feat,
 	for (y = y1; y <= y2; y++) {
 		square_set_feat(c, y, x1, feat);
 		square_set_feat(c, y, x2, feat);
-		if (flag) generate_mark(c, y, x2, y, x2, flag);
 	}
-
+	if (flag) {
+		generate_mark(c, y1, x1, y2, x1, flag);
+		generate_mark(c, y1, x2, y2, x2, flag);
+	}
 	for (x = x1; x <= x2; x++) {
 		square_set_feat(c, y1, x, feat);
 		square_set_feat(c, y2, x, feat);
-		if (flag) generate_mark(c, y1, x, y2, x, flag);
+	}
+	if (flag) {
+		generate_mark(c, y1, x1, y1, x2, flag);
+		generate_mark(c, y2, x1, y2, x2, flag);
 	}
 }
 
@@ -186,7 +190,7 @@ void draw_rectangle(struct chunk *c, int y1, int x1, int y2, int x2, int feat,
  * \param x2 inclusive range boundaries
  * \param feat the terrain feature
  * \param flag the SQUARE_* flag we are marking with
- * \para light lit or not
+ * \param light lit or not
  */
 static void fill_xrange(struct chunk *c, int y, int x1, int x2, int feat, 
 						int flag, bool light)
@@ -210,7 +214,7 @@ static void fill_xrange(struct chunk *c, int y, int x1, int x2, int feat,
  * \param y2 inclusive range boundaries
  * \param feat the terrain feature
  * \param flag the SQUARE_* flag we are marking with
- * \para light lit or not
+ * \param light lit or not
  */
 static void fill_yrange(struct chunk *c, int x, int y1, int y2, int feat, 
 						int flag, bool light)
@@ -235,7 +239,7 @@ static void fill_yrange(struct chunk *c, int x, int y1, int y2, int feat,
  * \param border the width of the circle border
  * \param feat the terrain feature
  * \param flag the SQUARE_* flag we are marking with
- * \para light lit or not
+ * \param light lit or not
  */
 static void fill_circle(struct chunk *c, int y0, int x0, int radius, int border,
 						int feat, int flag, bool light)
@@ -614,9 +618,9 @@ extern bool generate_starburst_room(struct chunk *c, int y1, int x1, int y2,
 				continue;
 
 			/* Do not touch occupied grids. */
-			if (c->squares[y][x].mon != 0)
+			if (square_monster(c, y, x))
 				continue;
-			if (c->o_idx[y][x] != 0)
+			if (square_object(c, y, x))
 				continue;
 
 			/* Get distance to grid. */
@@ -1903,10 +1907,8 @@ static bool build_room_template(struct chunk *c, int y0, int x0, int ymax, int x
 			case '4':
 			case '5':
 			case '6': {
-
 				/* Check if this is chosen random door position */
-
-				doorpos = atoi(t);
+				doorpos = (int) (*t - '0');
 
 				if (doorpos == rnddoors)
 					place_secret_door(c, y, x);
@@ -2058,7 +2060,7 @@ bool build_vault(struct chunk *c, int y0, int x0, struct vault *v)
 			case '<': square_set_feat(c, y, x, FEAT_LESS); break;
 			case '>': {
 				/* No down stairs at bottom or on quests */
-				if (is_quest(c->depth) || c->depth >= MAX_DEPTH - 1)
+				if (is_quest(c->depth) || c->depth >= z_info->max_depth - 1)
 					square_set_feat(c, y, x, FEAT_LESS);
 				else
 					square_set_feat(c, y, x, FEAT_MORE);
@@ -2226,12 +2228,11 @@ bool build_vault(struct chunk *c, int y0, int x0, struct vault *v)
  * \param label name of the vault type (eg "Greater vault")
  * \return success
  */
-static bool build_vault_type(struct chunk *c, int y0, int x0, int typ, 
-							 const char *label)
+static bool build_vault_type(struct chunk *c, int y0, int x0, const char *typ)
 {
 	struct vault *v_ptr = random_vault(c->depth, typ);
 	if (v_ptr == NULL) {
-		/*quit_fmt("got NULL from random_vault(%d)", typ);*/
+		/*quit_fmt("got NULL from random_vault(%s)", typ);*/
 		return FALSE;
 	}
 
@@ -2239,7 +2240,7 @@ static bool build_vault_type(struct chunk *c, int y0, int x0, int typ,
 	if (!build_vault(c, y0, x0, v_ptr))
 		return FALSE;
 
-	ROOM_LOG("%s (%s)", label, v_ptr->name);
+	ROOM_LOG("%s (%s)", typ, v_ptr->name);
 
 	/* Boost the rating */
 	c->mon_rating += v_ptr->rat;
@@ -2257,7 +2258,7 @@ static bool build_vault_type(struct chunk *c, int y0, int x0, int typ,
  */
 bool build_interesting(struct chunk *c, int y0, int x0)
 {
-	return build_vault_type(c, y0, x0, 5, "Interesting room");
+	return build_vault_type(c, y0, x0, "Interesting room");
 }
 
 
@@ -2271,8 +2272,8 @@ bool build_interesting(struct chunk *c, int y0, int x0)
 bool build_lesser_vault(struct chunk *c, int y0, int x0)
 {
 	if (!streq(dun->profile->name, "classic") && (one_in_(2)))
-		return build_vault_type(c, y0, x0, 4, "Lesser vault");
-	return build_vault_type(c, y0, x0, 6, "Lesser vault");
+		return build_vault_type(c, y0, x0, "Lesser vault (new)");
+	return build_vault_type(c, y0, x0, "Lesser vault");
 }
 
 
@@ -2286,8 +2287,8 @@ bool build_lesser_vault(struct chunk *c, int y0, int x0)
 bool build_medium_vault(struct chunk *c, int y0, int x0)
 {
 	if (!streq(dun->profile->name, "classic") && (one_in_(2)))
-		return build_vault_type(c, y0, x0, 3, "Medium vault");
-	return build_vault_type(c, y0, x0, 7, "Medium vault");
+		return build_vault_type(c, y0, x0, "Medium vault (new)");
+	return build_vault_type(c, y0, x0, "Medium vault");
 }
 
 
@@ -2333,8 +2334,8 @@ bool build_greater_vault(struct chunk *c, int y0, int x0)
 	if (randint0(denominator) >= numerator) return FALSE;
 
 	if (!streq(dun->profile->name, "classic") && (one_in_(2)))
-		return build_vault_type(c, y0, x0, 2, "Greater vault");
-	return build_vault_type(c, y0, x0, 8, "Greater vault");
+		return build_vault_type(c, y0, x0, "Greater vault (new)");
+	return build_vault_type(c, y0, x0, "Greater vault");
 }
 
 

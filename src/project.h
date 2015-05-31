@@ -1,7 +1,7 @@
 /**
-   \file project.h
-   \brief projection and helpers
-*/
+ * \file project.h
+ * \brief projection and helpers
+ */
 
 #ifndef PROJECT_H
 #define PROJECT_H
@@ -11,13 +11,13 @@
  */
 enum
 {
-	#define ELEM(a, b, c, d, e, f, g, col) GF_##a,
+	#define ELEM(a, b, c, d, e, f, g, h, i, col) GF_##a,
 	#include "list-elements.h"
 	#undef ELEM
-	#define PROJ_ENV(a, col) GF_##a,
+	#define PROJ_ENV(a, col, desc) GF_##a,
 	#include "list-project-environs.h"
 	#undef PROJ_ENV
-	#define PROJ_MON(a, obv) GF_##a,
+	#define PROJ_MON(a, obv, desc) GF_##a,
 	#include "list-project-monsters.h"
 	#undef PROJ_MON
 	GF_MAX
@@ -89,6 +89,7 @@ int gf_color(int type);
 int gf_num(int type);
 random_value gf_denom(int type);
 const char *gf_desc(int type);
+const char *gf_blind_desc(int type);
 int gf_name_to_idx(const char *name);
 const char *gf_idx_to_name(int type);
 bool project(int who, int rad, int y, int x, int dam, int typ, int flg,

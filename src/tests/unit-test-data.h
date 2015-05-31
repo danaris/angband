@@ -25,11 +25,6 @@
 static s16b TEST_DATA test_timed[30] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 
 };
 
-static struct player_sex TEST_DATA test_sex = {
-	.title = "Test Sex",
-	.winner = "Test Winner",
-};
-
 static struct object_base TEST_DATA sword_base = {
 	.name = "Test Sword",
 	.tval = TV_SWORD,
@@ -626,15 +621,10 @@ static struct player_race TEST_DATA test_race = {
 	.b_age = 14,
 	.m_age = 6,
 
-	.m_b_ht = 72,
-	.m_m_ht = 6,
-	.f_b_ht = 66,
-	.f_m_ht = 4,
-
-	.m_b_wt = 180,
-	.m_m_wt = 25,
-	.f_b_wt = 150,
-	.f_m_wt = 20,
+	.base_hgt = 72,
+	.mod_hgt = 6,
+	.base_wgt = 150,
+	.mod_wgt = 20,
 
 	.infra = 40,
 
@@ -811,9 +801,6 @@ static struct monster_race TEST_DATA test_r_human = {
 	.d_attr = 0,
 	.d_char = 't',
 
-	.x_attr = 0,
-	.x_char = 't',
-
 	.max_num = 100,
 	.cur_num = 0,
 
@@ -862,16 +849,23 @@ static struct angband_constants TEST_DATA test_z_info = {
 	.s_max    = 2,
 	.pit_max  = 2,
 	.act_max  = 2,
-	.level_object_max  = 2,
 	.level_monster_max = 2,
 };
-
-static struct object TEST_DATA test_gear[MAX_GEAR];
 
 static struct equip_slot TEST_DATA test_slot_light = {
 	.type = 5,
 	.name = "light",
+	.obj = NULL,
+};
+
+static struct quest TEST_DATA test_quest = {
+	.next = NULL,
 	.index = 0,
+	.name = "Test",
+	.level = 1,
+	.race = &test_r_human,
+	.cur_num = 0,
+	.max_num = 4,
 };
 
 static struct player_body TEST_DATA test_player_body = {
@@ -882,14 +876,14 @@ static struct player_body TEST_DATA test_player_body = {
 
 static struct player_upkeep TEST_DATA test_player_upkeep = {
 	.playing = 1,
-	.leaving = 0,
 	.autosave = 0,
+	.generate_level = 0,
 	.energy_use = 0,
 	.new_spells = 0,
 
 	.health_who = NULL,
 	.monster_race = NULL,
-	.object_idx = 0,
+	.object = NULL,
 	.object_kind = NULL,
 
 	.notice = 0,
@@ -917,8 +911,6 @@ static struct player_upkeep TEST_DATA test_player_upkeep = {
 static struct player TEST_DATA test_player = {
 	.py = 1,
 	.px = 1,
-	.psex = 0,
-	.sex = &test_sex,
 	.race = &test_race,
 	.class = &test_class,
 	.hitdie = 10,
@@ -965,8 +957,34 @@ static struct player TEST_DATA test_player = {
 	.history = "no history",
 	.is_dead = 0,
 	.wizard = 0,
-	.gear = &test_gear[0],
+	.gear = NULL,
 	.upkeep = &test_player_upkeep,
 };
 
+static struct chunk TEST_DATA test_cave = {
+	.name = "Test",
+	.created_at = 1,
+	.depth = 1,
+
+	.feeling = 0,
+	.obj_rating = 0,
+	.mon_rating = 0,
+	.good_item = FALSE,
+
+	.height = 2,
+	.width = 2,
+
+	.feeling_squares = 0,
+	.feat_count = NULL,
+
+	.feat = NULL,
+	.m_idx = NULL,
+
+	.squares = NULL,
+
+	.monsters = NULL,
+	.mon_max = 1,
+	.mon_cnt = 0,
+	.mon_current = -1,
+};
 #endif /* !UNIT_TEST_DATA */

@@ -18,7 +18,6 @@
 
 #include "angband.h"
 #include "cave.h"
-#include "dungeon.h"
 #include "effects.h"
 #include "init.h"
 #include "player-attack.h"
@@ -147,29 +146,6 @@ static bool square_verify_trap(struct chunk *c, int y, int x, int vis)
 }
 
 /**
- * Get the graphics of a listed trap.
- *
- * We should probably have better handling of stacked traps, but that can
- * wait until we do, in fact, have stacked traps under normal conditions.
- */
-bool get_trap_graphics(struct chunk *c, struct trap *trap, int *a, wchar_t *ch,
-					   bool require_visible)
-{
-    /* Trap is visible, or we don't care */
-    if (!require_visible || trf_has(trap->flags, TRF_VISIBLE)) {
-		/* Get the graphics */
-		*a = trap->kind->x_attr;
-		*ch = trap->kind->x_char;
-	
-		/* We found a trap */
-		return TRUE;
-    }
-    
-    /* No traps found with the requirement */
-    return FALSE;
-}
-
-/**
  * Determine if a cave grid is allowed to have player traps in it.
  */
 bool square_player_trap_allowed(struct chunk *c, int y, int x)
@@ -178,10 +154,12 @@ bool square_player_trap_allowed(struct chunk *c, int y, int x)
      * We currently forbid multiple traps in a grid under normal conditions.
      * If this changes, various bits of code elsewhere will have to change too.
      */
-    if (square_istrap(c, y, x)) return FALSE;
+    if (square_istrap(c, y, x))
+		return FALSE;
 
     /* We currently forbid traps in a grid with objects. */
-    if (c->o_idx[y][x]) return FALSE;
+    if (square_object(c, y, x))
+		return FALSE;
 
     /* Check the feature trap flag */
     return (tf_has(f_info[c->squares[y][x].feat].flags, TF_TRAP));
@@ -231,7 +209,8 @@ static int pick_trap(int feat, int trap_level)
 			if (is_quest(player->depth)) trap_is_okay = FALSE;
 
 			/* No trap doors on the deepest level */
-			if (player->depth >= MAX_DEPTH - 1) trap_is_okay = FALSE;
+			if (player->depth >= z_info->max_depth - 1)
+				trap_is_okay = FALSE;
 	    }
 
     }
@@ -438,13 +417,19 @@ extern void hit_trap(int y, int x)
 static void remove_trap_aux(struct chunk *c, struct trap *trap, int y, int x,
 							bool domsg)
 {
-    /* We are deleting a rune */
-    if (trf_has(trap->flags, TRF_RUNE)) {
-		if (domsg)
-			msg("You have removed the %s.", trap->kind->name);
-    } else if (domsg)
-		/* We are disarming a trap */
-		msgt(MSG_DISARM, "You have disarmed the %s.", trap->kind->name);
+	/* Message if needed */
+	if (domsg) {
+		/* We are deleting a rune */
+		if (trf_has(trap->flags, TRF_RUNE)) {
+			if (c->mon_current < 0) {
+				/* Removed by player */
+				msg("You have removed the %s.", trap->kind->name);
+			}
+		} else {
+			/* We are disarming a trap */
+			msgt(MSG_DISARM, "You have disarmed the %s.", trap->kind->name);
+		}
+	}
 
     /* Wipe the trap */
 	mem_free(trap);
@@ -476,15 +461,15 @@ bool square_remove_trap(struct chunk *c, int y, int x, bool domsg, int t_idx)
 			continue;
 		}
 
-		/* Replace with the next trap */
-		*trap_slot = next_trap;
-
 		/* Remove it */
 		remove_trap_aux(c, *trap_slot, y, x, domsg);
+
+		/* Replace with the next trap */
+		*trap_slot = next_trap;
     }
 
     /* Refresh grids that the character can see */
-    if (player_can_see_bold(y, x))
+    if (square_isseen(c, y, x))
 		square_light_spot(c, y, x);
     
     /* Verify traps (remove marker if appropriate) */
