@@ -142,7 +142,16 @@ title:Arch-Mage
 
 magic:1:300:1:9
 
-book:magic book:[Magic for Beginners]:6:1
+book:magic book:[Magic for Beginners]:7:1
+
+spell:Dazzle Monsters:5:4:30:4
+effect:PROJECT_LOS:HITADJUST
+dice:-10
+effect:PROJECT_LOS:DAMADJUST
+dice:-10
+desc:Sets off a magical light show that dazzles monsters within
+desc: sight, reducing their chance to hit you and their damage if
+desc: they do.
 
 spell:Magic Missile:1:1:22:4
 effect:BOLT_OR_BEAM:MISSILE:-10

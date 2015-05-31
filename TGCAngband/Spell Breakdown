@@ -71,7 +71,7 @@ The Mage's Toolkit
 23 Teleport Other?
 30 Recall
 
-Brimbar's Basic Evocations
+Bigby's Basic Evocations
 1 Magic Missile
 3 Stinking Cloud
 5 Lightning Bolt
@@ -83,7 +83,7 @@ Brimbar's Basic Evocations
 19 Frost Ball
 26 Fire Ball
 
-Enchantments and Charms
+Everard's Easy Enchantments
 5 Confuse Monster
 7 Sleep Monster
 11 Polymorph Other
@@ -91,5 +91,5 @@ Enchantments and Charms
 25 Haste Self
 25 Mass Sleep
 * Need to add some new ones:
-1
-3
+1 Entangle - standard radius-3 ball
+3 Dazzle Monsters (reduces to-hit and to-dam of monsters within a radius 3 ball by 10%? for a level-dependent duration)

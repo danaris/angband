@@ -58,6 +58,8 @@
 		0A17D3B919AD57870015456D /* monster_spell.txt in Lib files: Edit */ = {isa = PBXBuildFile; fileRef = 0A17D3B519AD56360015456D /* monster_spell.txt */; };
 		0A17D3BA19AD57870015456D /* trap.txt in Lib files: Edit */ = {isa = PBXBuildFile; fileRef = 0A17D3B619AD56360015456D /* trap.txt */; };
 		0A17D3BB19AD57870015456D /* body.txt in Lib files: Edit */ = {isa = PBXBuildFile; fileRef = 0A17D3B719AD56360015456D /* body.txt */; };
+		0A609E1219FF2CDC00952177 /* class.txt in Lib files: Edit */ = {isa = PBXBuildFile; fileRef = 0A609E1019FED95000952177 /* class.txt */; };
+		0A609E1319FF2CDC00952177 /* history.txt in Lib files: Edit */ = {isa = PBXBuildFile; fileRef = 0A609E1119FED95000952177 /* history.txt */; };
 		0A97A71417D2A295008FF7CA /* init.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A97A71217D2A286008FF7CA /* init.c */; };
 		0A97A71517D2A295008FF7CA /* quest.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A97A71317D2A286008FF7CA /* quest.c */; };
 		0A97A71617D2A295008FF7CA /* cmd-cave.c in Sources */ = {isa = PBXBuildFile; fileRef = 0A97A70E17D2A23C008FF7CA /* cmd-cave.c */; };
@@ -133,8 +135,6 @@
 		0AE77EDE17380A4A000EF250 /* names.txt in Lib files: Edit */ = {isa = PBXBuildFile; fileRef = 0AE77D76173809AC000EF250 /* names.txt */; };
 		0AE77EDF17380A4A000EF250 /* object.txt in Lib files: Edit */ = {isa = PBXBuildFile; fileRef = 0AE77D77173809AC000EF250 /* object.txt */; };
 		0AE77EE017380A4A000EF250 /* object_base.txt in Lib files: Edit */ = {isa = PBXBuildFile; fileRef = 0AE77D78173809AC000EF250 /* object_base.txt */; };
-		0AE77EE117380A4A000EF250 /* p_class.txt in Lib files: Edit */ = {isa = PBXBuildFile; fileRef = 0AE77D79173809AC000EF250 /* p_class.txt */; };
-		0AE77EE217380A4A000EF250 /* p_hist.txt in Lib files: Edit */ = {isa = PBXBuildFile; fileRef = 0AE77D7A173809AC000EF250 /* p_hist.txt */; };
 		0AE77EE317380A4A000EF250 /* p_race.txt in Lib files: Edit */ = {isa = PBXBuildFile; fileRef = 0AE77D7B173809AC000EF250 /* p_race.txt */; };
 		0AE77EE417380A4A000EF250 /* pain.txt in Lib files: Edit */ = {isa = PBXBuildFile; fileRef = 0AE77D7C173809AC000EF250 /* pain.txt */; };
 		0AE77EE517380A4A000EF250 /* pit.txt in Lib files: Edit */ = {isa = PBXBuildFile; fileRef = 0AE77D7D173809AC000EF250 /* pit.txt */; };
@@ -481,6 +481,8 @@
 			dstPath = lib/edit;
 			dstSubfolderSpec = 7;
 			files = (
+				0A609E1219FF2CDC00952177 /* class.txt in Lib files: Edit */,
+				0A609E1319FF2CDC00952177 /* history.txt in Lib files: Edit */,
 				0AF7571D19ECAD7F00A42AAA /* constants.txt in Lib files: Edit */,
 				0AF7571E19ECAD7F00A42AAA /* dungeon_profile.txt in Lib files: Edit */,
 				0A17D3B819AD57870015456D /* activation.txt in Lib files: Edit */,
@@ -496,8 +498,6 @@
 				0AE77EDE17380A4A000EF250 /* names.txt in Lib files: Edit */,
 				0AE77EDF17380A4A000EF250 /* object.txt in Lib files: Edit */,
 				0AE77EE017380A4A000EF250 /* object_base.txt in Lib files: Edit */,
-				0AE77EE117380A4A000EF250 /* p_class.txt in Lib files: Edit */,
-				0AE77EE217380A4A000EF250 /* p_hist.txt in Lib files: Edit */,
 				0AE77EE317380A4A000EF250 /* p_race.txt in Lib files: Edit */,
 				0AE77EE417380A4A000EF250 /* pain.txt in Lib files: Edit */,
 				0AE77EE517380A4A000EF250 /* pit.txt in Lib files: Edit */,
@@ -971,7 +971,6 @@
 		0A17D33B19AD53340015456D /* list-identify-flags.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "list-identify-flags.h"; sourceTree = "<group>"; };
 		0A17D33C19AD53340015456D /* list-ignore-types.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "list-ignore-types.h"; sourceTree = "<group>"; };
 		0A17D33D19AD53340015456D /* list-kind-flags.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "list-kind-flags.h"; sourceTree = "<group>"; };
-		0A17D33E19AD53340015456D /* list-mon-flags.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "list-mon-flags.h"; sourceTree = "<group>"; };
 		0A17D33F19AD53340015456D /* list-object-flags.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "list-object-flags.h"; sourceTree = "<group>"; };
 		0A17D34019AD53340015456D /* list-object-modifiers.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "list-object-modifiers.h"; sourceTree = "<group>"; };
 		0A17D34119AD53340015456D /* list-options.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "list-options.h"; sourceTree = "<group>"; };
@@ -987,7 +986,6 @@
 		0A17D34B19AD53340015456D /* mon-blow-effects.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "mon-blow-effects.h"; sourceTree = "<group>"; };
 		0A17D34C19AD53340015456D /* mon-blow-methods.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "mon-blow-methods.c"; sourceTree = "<group>"; };
 		0A17D34D19AD53340015456D /* mon-blow-methods.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "mon-blow-methods.h"; sourceTree = "<group>"; };
-		0A17D34E19AD53340015456D /* mon-constants.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "mon-constants.h"; sourceTree = "<group>"; };
 		0A17D34F19AD53340015456D /* mon-list.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "mon-list.c"; sourceTree = "<group>"; };
 		0A17D35019AD53340015456D /* mon-list.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "mon-list.h"; sourceTree = "<group>"; };
 		0A17D35119AD53340015456D /* mon-lore.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "mon-lore.h"; sourceTree = "<group>"; };
@@ -1264,6 +1262,11 @@
 		0A53402619F1F83B000828D3 /* TemplateIcon2x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = TemplateIcon2x.png; sourceTree = "<group>"; };
 		0A53402719F1F881000828D3 /* Notes */ = {isa = PBXFileReference; lastKnownFileType = text; path = Notes; sourceTree = "<group>"; };
 		0A609E0C19FE897100952177 /* .gitignore */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = .gitignore; sourceTree = "<group>"; };
+		0A609E0D19FE98B300952177 /* list-magic-realms.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "list-magic-realms.h"; sourceTree = "<group>"; };
+		0A609E0E19FE98B300952177 /* list-mon-race-flags.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "list-mon-race-flags.h"; sourceTree = "<group>"; };
+		0A609E0F19FE98B300952177 /* list-mon-temp-flags.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "list-mon-temp-flags.h"; sourceTree = "<group>"; };
+		0A609E1019FED95000952177 /* class.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = class.txt; sourceTree = "<group>"; };
+		0A609E1119FED95000952177 /* history.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = history.txt; sourceTree = "<group>"; };
 		0A6127BC19AF9B3100C999A1 /* LegendBand.rtf */ = {isa = PBXFileReference; lastKnownFileType = text.rtf; path = LegendBand.rtf; sourceTree = "<group>"; };
 		0A97A70E17D2A23C008FF7CA /* cmd-cave.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "cmd-cave.c"; sourceTree = "<group>"; };
 		0A97A70F17D2A23C008FF7CA /* cmd-know.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "cmd-know.c"; sourceTree = "<group>"; };
@@ -1301,8 +1304,6 @@
 		0AE77D76173809AC000EF250 /* names.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = names.txt; sourceTree = "<group>"; };
 		0AE77D77173809AC000EF250 /* object.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = object.txt; sourceTree = "<group>"; };
 		0AE77D78173809AC000EF250 /* object_base.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = object_base.txt; sourceTree = "<group>"; };
-		0AE77D79173809AC000EF250 /* p_class.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = p_class.txt; sourceTree = "<group>"; };
-		0AE77D7A173809AC000EF250 /* p_hist.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = p_hist.txt; sourceTree = "<group>"; };
 		0AE77D7B173809AC000EF250 /* p_race.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = p_race.txt; sourceTree = "<group>"; };
 		0AE77D7C173809AC000EF250 /* pain.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = pain.txt; sourceTree = "<group>"; };
 		0AE77D7D173809AC000EF250 /* pit.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = pit.txt; sourceTree = "<group>"; };
@@ -1705,6 +1706,9 @@
 		0A286713172DCD4A004FD64D /* src */ = {
 			isa = PBXGroup;
 			children = (
+				0A609E0D19FE98B300952177 /* list-magic-realms.h */,
+				0A609E0E19FE98B300952177 /* list-mon-race-flags.h */,
+				0A609E0F19FE98B300952177 /* list-mon-temp-flags.h */,
 				0A286714172DCD4A004FD64D /* .gitignore */,
 				0A286715172DCD4A004FD64D /* .splintrc */,
 				0A286717172DCD4A004FD64D /* angband.h */,
@@ -1770,7 +1774,6 @@
 				0A17D33B19AD53340015456D /* list-identify-flags.h */,
 				0A17D33C19AD53340015456D /* list-ignore-types.h */,
 				0A17D33D19AD53340015456D /* list-kind-flags.h */,
-				0A17D33E19AD53340015456D /* list-mon-flags.h */,
 				0A1E77EE19F060BA006B9B41 /* list-mon-sides.h */,
 				0A17D31119AD53340015456D /* list-mon-spells.h */,
 				0AF756EB19ECA72600A42AAA /* list-mon-timed.h */,
@@ -1818,7 +1821,6 @@
 				0A17D34B19AD53340015456D /* mon-blow-effects.h */,
 				0A17D34C19AD53340015456D /* mon-blow-methods.c */,
 				0A17D34D19AD53340015456D /* mon-blow-methods.h */,
-				0A17D34E19AD53340015456D /* mon-constants.h */,
 				0AF756F319ECA72600A42AAA /* mon-desc.c */,
 				0AF756F419ECA72600A42AAA /* mon-desc.h */,
 				0A17D31319AD53340015456D /* mon-init.c */,
@@ -2379,6 +2381,8 @@
 		0AE77D6C173809AB000EF250 /* edit */ = {
 			isa = PBXGroup;
 			children = (
+				0A609E1019FED95000952177 /* class.txt */,
+				0A609E1119FED95000952177 /* history.txt */,
 				0AE77D6D173809AB000EF250 /* .deps */,
 				0A17D3B419AD56360015456D /* activation.txt */,
 				0AE77D6E173809AB000EF250 /* artifact.txt */,
@@ -2395,8 +2399,6 @@
 				0AE77D76173809AC000EF250 /* names.txt */,
 				0AE77D78173809AC000EF250 /* object_base.txt */,
 				0AE77D77173809AC000EF250 /* object.txt */,
-				0AE77D79173809AC000EF250 /* p_class.txt */,
-				0AE77D7A173809AC000EF250 /* p_hist.txt */,
 				0AE77D7B173809AC000EF250 /* p_race.txt */,
 				0AE77D7C173809AC000EF250 /* pain.txt */,
 				0AE77D7D173809AC000EF250 /* pit.txt */,
